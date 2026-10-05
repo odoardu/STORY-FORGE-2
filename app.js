@@ -306,10 +306,10 @@ const state = {
 };
 
 const measureCanvas = document.createElement("canvas");
-const measureContext = measureCanvas.getContext("2d");
-const renderContext = elements.canvas.getContext("2d", { alpha: false });
+const measureContext = measureCanvas.getContext("2d", { willReadFrequently: true });
+const renderContext = elements.canvas.getContext("2d", { alpha: false, willReadFrequently: true });
 const feedEffectCanvas = document.createElement("canvas");
-const feedEffectContext = feedEffectCanvas.getContext("2d");
+const feedEffectContext = feedEffectCanvas.getContext("2d", { willReadFrequently: true });
 
 init();
 
@@ -704,8 +704,19 @@ function bindEvents() {
       selectPreviewElement(selection);
     }
   });
-  window.addEventListener("resize", updateStageScale);
-  window.addEventListener("resize", updateControlPanelFade);
+  function debounce(fn, wait = 60) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  const debouncedUpdateStageScale = debounce(updateStageScale, 60);
+  const debouncedUpdateControlPanelFade = debounce(updateControlPanelFade, 60);
+
+  window.addEventListener("resize", debouncedUpdateStageScale);
+  window.addEventListener("resize", debouncedUpdateControlPanelFade);
   if ("MutationObserver" in window && elements.feedSubtitleInput) {
     new MutationObserver(() => {
       updateSubtitleToolbarState();
@@ -1190,7 +1201,25 @@ function applyFeedSubtitleWeight(weight) {
 function pastePlainTextIntoFeedSubtitle(event) {
   event.preventDefault();
   const text = event.clipboardData?.getData("text/plain") || "";
-  document.execCommand("insertText", false, text);
+  try {
+    if (document.queryCommandSupported && document.queryCommandSupported("insertText")) {
+      document.execCommand("insertText", false, text);
+    } else {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount) {
+        selection.deleteFromDocument();
+        selection.getRangeAt(0).insertNode(document.createTextNode(text));
+        selection.collapseToEnd();
+      }
+    }
+  } catch {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount) {
+      selection.deleteFromDocument();
+      selection.getRangeAt(0).insertNode(document.createTextNode(text));
+      selection.collapseToEnd();
+    }
+  }
   updateFeedText();
 }
 
