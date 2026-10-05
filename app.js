@@ -302,14 +302,52 @@ const state = {
     story: { width: 220, x: 0, y: 1710, opacity: 100 },
     feed: { width: FEED.logo.width, x: FEED.logo.x, y: FEED.logo.y, opacity: FEED.logo.opacity },
   },
+  titleHighlightColor: "yellow",
   activeDockPanel: "media",
 };
 
+const HIGHLIGHT_COLORS = {
+  yellow: "#facc15",
+  pink: "#e981be",
+  black: "#111111",
+  none: "transparent",
+};
+
+function parseTitleSource(source) {
+  const rawLines = (source || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (!rawLines.length) return [{ text: " ", hasHighlight: false }];
+
+  const hasAnyAsterisk = rawLines.some((l) => l.includes("*"));
+
+  return rawLines.map((raw) => {
+    let text = raw;
+    let hasHighlight = true;
+
+    if (hasAnyAsterisk) {
+      if (raw.includes("*")) {
+        text = raw.replace(/\*/g, "").trim();
+        hasHighlight = true;
+      } else {
+        hasHighlight = false;
+      }
+    }
+
+    return {
+      text: normalizeLine(text),
+      hasHighlight,
+    };
+  });
+}
+
 const measureCanvas = document.createElement("canvas");
-const measureContext = measureCanvas.getContext("2d");
-const renderContext = elements.canvas.getContext("2d", { alpha: false });
+const measureContext = measureCanvas.getContext("2d", { willReadFrequently: true });
+const renderContext = elements.canvas.getContext("2d", { alpha: false, willReadFrequently: true });
 const feedEffectCanvas = document.createElement("canvas");
-const feedEffectContext = feedEffectCanvas.getContext("2d");
+const feedEffectContext = feedEffectCanvas.getContext("2d", { willReadFrequently: true });
 
 init();
 
@@ -704,8 +742,19 @@ function bindEvents() {
       selectPreviewElement(selection);
     }
   });
-  window.addEventListener("resize", updateStageScale);
-  window.addEventListener("resize", updateControlPanelFade);
+  function debounce(fn, wait = 60) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  const debouncedUpdateStageScale = debounce(updateStageScale, 60);
+  const debouncedUpdateControlPanelFade = debounce(updateControlPanelFade, 60);
+
+  window.addEventListener("resize", debouncedUpdateStageScale);
+  window.addEventListener("resize", debouncedUpdateControlPanelFade);
   if ("MutationObserver" in window && elements.feedSubtitleInput) {
     new MutationObserver(() => {
       updateSubtitleToolbarState();
@@ -797,6 +846,7 @@ function bindEvents() {
   bindLogoControl("logoX", elements.logoXInput, elements.logoXValue);
   bindLogoControl("logoY", elements.logoYInput, elements.logoYValue);
   bindLogoControl("logoOpacity", elements.logoOpacityInput, elements.logoOpacityValue);
+  bindTitleHighlightControls();
 
   elements.togglePlayback.addEventListener("click", togglePreviewPlayback);
   elements.panelPlayButton?.addEventListener("click", togglePreviewPlayback);
@@ -816,6 +866,20 @@ function bindEvents() {
   });
   elements.exportButton.addEventListener("click", exportPrimary);
   elements.pngExportButton.addEventListener("click", exportCurrentPng);
+}
+
+function bindTitleHighlightControls() {
+  const chips = document.querySelectorAll("#popoverTitleHighlightGroup .color-chip, #panelTitleHighlightGroup .color-chip");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      state.titleHighlightColor = chip.dataset.color || "yellow";
+      chips.forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.color === state.titleHighlightColor);
+      });
+      updateText();
+      updateFeedText();
+    });
+  });
 }
 
 function bindTitleBorderControl(stateKey, input, output) {
@@ -1015,6 +1079,7 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
 
 function updateText() {
   const layouts = getTitleLayouts();
+  const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
 
   layouts.forEach((layout, index) => {
     const strip = getOrCreateTitleStrip(index);
@@ -1033,6 +1098,12 @@ function updateText() {
     strip.style.width = `${layout.width}px`;
     strip.style.height = `${layout.height}px`;
 
+    if (layout.hasHighlight && state.titleHighlightColor !== "none") {
+      strip.style.background = highlightColor;
+    } else {
+      strip.style.background = "transparent";
+    }
+
     strip.classList.add("is-visible");
     if (shouldAnimateIn) {
       delete strip.dataset.fresh;
@@ -1050,6 +1121,8 @@ function updateFeedText() {
   const layouts = getFeedTitleLayouts();
   renderFeedSubtitlePreview(layouts);
 
+  const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
+
   layouts.forEach((layout, index) => {
     const strip = getOrCreateFeedTitleStrip(index);
     const preview = strip.querySelector("span");
@@ -1061,6 +1134,12 @@ function updateFeedText() {
     strip.style.top = `${layout.y - FEED.title.top}px`;
     strip.style.width = `${layout.width}px`;
     strip.style.height = `${layout.height}px`;
+
+    if (layout.hasHighlight && state.titleHighlightColor !== "none") {
+      strip.style.background = highlightColor;
+    } else {
+      strip.style.background = "transparent";
+    }
 
     if (shouldAnimateIn) {
       delete strip.dataset.fresh;
@@ -1190,7 +1269,25 @@ function applyFeedSubtitleWeight(weight) {
 function pastePlainTextIntoFeedSubtitle(event) {
   event.preventDefault();
   const text = event.clipboardData?.getData("text/plain") || "";
-  document.execCommand("insertText", false, text);
+  try {
+    if (document.queryCommandSupported && document.queryCommandSupported("insertText")) {
+      document.execCommand("insertText", false, text);
+    } else {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount) {
+        selection.deleteFromDocument();
+        selection.getRangeAt(0).insertNode(document.createTextNode(text));
+        selection.collapseToEnd();
+      }
+    }
+  } catch {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount) {
+      selection.deleteFromDocument();
+      selection.getRangeAt(0).insertNode(document.createTextNode(text));
+      selection.collapseToEnd();
+    }
+  }
   updateFeedText();
 }
 
@@ -1417,36 +1514,44 @@ function normalizeLine(value) {
 }
 
 function getFeedTitleLayouts() {
-  const lines = splitFeedTitleIntoLines(elements.titleInput.value);
+  const items = parseTitleSource(elements.titleInput.value);
   const fontScale = state.titleFontSize / STORY.title.baseFontSize;
-  return lines.map((text, index) => {
-    const fontSize = Math.round(FEED.title.baseFontSize * fontScale);
-    const minFontSize = Math.round(FEED.title.minFontSize * fontScale);
-    return getFeedLineLayout(text, index, fontSize, minFontSize);
+  const layouts = [];
+
+  items.forEach((item) => {
+    const wrappedLines = splitSingleFeedLineIntoWrapped(item.text, fontScale);
+    wrappedLines.forEach((text) => {
+      const fontSize = Math.round(FEED.title.baseFontSize * fontScale);
+      const minFontSize = Math.round(FEED.title.minFontSize * fontScale);
+      const layout = getFeedLineLayout(text, layouts.length, fontSize, minFontSize);
+      layout.hasHighlight = item.hasHighlight;
+      layouts.push(layout);
+    });
   });
+
+  return layouts.length
+    ? layouts
+    : [getFeedLineLayout(" ", 0, Math.round(FEED.title.baseFontSize * fontScale), Math.round(FEED.title.minFontSize * fontScale))];
 }
 
-function splitFeedTitleIntoLines(source) {
-  const words = normalizeLine(source || " ").split(" ").filter(Boolean);
+function splitSingleFeedLineIntoWrapped(text, fontScale) {
+  const words = text.split(" ").filter(Boolean);
+  if (!words.length) return [" "];
   const lines = [];
   let current = "";
 
   words.forEach((word) => {
     const candidate = current ? `${current} ${word}` : word;
-    if (!current || fitsFeedLine(candidate) || lines.length >= FEED.title.maxRows) {
+    if (!current || fitsFeedLine(candidate, fontScale) || lines.length >= FEED.title.maxRows) {
       current = candidate;
-      return;
+    } else {
+      lines.push(current);
+      current = word;
     }
-
-    pushFeedLine(lines, current);
-    current = word;
   });
 
-  if (current) {
-    pushFeedLine(lines, current);
-  }
-
-  return lines.length ? lines : [" "];
+  if (current) lines.push(current);
+  return lines;
 }
 
 function pushFeedLine(lines, text) {
@@ -1458,8 +1563,8 @@ function pushFeedLine(lines, text) {
   lines[FEED.title.maxRows - 1] = `${lines[FEED.title.maxRows - 1]} ${text}`.trim();
 }
 
-function fitsFeedLine(text) {
-  const fontSize = Math.round(FEED.title.baseFontSize * (state.titleFontSize / STORY.title.baseFontSize));
+function fitsFeedLine(text, fontScale = 1) {
+  const fontSize = Math.round(FEED.title.baseFontSize * (fontScale || 1));
   const padding = getTitlePadding();
   const maxTextWidth = FEED.title.maxWidth - padding.left - padding.right;
   return measureTrackedText(text, fontSize, FEED.title.tracking) <= maxTextWidth;
@@ -1525,44 +1630,43 @@ function trimFeedTitleStrips(count) {
 }
 
 function getTitleLayouts() {
-  return stackLineLayouts(
-    splitTitleIntoLines(elements.titleInput.value).map((text, index) =>
-      getLineLayout(text, getLineTemplate(index)),
-    ),
-  );
+  const items = parseTitleSource(elements.titleInput.value);
+  const layouts = [];
+
+  items.forEach((item) => {
+    const wrappedLines = splitSingleStoryLineIntoWrapped(item.text);
+    wrappedLines.forEach((text) => {
+      const template = getLineTemplate(layouts.length);
+      const lineLayout = getLineLayout(text, template);
+      lineLayout.hasHighlight = item.hasHighlight;
+      layouts.push(lineLayout);
+    });
+  });
+
+  return layouts.length ? layouts : [getLineLayout(" ", getLineTemplate(0))];
 }
 
-function splitTitleIntoLines(source) {
-  const paragraphs = source
-    .split(/\n+/)
-    .map(normalizeLine)
-    .filter(Boolean);
+function splitSingleStoryLineIntoWrapped(text) {
+  const words = text.split(" ").filter(Boolean);
+  if (!words.length) return [" "];
   const lines = [];
+  let current = "";
 
-  paragraphs.forEach((paragraph) => {
-    const words = paragraph.split(" ");
-    let current = "";
+  words.forEach((word) => {
+    const lineIndex = Math.min(lines.length, STORY.title.maxRows - 1);
+    const template = getLineTemplate(lineIndex);
+    const candidate = current ? `${current} ${word}` : word;
 
-    words.forEach((word) => {
-      const lineIndex = Math.min(lines.length, STORY.title.maxRows - 1);
-      const template = getLineTemplate(lineIndex);
-      const candidate = current ? `${current} ${word}` : word;
-
-      if (!current || fitsBaseLine(candidate, template) || lines.length >= STORY.title.maxRows) {
-        current = candidate;
-        return;
-      }
-
-      pushTitleLine(lines, current);
+    if (!current || fitsBaseLine(candidate, template) || lines.length >= STORY.title.maxRows) {
+      current = candidate;
+    } else {
+      lines.push(current);
       current = word;
-    });
-
-    if (current) {
-      pushTitleLine(lines, current);
     }
   });
 
-  return lines.length ? lines : [" "];
+  if (current) lines.push(current);
+  return lines;
 }
 
 function pushTitleLine(lines, text) {
@@ -2388,9 +2492,13 @@ function drawFeedCopy(ctx) {
   ctx.font = '500 24px Gotham, Montserrat, "Segoe UI", Arial, sans-serif';
   drawTrackedTextWithFont(ctx, normalizeLine(elements.feedKickerInput.value || "CHAPEU"), FEED.width / 2, 792, 19, '500 24px Gotham, Montserrat, "Segoe UI", Arial, sans-serif');
 
+  const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
+
   getFeedTitleLayouts().forEach((spec) => {
-    ctx.fillStyle = "#e981be";
-    ctx.fillRect(spec.x, spec.y, spec.width, spec.height);
+    if (spec.hasHighlight && state.titleHighlightColor !== "none") {
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(spec.x, spec.y, spec.width, spec.height);
+    }
 
     ctx.fillStyle = "#ffffff";
     ctx.font = `${spec.fontSize}px "Tusker Story", Impact, sans-serif`;
@@ -2456,10 +2564,13 @@ function drawTextureOverlay(ctx) {
 
 function drawHeadline(ctx) {
   const layouts = getTitleLayouts();
+  const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
 
   layouts.forEach((spec) => {
-    ctx.fillStyle = "#e981be";
-    ctx.fillRect(spec.x, spec.y, spec.width, spec.height);
+    if (spec.hasHighlight && state.titleHighlightColor !== "none") {
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(spec.x, spec.y, spec.width, spec.height);
+    }
 
     ctx.fillStyle = "#ffffff";
     ctx.font = `${spec.fontSize}px "Tusker Story", Impact, sans-serif`;

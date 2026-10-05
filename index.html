@@ -269,6 +269,20 @@
                   </label>
                 </div>
               </div>
+
+              <div class="control-section">
+                <div class="control-section-title">
+                  <strong>Cor do Destaque (Tarja)</strong>
+                  <small>Estilo de fundo do título</small>
+                </div>
+                <div class="color-picker-group" id="panelTitleHighlightGroup">
+                  <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #facc15;" title="Amarelo (LPZ)">Amarelo</button>
+                  <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" title="Rosa">Rosa</button>
+                  <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" title="Preto">Preto</button>
+                  <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" title="Sem Fundo">Sem Fundo</button>
+                </div>
+                <small class="field-hint">Dica: Use <code>*texto*</code> para destacar apenas as linhas desejadas.</small>
+              </div>
             </section>
 
 
@@ -428,7 +442,20 @@ DA SUA PUBLICAÇÃO</textarea>
                     <output id="titleFontSizeValue">69</output>
                   </span>
                   <input id="titleFontSizeInput" type="range" min="44" max="92" step="1" value="69" />
-                </label></div>
+                </label>
+                <div class="control-section" style="margin-top: 10px;">
+                  <div class="control-section-title">
+                    <strong>Cor do Destaque (Tarja)</strong>
+                  </div>
+                  <div class="color-picker-group" id="popoverTitleHighlightGroup">
+                    <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #facc15;" title="Amarelo (LPZ)">Amarelo</button>
+                    <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" title="Rosa">Rosa</button>
+                    <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" title="Preto">Preto</button>
+                    <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" title="Sem Fundo">Sem Fundo</button>
+                  </div>
+                  <small class="field-hint">Dica: Use <code>*texto*</code> para destacar apenas as linhas desejadas.</small>
+                </div>
+              </div>
       <div data-text-editor="feedKickerInput" hidden><label class="field compact-field feed-only">
                   <span>Chapeu</span>
                   <input id="feedKickerInput" type="text" maxlength="40" value="CHAPEU" />
