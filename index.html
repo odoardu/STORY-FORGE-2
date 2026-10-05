@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StoryForge LPZ</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="experience-shell" data-format="feed">
+      <div class="ambient-scene" aria-hidden="true"></div>
+
+      <header class="app-header" aria-label="Topo do editor">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 4v4M12 16v4M4 12h4M16 12h4M7.8 7.8l2.1 2.1M14.1 14.1l2.1 2.1M16.2 7.8l-2.1 2.1M9.9 14.1l-2.1 2.1" />
+            </svg>
+          </span>
+          <div>
+            <strong>StoryForge</strong>
+            <span>Editor LPZ Zero</span>
+          </div>
+        </div>
+
+
+        <div class="header-meta" aria-label="Formato do arquivo">
+          <span id="formatSizeLabel">1080 x 1350</span>
+          <span id="formatNameLabel">Feed vertical</span>
+        </div>
+                <div class="export-actions">
+                  <button class="export-button" id="exportButton" type="button">
+                    <span id="exportLabel">Exportar PNG</span>
+                  </button>
+                  <button class="export-button export-button-secondary" hidden id="pngExportButton" type="button">
+                    <span>Exportar PNG</span>
+                  </button>
+                </div>
+      </header>
+
+      <section class="workspace" aria-label="Editor de feed">
+        <aside class="content-sidebar" aria-label="Conteúdo e camadas">
+          <div class="sidebar-heading"><strong>Seu conteúdo</strong></div>
+          <h2 class="sidebar-section-title">CAMADAS E AJUSTES</h2>
+          <nav class="dock-nav layer-list" aria-label="Camadas e ajustes">
+            <button class="dock-button is-active" type="button" data-panel="media" aria-controls="panel-media" aria-selected="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 7.2c0-1 0.8-1.8 1.8-1.8h7.7c1 0 1.8 0.8 1.8 1.8v1.4l2.6-1.5c0.6-0.4 1.4 0.1 1.4 0.8v8.2c0 0.7-0.8 1.2-1.4 0.8l-2.6-1.5v1.4c0 1-0.8 1.8-1.8 1.8H6.8c-1 0-1.8-0.8-1.8-1.8V7.2Z" />
+              </svg>
+              <span>Mídia</span>
+            </button>
+            <button class="dock-button" type="button" data-panel="borders" aria-controls="panel-borders" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+              </svg>
+              <span>Layout</span>
+            </button>
+
+            <button class="dock-button" type="button" data-panel="logo" aria-controls="panel-logo" aria-selected="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 8.5 12 5l6 3.5v7L12 19l-6-3.5v-7Z" />
+                <path d="M8.8 10.2 12 8.4l3.2 1.8v3.6L12 15.6l-3.2-1.8v-3.6Z" />
+              </svg>
+              <span>Logo</span>
+            </button>
+
+          </nav>
+        </aside>
+        <aside class="control-panel-shell is-open" aria-label="Controles do feed">
+          <div class="panel-topline">
+            <div>
+              <strong>Propriedades</strong>
+              <span>Selecione um elemento para editar</span>
+            </div>
+          </div>
+
+
+
+          <div class="dock-panel-stack">
+            <section class="dock-panel is-active" id="panel-media" data-panel="media" aria-hidden="false">
+              <div class="dock-panel-header">
+                <h2>Mídia</h2>
+                <p>
+                  <span class="story-only">Carregue o MP4 que fica no retangulo central.</span>
+                  <span class="feed-only">Escolha a imagem de fundo do feed 1080 x 1350.</span>
+                </p>
+              </div>
+
+              <div class="control-section">
+                <div class="control-section-title">
+                  <strong>Conteudo</strong>
+                  <small>Arquivo de origem</small>
+                </div>
+
+                <label class="upload-button story-only" for="videoInput">
+                  <input id="videoInput" type="file" accept="video/mp4,video/*" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V5M8 9l4-4 4 4M5 19h14" />
+                  </svg>
+                  <span>Selecionar video</span>
+                </label>
+
+                <div class="file-card story-only">
+                  <span class="file-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M7 3h7l5 5v13H7z" />
+                      <path d="M14 3v5h5" />
+                      <path d="M10 13h4M10 17h4" />
+                    </svg>
+                  </span>
+                  <div>
+                    <strong id="fileMain">Nenhum arquivo selecionado</strong>
+                    <small id="fileSub">A area cinza recebe o MP4</small>
+                  </div>
+                </div>
+
+                <div class="panel-actions story-only">
+                  <button class="soft-button" type="button" id="panelPlayButton">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M8 5.8v12.4c0 .7.8 1.1 1.4.7l9.1-6.2c.5-.3.5-1.1 0-1.4L9.4 5.1C8.8 4.7 8 5.1 8 5.8Z" />
+                    </svg>
+                    <span>Play</span>
+                  </button>
+                  <button class="soft-button" type="button" id="panelMuteButton" aria-label="Ativar ou silenciar audio">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 9.5C4 8.7 4.7 8 5.5 8H8l4-3.2c.7-.6 1.8-.1 1.8.8v12.8c0 .9-1.1 1.4-1.8.8L8 16H5.5C4.7 16 4 15.3 4 14.5v-5Z" />
+                    </svg>
+                    <span>Audio</span>
+                  </button>
+                </div>
+
+                <label class="upload-button feed-only" for="feedImageInput">
+                  <input id="feedImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V5M8 9l4-4 4 4M5 19h14" />
+                  </svg>
+                  <span>Selecionar imagem</span>
+                </label>
+
+                <button class="soft-button soft-button-wide feed-only" id="randomFeedImageButton" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 3h5v5M21 3l-7 7" />
+                    <path d="M8 21H3v-5M3 21l7-7" />
+                    <path d="M21 16v5h-5M21 21l-7-7" />
+                    <path d="M3 8V3h5M3 3l7 7" />
+                  </svg>
+                  <span>Usar imagem aleatoria</span>
+                </button>
+
+                <div class="file-card feed-only">
+                  <span class="file-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 5h14v14H5z" />
+                      <path d="M8 14.5 10.6 12l2.1 2 2.6-3 2.7 3.5" />
+                    </svg>
+                  </span>
+                  <div>
+                    <strong id="feedImageMain">Imagem temporaria da internet</strong>
+                    <small id="feedImageSub">Use uma imagem aleatoria ou envie uma foto</small>
+                  </div>
+                </div>
+              </div>
+
+
+              <div class="control-section" hidden>
+                <div class="control-section-title">
+                  <strong>Imagem</strong>
+                  <small>Zoom e posicao</small>
+                </div>
+                <div class="control-grid">
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Zoom</span>
+                      <output id="zoomValue">1.00x</output>
+                    </span>
+                    <input id="zoomInput" type="range" min="1" max="1.8" step="0.01" value="1" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Posicao X</span>
+                      <output id="panXValue">0</output>
+                    </span>
+                    <input id="panXInput" type="range" min="-35" max="35" step="1" value="0" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Posicao Y</span>
+                      <output id="panYValue">0</output>
+                    </span>
+                    <input id="panYInput" type="range" min="-35" max="35" step="1" value="0" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="control-section feed-only mask-effect-section is-locked" id="maskEffectSection">
+                <div class="control-section-title">
+                  <strong>Máscara e blur</strong>
+                  <small>Transicao inferior do feed</small>
+                  <button class="lock-toggle is-locked" id="maskLockButton" type="button" aria-pressed="false" aria-label="Desbloquear ajustes da mascara">
+                    <svg class="lock-closed" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+                      <path d="M6 10h12v10H6z" />
+                    </svg>
+                    <svg class="lock-open" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9 10V8a5 5 0 0 1 8.8-3.2" />
+                      <path d="M6 10h12v10H6z" />
+                    </svg>
+                    <span id="maskLockLabel">Travado</span>
+                  </button>
+                </div>
+                <div class="control-grid">
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Blur da máscara</span>
+                      <output id="maskBlurValue">19px</output>
+                    </span>
+                    <input id="maskBlurInput" data-mask-control type="range" min="0" max="120" step="1" value="19" disabled />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Degradê superior</span>
+                      <output id="blurGradientValue">86%</output>
+                    </span>
+                    <input id="blurGradientInput" data-mask-control type="range" min="0" max="100" step="1" value="86" disabled />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="dock-panel" id="panel-borders" data-panel="borders" aria-hidden="true">
+              <div class="dock-panel-header">
+                <h2>Layout</h2>
+                <p>Controle margens e respiro do retangulo rosa.</p>
+              </div>
+
+              <div class="control-section">
+                <div class="control-section-title">
+                  <strong>Margens</strong>
+                  <small>Area segura do titulo</small>
+                </div>
+                <div class="control-grid">
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Superior</span>
+                      <output id="titlePaddingTopValue">3</output>
+                    </span>
+                    <input id="titlePaddingTopInput" type="range" min="0" max="16" step="1" value="3" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Inferior</span>
+                      <output id="titlePaddingBottomValue">3</output>
+                    </span>
+                    <input id="titlePaddingBottomInput" type="range" min="0" max="16" step="1" value="3" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Esquerda</span>
+                      <output id="titlePaddingLeftValue">11</output>
+                    </span>
+                    <input id="titlePaddingLeftInput" type="range" min="0" max="48" step="1" value="11" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Direita</span>
+                      <output id="titlePaddingRightValue">11</output>
+                    </span>
+                    <input id="titlePaddingRightInput" type="range" min="0" max="48" step="1" value="11" />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+
+
+            <section class="dock-panel" id="panel-logo" data-panel="logo" aria-hidden="true">
+              <div class="dock-panel-header">
+                <h2>Logo</h2>
+                <p>Escolha seu logo e ajuste tamanho, posição e transparência.</p>
+              </div>
+
+              <div class="control-section">
+                <div class="control-section-title">
+                  <strong>Conteudo</strong>
+                  <small>Catalogo visual</small>
+                </div>
+
+                <div class="logo-catalog" id="logoCatalog" aria-label="Catalogo visual de logos">
+                  <div class="logo-catalog-empty">
+                    <span>Sem logos</span>
+                    <small>Nenhum logo disponível no momento</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="control-section">
+                <div class="control-section-title">
+                  <strong>Layout</strong>
+                  <small>Posicao e escala</small>
+                </div>
+                <div class="control-grid">
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Tamanho</span>
+                      <output id="logoWidthValue">220</output>
+                    </span>
+                    <input id="logoWidthInput" type="range" min="120" max="420" step="1" value="190" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Posicao X</span>
+                      <output id="logoXValue">0</output>
+                    </span>
+                    <input id="logoXInput" type="range" min="-280" max="280" step="1" value="0" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Posicao Y</span>
+                      <output id="logoYValue">1710</output>
+                    </span>
+                    <input id="logoYInput" type="range" min="1040" max="1280" step="1" value="1190" />
+                  </label>
+                  <label class="range-field">
+                    <span class="range-label">
+                      <span>Opacidade</span>
+                      <output id="logoOpacityValue">100</output>
+                    </span>
+                    <input id="logoOpacityInput" type="range" min="10" max="100" step="1" value="100" />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+
+          </div>
+        </aside>
+
+        <section class="media-console" aria-label="Preview do feed">
+          <div class="preview-toolbar">
+            <div>
+              <strong>Sua arte</strong>
+              <span id="previewModeLabel" hidden></span>
+            </div>
+            <span id="previewRatioLabel" hidden>9:16</span>
+          </div>
+
+          <div class="preview-card">
+            <div class="stage-host">
+              <div class="stage-frame" id="stageFrame">
+                <div class="story-stage" id="storyStage" data-format="feed">
+                  <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
+                  <div class="feed-stage-content" id="feedLayer" aria-hidden="true">
+                    <img class="feed-background" id="feedImage" alt="" />
+                    <img class="feed-blur-copy" id="feedBlurImage" alt="" />
+                    <div class="feed-empty" id="feedEmpty">
+                      <span>FEED</span>
+                    </div>
+                    <div class="feed-vignette" aria-hidden="true"></div>
+                    <div class="feed-blur-gradient" id="feedBlurGradient" aria-hidden="true"></div>
+                    <img class="feed-texture-layer feed-texture-exclusion" id="feedTextureExclusion" alt="" />
+                    <img class="feed-texture-layer feed-texture-soft-light" id="feedTextureSoftLight" alt="" />
+                    <div class="feed-copy">
+                      <div class="feed-kicker" id="feedKickerPreview">CHAPEU</div>
+                      <div class="feed-title-layer" id="feedTitleLayer"></div>
+                      <div class="feed-subtitle" id="feedSubtitlePreview">AMOSTRA DE TEXTO SECUNDARIO</div>
+                    </div>
+                  </div>
+                  <div class="video-slot" id="videoSlot">
+                    <video id="previewVideo" playsinline loop muted></video>
+                    <div class="empty-media" id="emptyMedia">
+                      <span>MP4</span>
+                    </div>
+                  </div>
+                  <div class="title-layer" id="titleLayer"></div>
+                  <div class="logo-layer" id="logoLayer" aria-hidden="true">
+                    <img id="logoPreview" alt="" />
+                    <span>LOGO</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div hidden class="player-dock" aria-label="Controles do preview">
+            <button class="player-icon player-primary" id="togglePlayback" type="button" aria-label="Reproduzir ou pausar">
+              <svg viewBox="0 0 24 24" class="play-icon" aria-hidden="true">
+                <path d="M8 5.8v12.4c0 .7.8 1.1 1.4.7l9.1-6.2c.5-.3.5-1.1 0-1.4L9.4 5.1C8.8 4.7 8 5.1 8 5.8Z" />
+              </svg>
+              <svg viewBox="0 0 24 24" class="pause-icon" aria-hidden="true">
+                <path d="M7 5.5c0-.8.7-1.5 1.5-1.5S10 4.7 10 5.5v13c0 .8-.7 1.5-1.5 1.5S7 19.3 7 18.5v-13Zm7 0c0-.8.7-1.5 1.5-1.5S17 4.7 17 5.5v13c0 .8-.7 1.5-1.5 1.5S14 19.3 14 18.5v-13Z" />
+              </svg>
+            </button>
+
+            <div class="track-card">
+              <strong class="track-title">Sem arquivo</strong>
+              <span class="track-sub">Aguardando MP4</span>
+              <i aria-hidden="true"></i>
+            </div>
+
+
+
+
+            <button class="player-icon" id="toggleMute" type="button" aria-label="Ativar ou silenciar audio">
+              <svg viewBox="0 0 24 24" class="volume-icon" aria-hidden="true">
+                <path d="M4 9.5c0-.8.7-1.5 1.5-1.5H8l4-3.2c.7-.6 1.8-.1 1.8.8v12.8c0 .9-1.1 1.4-1.8.8L8 16H5.5C4.7 16 4 15.3 4 14.5v-5Zm13.5-2.2c.6-.4 1.4-.3 1.8.3a7.5 7.5 0 0 1 0 8.8c-.4.6-1.2.7-1.8.3-.6-.4-.7-1.2-.3-1.8a5 5 0 0 0 0-5.8c-.4-.6-.3-1.4.3-1.8Z" />
+              </svg>
+              <svg viewBox="0 0 24 24" class="mute-icon" aria-hidden="true">
+                <path d="m18.4 12 2.1-2.1c.5-.5.5-1.3 0-1.8s-1.3-.5-1.8 0l-2.1 2.1-2.1-2.1c-.5-.5-1.3-.5-1.8 0s-.5 1.3 0 1.8l2.1 2.1-2.1 2.1c-.5.5-.5 1.3 0 1.8s1.3.5 1.8 0l2.1-2.1 2.1 2.1c.5.5 1.3.5 1.8 0s.5-1.3 0-1.8L18.4 12ZM3.5 9.5C3.5 8.7 4.2 8 5 8h2.5l4-3.2c.7-.6 1.8-.1 1.8.8v12.8c0 .9-1.1 1.4-1.8.8l-4-3.2H5c-.8 0-1.5-.7-1.5-1.5v-5Z" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      </section>
+      <footer class="editor-status" aria-live="polite">                <div class="status-line" id="statusLine">Pronto</div>
+                <progress id="exportProgress" value="0" max="1"></progress></footer>
+    </main>
+
+    <canvas id="renderCanvas" width="1080" height="1350" hidden></canvas>
+    <section id="textEditPopover" class="text-edit-popover" role="dialog" aria-modal="false" aria-labelledby="textEditHeading" hidden>
+      <header><strong id="textEditHeading">Texto</strong><button id="closeTextEditPopover" type="button" aria-label="Fechar edição">×</button></header>
+      <div data-text-editor="titleInput" hidden><label class="field">
+                  <span>Titulo</span>
+                  <textarea id="titleInput" rows="4" maxlength="240">ESCREVA AQUI O TÍTULO
+DA SUA PUBLICAÇÃO</textarea>
+                </label><label class="range-field">
+                  <span class="range-label">
+                    <span>Tamanho do titulo</span>
+                    <output id="titleFontSizeValue">69</output>
+                  </span>
+                  <input id="titleFontSizeInput" type="range" min="44" max="92" step="1" value="69" />
+                </label></div>
+      <div data-text-editor="feedKickerInput" hidden><label class="field compact-field feed-only">
+                  <span>Chapeu</span>
+                  <input id="feedKickerInput" type="text" maxlength="40" value="CHAPEU" />
+                </label></div>
+      <div data-text-editor="feedSubtitleInput" hidden><label class="field compact-field feed-only">
+                  <span>Subtitulo</span>
+                  <div
+                    class="rich-text-editor"
+                    id="feedSubtitleInput"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Subtitulo do feed"
+                    spellcheck="false"
+                  >AMOSTRA DE TEXTO SECUNDARIO</div>
+                </label></div>
+    </section>
+    <button id="subtitleBoldBubble" class="subtitle-bold-bubble" type="button" aria-label="Negrito" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h6a4 4 0 0 1 0 8H7zm0 8h7a4 4 0 0 1 0 8H7z"/></svg></button>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

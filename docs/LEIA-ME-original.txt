@@ -1,0 +1,25 @@
+ARQUIVOS PARA PUBLICAR NA VERCEL
+
+1. Faça uma cópia de segurança da pasta original.
+2. Extraia este ZIP dentro da pasta do projeto e substitua app.js e index.html.
+3. Mantenha styles.css e a pasta assets originais. Eles não estão neste ZIP.
+4. Copie também package.json, vercel.json, .vercelignore e as pastas api e scripts.
+5. Para o GitHub, envie esses arquivos, styles.css e assets. Não envie exports,
+   node_modules, dist, server.mjs nem figma-lpz-liquid-glass.
+6. Na Vercel, importe o repositório. Framework: Other.
+   Build Command: npm run build. Output Directory: dist.
+   Root Directory: a pasta que contém este package.json.
+7. Clique em Deploy.
+
+As exportações PNG/MP4/WebM agora iniciam um download no navegador.
+O formato de vídeo disponível continua dependendo do navegador.
+As logos e texturas são listadas automaticamente durante o build.
+Após adicionar arquivos em assets, publique novamente para atualizar os catálogos.
+A imagem aleatória usa uma função em api/random-feed-image.js e depende do Picsum.
+
+O server.mjs original pode ser guardado como backup. Ele não é usado na Vercel.
+Para testar o build local, execute npm run build dentro da pasta do projeto.
+
+Verificação feita: sintaxe JavaScript, geração de catálogos com arquivos de teste,
+contrato da função de imagem e fluxo de download com simulação do navegador.
+Não foi possível conferir o visual completo, pois styles.css e assets não foram enviados.

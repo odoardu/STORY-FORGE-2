@@ -1,0 +1,7 @@
+{
+  "name": "lpz-storyforge",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node scripts/build.mjs" },
+  "engines": { "node": ">=22" }
+}
