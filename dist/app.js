@@ -3794,6 +3794,13 @@ function drawClosingFrame(ctx) {
     drawImageCover(ctx, image, -30, -30, 1140, 1410);
     ctx.restore();
   }
+  if (state.background) {
+    ctx.save();
+    ctx.globalAlpha = 0.34;
+    ctx.globalCompositeOperation = "soft-light";
+    drawImageCover(ctx, state.background, 0, 0, 1080, 1350);
+    ctx.restore();
+  }
   drawFeedTextures(ctx);
   const shade = ctx.createLinearGradient(0, 0, 0, 1350);
   shade.addColorStop(0, "rgba(0,0,0,.06)");
