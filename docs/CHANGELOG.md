@@ -1,5 +1,28 @@
 # Histórico de mudanças
 
+## v0.4.0 — 09/10/2026
+
+### Novidades
+- Adicionados os modelos Informativo e Encerramento.
+- Informativo com imagem independente em vetor, arraste, zoom e limite de movimento.
+- Encerramento com imagem do Feed por padrão, troca independente, blur, textura, tarja e logos Linkin Park.
+- Upload da imagem do vetor diretamente pelo botão “+”.
+- Negrito por seleção no texto do Informativo.
+- Interface mobile reorganizada, sem rolagem da página.
+
+### Ajustes visuais
+- Tarjas do Feed e Encerramento alinhadas ao mesmo padrão de espaçamento.
+- Removidos degradês rosados, manchas avermelhadas e luz indesejada do Informativo.
+- Interface desktop simplificada, com transições suaves e painéis mais objetivos.
+- Controles mobile adaptados para telas pequenas, com zoom e painéis inferiores.
+
+### Correções
+- Imagem do Feed não aparece mais dentro do vetor do Informativo.
+- Troca da imagem do Feed preserva a imagem independente do Informativo.
+- Logo e imagens mantêm seus tamanhos e proporções.
+- Exportação PNG disponível para Feed, Informativo e Encerramento.
+- API de geração de posts preservada.
+
 ## 09/10/2026 — Modelo informativo
 
 ### Novidades

@@ -68,10 +68,11 @@ const INFORMATIVE = {
   width: 1080,
   height: 1350,
   ratio: "4:5",
-  image: { x: 92, y: 76, width: 896, height: 426 },
-  title: { x: 92, y: 558, width: 896, fontSize: 43, lineHeight: 52 },
-  body: { x: 92, y: 646, width: 860, fontSize: 24, lineHeight: 31 },
-  logo: { width: 160, x: 0, y: 1182, opacity: 100 },
+  // Gabarito 1080 × 1350 medido na arte informativa do Canva.
+  image: { x: 110, y: 155, width: 862, height: 488 },
+  title: { x: 110, y: 697, width: 862, fontSize: 42, lineHeight: 50 },
+  body: { x: 110, y: 766, width: 835, fontSize: 28, lineHeight: 36 },
+  logo: { width: 160, x: 0, y: 1194, opacity: 100 },
 };
 
 // Canva displays point sizes and letter spacing in thousandths of an em.
@@ -82,9 +83,10 @@ const CANVA_TYPE_DEFAULTS = {
   kicker: { size: 14.4, tracking: 464, leading: 1.73 },
 };
 const feedTypography = Object.freeze(Object.fromEntries(Object.entries(CANVA_TYPE_DEFAULTS).map(([role, values]) => [role, Object.freeze({ ...values })])));
-// Fixed Canva highlight inset in output pixels. At 70.4px type this
-// produces the measured 85.32px rectangle; color never affects geometry.
-const TITLE_HIGHLIGHT_PADDING = Object.freeze({ left: 10, right: 10, top: 6.46, bottom: 6.46 });
+// Shared highlight insets in output pixels for Feed and Closing.
+// Vertical insets are reduced equally; color never affects geometry.
+const TITLE_LINE_GAP = 4.5968;
+const TITLE_HIGHLIGHT_PADDING = Object.freeze({ left: 10, right: 10, top: 5.46, bottom: 5.46 });
 
 function getFeedTypography(role) {
   const value = feedTypography[role];
@@ -93,6 +95,7 @@ function getFeedTypography(role) {
 }
 
 const FORMATS = {
+  closing: { width: 1080, height: 1350, ratio: "4:5", name: "Encerramento", size: "1080 x 1350" },
   story: {
     width: STORY.width,
     height: STORY.height,
@@ -216,9 +219,12 @@ const elements = {
   feedTextureSoftLight: document.getElementById("feedTextureSoftLight"),
   feedEmpty: document.getElementById("feedEmpty"),
   feedImageInput: document.getElementById("feedImageInput"),
+  informativeImageInput: document.getElementById("informativeImageInput"),
   randomFeedImageButton: document.getElementById("randomFeedImageButton"),
   feedImageMain: document.getElementById("feedImageMain"),
   feedImageSub: document.getElementById("feedImageSub"),
+  informativeImageMain: document.getElementById("informativeImageMain"),
+  informativeImageSub: document.getElementById("informativeImageSub"),
   feedKickerInput: document.getElementById("feedKickerInput"),
   feedSubtitleInput: document.getElementById("feedSubtitleInput"),
   feedSubtitleWeightButtons: Array.from(document.querySelectorAll(".weight-option")),
@@ -292,6 +298,13 @@ const state = {
   feedImageName: "",
   feedImageObjectUrl: "",
   feedImage: null,
+  infoImageUrl: "",
+  infoImageName: "",
+  infoImageObjectUrl: "",
+  infoImage: null,
+  infoZoom: 1,
+  infoPanX: 0,
+  infoPanY: 0,
   feedTextureExclusionUrl: "",
   feedTextureExclusionImage: null,
   feedTextureSoftLightUrl: "",
@@ -310,6 +323,7 @@ const state = {
   exportExt: "mp4",
   titleStrips: [],
   titleHighlights: [],
+  infoBodyBold: [],
   previousTitleText: "",
   titleFontSize: 69,
   subtitleFontSize: 22,
@@ -368,6 +382,7 @@ async function init() {
   elements.background = await loadImage("./assets/black-texture.jpg");
   state.background = elements.background;
   state.kickerImage = await loadImage("./assets/mundo-soldier-branca.png");
+  state.informativeSymbols = await loadImage("./assets/informative-linkin-park-logos.png");
   state.kickerMode = "image";
 
   if (document.fonts) {
@@ -570,7 +585,7 @@ function saveLogoSettingsForCurrentFormat() {
 }
 
 function applyLogoSettingsForFormat(format) {
-  const settings = state.logoSettings[format] || (format === "informative" ? INFORMATIVE.logo : STORY.logo);
+  const settings = state.logoSettings[format === "informative" ? "feed" : format] || FEED.logo;
   state.logoWidth = settings.width;
   state.logoX = settings.x;
   state.logoY = settings.y;
@@ -740,6 +755,43 @@ function getSubtitleToggleMark(toggle) {
 }
 
 function bindEvents() {
+  document.getElementById("mobileSheetBackdrop").addEventListener("click", () => document.body.classList.remove("mobile-controls-open"));
+  document.querySelectorAll("[data-canvas-zoom]").forEach(button => button.addEventListener("click", () => {
+    const factor = button.dataset.canvasZoom === "in" ? 1.15 : 1 / 1.15;
+    if (state.format === "informative") state.infoZoom *= factor;
+    else if (state.format === "feed") state.zoom *= factor;
+    updateMediaTransform();
+  }));
+  const infoBoldButton = document.getElementById("mobileInfoBold");
+  infoBoldButton.addEventListener("pointerdown", event => event.preventDefault());
+  infoBoldButton.addEventListener("click", () => {
+    const { selectionStart: start, selectionEnd: end } = elements.infoBodyInput;
+    if (start === end) { setStatus("Selecione um trecho para aplicar negrito"); return; }
+    state.infoBodyBold = EditorCore.toggleRange(state.infoBodyBold, start, end);
+    updateInformativeText();
+  });
+  document.getElementById("workspaceImageButton").addEventListener("click", () => {
+    if (state.format === "informative") { elements.informativeImageInput.click(); return; }
+    setActiveDockPanel("media");
+    elements.controlPanelShell.scrollTop = 0;
+  });
+  document.getElementById("closingImageInput").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    try {
+      const image = await loadImage(url);
+      state.closingImage = image;
+      updateClosingPreview();
+      setStatus("Imagem do encerramento atualizada");
+    } catch { setStatus("Não foi possível abrir essa imagem"); }
+    finally { URL.revokeObjectURL(url); event.target.value = ""; }
+  });
+  document.getElementById("closingUseFeed").addEventListener("click", () => {
+    state.closingImage = null;
+    updateClosingPreview();
+    setStatus("Encerramento vinculado à imagem do Feed");
+  });
   bindDirectImageControls();
   bindSubtitleContextBold();
   bindTextEditPopover();
@@ -799,10 +851,36 @@ function bindEvents() {
 
   elements.videoInput.addEventListener("change", handleVideoUpload);
   elements.feedImageInput?.addEventListener("change", handleFeedImageUpload);
+  elements.informativeImageInput?.addEventListener("change", handleInformativeImageUpload);
+  document.getElementById("informativeUploadButton").addEventListener("click", event => {
+    event.stopPropagation();
+    elements.informativeImageInput.value = "";
+    elements.informativeImageInput.click();
+  });
   elements.randomFeedImageButton?.addEventListener("click", () => loadRandomFeedImage());
   elements.feedKickerInput?.addEventListener("input", updateFeedText);
   elements.infoTitleInput?.addEventListener("input", () => { state.infoTitle = elements.infoTitleInput.value; updateInformativeText(); });
-  elements.infoBodyInput?.addEventListener("input", () => { state.infoBody = elements.infoBodyInput.value; updateInformativeText(); });
+  elements.infoBodyInput?.addEventListener("input", () => {
+    state.infoBodyBold = EditorCore.remapRanges(state.infoBody, elements.infoBodyInput.value, state.infoBodyBold);
+    updateInformativeText();
+  });
+  let infoSelection = null;
+  elements.infoBodyInput?.addEventListener("pointerdown", event => {
+    const editor = elements.infoBodyInput;
+    infoSelection = event.button === 2 && editor.selectionEnd > editor.selectionStart
+      ? [editor.selectionStart, editor.selectionEnd] : null;
+  });
+  elements.infoBodyInput?.addEventListener("contextmenu", event => {
+    const editor = elements.infoBodyInput;
+    const [start, end] = infoSelection || [editor.selectionStart, editor.selectionEnd];
+    infoSelection = null;
+    if (start === end) return;
+    event.preventDefault();
+    state.infoBodyBold = EditorCore.toggleRange(state.infoBodyBold, start, end);
+    editor.setSelectionRange(start, end);
+    updateInformativeText();
+    setStatus("Negrito atualizado no trecho selecionado");
+  });
   document.querySelectorAll("[data-edit-text]").forEach(button => {
     button.addEventListener("click", () => {
       const selection = button.dataset.editText;
@@ -977,6 +1055,12 @@ function applyFormat(format, options = {}) {
 
   saveLogoSettingsForCurrentFormat();
   state.format = format;
+  document.getElementById("workspaceImageButton").textContent = format === "informative" ? "Imagem do vetor" : "Imagem de fundo";
+  document.body.classList.remove("mobile-controls-open");
+  closeTextEditPopover();
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    elements.frame.animate([{ opacity: .45 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
+  }
   applyLogoSettingsForFormat(format);
 
   const spec = getCurrentFormatSpec();
@@ -1007,7 +1091,7 @@ function applyFormat(format, options = {}) {
     elements.trackSub.textContent = state.feedImage ? "Imagem pronta" : "Imagem aleatoria temporaria";
   } else if (format === "informative") {
     elements.trackTitle.textContent = "Modelo informativo";
-    elements.trackSub.textContent = state.feedImage ? "Imagem pronta" : "Imagem aleatoria temporaria";
+    elements.trackSub.textContent = state.infoImage ? "Bloco pronto" : "Envie a imagem do bloco";
   } else {
     elements.trackTitle.textContent = state.videoName || "Sem arquivo";
     elements.trackSub.textContent = state.videoName ? "MP4 do story" : "Aguardando MP4";
@@ -1108,12 +1192,12 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
     state.feedImageName = name || "Imagem do feed";
     state.feedImageObjectUrl = isObjectUrl ? url : "";
     state.feedImage = image;
+    updateClosingPreview();
     state.zoom = 1;
     state.panX = 0;
     state.panY = 0;
     updateMediaTransform();
     elements.feedImage.src = url;
-    if (elements.informativeImage) elements.informativeImage.src = url;
     if (elements.feedBlurImage) {
       elements.feedBlurImage.src = url;
     }
@@ -1630,7 +1714,7 @@ function getFeedTitleLayouts(fittedFontSize) {
   const padding = getTitlePadding();
   const referenceMetrics = getTitleGlyphMetrics("ÁÉÍÓÚÂÊÔÃÕÇ", fontSize);
   const commonHeight = referenceMetrics.ascent + referenceMetrics.descent + padding.top + padding.bottom;
-  const gap = 4.5968;
+  const gap = TITLE_LINE_GAP;
   const blockHeight = layouts.length * commonHeight + Math.max(0, layouts.length - 1) * gap;
   if ((layouts.length > 4 && fontSize > 46) || (blockHeight > FEED.title.maxBottom - FEED.title.minTop && fontSize > 28)) {
     return getFeedTitleLayouts(fontSize - 1);
@@ -1670,6 +1754,43 @@ function getTitleHighlightRects(layout, marks) {
   return rectangles;
 }
 
+function handleInformativeImageUpload(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  applyInformativeImage(url, file.name, formatFileSize(file.size), true).catch(() => {
+    URL.revokeObjectURL(url);
+    setStatus("Não foi possível carregar a imagem do bloco.");
+  });
+}
+
+async function applyInformativeImage(url, name, meta, isObjectUrl = false) {
+  try {
+    const image = await loadImage(url);
+    if (state.infoImageObjectUrl && state.infoImageObjectUrl !== url) URL.revokeObjectURL(state.infoImageObjectUrl);
+    state.infoImageUrl = url;
+    state.infoImageName = name || "Imagem do bloco";
+    state.infoImageObjectUrl = isObjectUrl ? url : "";
+    state.infoImage = image;
+    state.infoZoom = 1;
+    state.infoPanX = 0;
+    state.infoPanY = 0;
+    if (elements.informativeImage) elements.informativeImage.src = url;
+    elements.feedLayer?.classList.add("has-informative-image");
+    if (elements.informativeImageMain) elements.informativeImageMain.textContent = state.infoImageName;
+    if (elements.informativeImageSub) elements.informativeImageSub.textContent = meta || "Imagem independente aplicada";
+    if (state.format === "informative" && elements.trackSub) {
+      elements.trackTitle.textContent = state.infoImageName;
+      elements.trackSub.textContent = "Bloco pronto";
+    }
+    updateMediaTransform();
+    setStatus("Imagem do bloco aplicada na máscara");
+  } catch (error) {
+    if (isObjectUrl) URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
 function updateInformativeText() {
   if (!elements.informativeTitlePreview) return;
   const title = elements.infoTitleInput?.value ?? state.infoTitle;
@@ -1677,7 +1798,22 @@ function updateInformativeText() {
   state.infoTitle = title;
   state.infoBody = body;
   elements.informativeTitlePreview.textContent = title || "TÍTULO DO POST AQUI";
-  elements.informativeBodyPreview.textContent = body || " ";
+  elements.informativeBodyPreview.replaceChildren(...getInformativeBodyRuns().map(run => {
+    const span = document.createElement(run.bold ? "strong" : "span");
+    span.textContent = run.text;
+    return span;
+  }));
+}
+
+function getInformativeBodyRuns(start = 0, end = state.infoBody.length) {
+  const runs = [];
+  for (let index = start; index < end; index++) {
+    const bold = state.infoBodyBold.some(range => index >= range.start && index < range.end);
+    const last = runs.at(-1);
+    if (last && last.bold === bold) last.text += state.infoBody[index];
+    else runs.push({ text: state.infoBody[index], bold });
+  }
+  return runs;
 }
 
 function getTitleGlyphMetrics(text, fontSize) {
@@ -2016,20 +2152,39 @@ function animateTitleStripIn(strip) {
 }
 
 function updateMediaTransform() {
-  const mediaBox = ["feed", "informative"].includes(state.format) ? FEED : STORY.video;
-  if (["feed", "informative"].includes(state.format) && state.feedImage) {
+  if (state.format === "closing") { updateClosingPreview(); return; }
+  const isInformative = state.format === "informative";
+  const mediaBox = isInformative ? INFORMATIVE.image : state.format === "feed" ? FEED : STORY.video;
+  if (state.format === "feed" && state.feedImage) {
     const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, FEED.width, FEED.height, state.zoom, state.panX / 100 * FEED.width, state.panY / 100 * FEED.height);
     state.zoom = geometry.zoom;
     state.panX = geometry.panX / FEED.width * 100;
     state.panY = geometry.panY / FEED.height * 100;
-    [elements.feedImage, elements.feedBlurImage, elements.informativeImage].forEach(image => {
+    [elements.feedImage, elements.feedBlurImage].forEach(image => {
       if (!image) return;
       image.style.width = `${geometry.baseWidth}px`;
       image.style.height = `${geometry.baseHeight}px`;
     });
   }
-  const x = (state.panX / 100) * mediaBox.width;
-  const y = (state.panY / 100) * mediaBox.height;
+  if (isInformative && state.infoImage) {
+    const geometry = EditorCore.imageGeometry(state.infoImage.naturalWidth, state.infoImage.naturalHeight, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, state.infoPanX / 100 * INFORMATIVE.image.width, state.infoPanY / 100 * INFORMATIVE.image.height);
+    state.infoZoom = geometry.zoom;
+    state.infoPanX = geometry.panX / INFORMATIVE.image.width * 100;
+    state.infoPanY = geometry.panY / INFORMATIVE.image.height * 100;
+    elements.informativeImage.style.width = `${geometry.baseWidth}px`;
+    elements.informativeImage.style.height = `${geometry.baseHeight}px`;
+  }
+  const panX = isInformative ? state.infoPanX : state.panX;
+  const panY = isInformative ? state.infoPanY : state.panY;
+  const zoom = isInformative ? state.infoZoom : state.zoom;
+  const x = (panX / 100) * mediaBox.width;
+  const y = (panY / 100) * mediaBox.height;
+  if (isInformative) {
+    elements.informativeImage?.style.setProperty("--zoom", zoom);
+    elements.informativeImage?.style.setProperty("--pan-x", `${x}px`);
+    elements.informativeImage?.style.setProperty("--pan-y", `${y}px`);
+    return;
+  }
   elements.video.style.setProperty("--zoom", state.zoom);
   elements.video.style.setProperty("--pan-x", `${x}px`);
   elements.video.style.setProperty("--pan-y", `${y}px`);
@@ -2039,9 +2194,6 @@ function updateMediaTransform() {
   elements.feedBlurImage?.style.setProperty("--zoom", state.zoom);
   elements.feedBlurImage?.style.setProperty("--pan-x", `${x}px`);
   elements.feedBlurImage?.style.setProperty("--pan-y", `${y}px`);
-  elements.informativeImage?.style.setProperty("--zoom", state.zoom);
-  elements.informativeImage?.style.setProperty("--pan-x", `${x}px`);
-  elements.informativeImage?.style.setProperty("--pan-y", `${y}px`);
   updateRangeOutput(elements.zoomInput, elements.zoomValue);
   updateRangeOutput(elements.panXInput, elements.panXValue);
   updateRangeOutput(elements.panYInput, elements.panYValue);
@@ -2352,7 +2504,7 @@ function updatePlaybackIcons() {
 }
 
 async function exportPrimary() {
-  if (["feed", "informative"].includes(state.format)) {
+  if (["feed", "informative", "closing"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2361,7 +2513,7 @@ async function exportPrimary() {
 }
 
 async function exportCurrentPng() {
-  if (["feed", "informative"].includes(state.format)) {
+  if (["feed", "informative", "closing"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2484,11 +2636,12 @@ async function exportFeedPng() {
   try {
     updateFeedText();
     updateInformativeText();
-    if (state.format === "informative") drawInformativeFrame(renderContext);
+    if (state.format === "closing") drawClosingFrame(renderContext);
+    else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
     const blob = await canvasToBlob(elements.canvas, "image/png");
     const saved = await downloadExport(blob, makeFeedExportName());
-    setStatus(`${state.format === "informative" ? "PNG informativo" : "PNG do feed"} — download iniciado: ${saved.fileName}`);
+    setStatus(`${state.format === "closing" ? "PNG encerramento" : state.format === "informative" ? "PNG informativo" : "PNG do feed"} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui gerar o PNG do feed");
@@ -2529,8 +2682,9 @@ function renderUntilEnd(video, duration) {
 }
 
 function drawFrame(video) {
-  if (["feed", "informative"].includes(state.format)) {
-    if (state.format === "informative") drawInformativeFrame(renderContext);
+  if (["feed", "informative", "closing"].includes(state.format)) {
+    if (state.format === "closing") drawClosingFrame(renderContext);
+    else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
     return;
   }
@@ -3319,7 +3473,7 @@ function makeFeedExportName() {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
-  return `${base || "feed"}-lpz-zero-${state.format === "informative" ? "informativo" : "feed"}.png`;
+  return `${base || "feed"}-lpz-zero-${state.format === "closing" ? "encerramento" : state.format === "informative" ? "informativo" : "feed"}.png`;
 }
 
 function makeExportBaseName() {
@@ -3347,7 +3501,7 @@ function setStatus(message) {
 function selectPreviewElement(selection) {
   elements.stage.querySelectorAll(".is-selected").forEach(node => node.classList.remove("is-selected"));
   const selectors = {
-    media: ["feed", "informative"].includes(state.format) ? "#feedImage" : "#videoSlot",
+    media: ["feed", "informative", "closing"].includes(state.format) ? "#feedImage" : "#videoSlot",
     title: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeTitlePreview" : "#titleLayer .headline-strip",
     text: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeBodyPreview" : "#titleLayer .headline-strip",
     subtitle: "#feedSubtitlePreview",
@@ -3391,16 +3545,21 @@ function bindDirectImageControls() {
   const stage = elements.stage;
   let drag = null;
   let moved = false;
-  const isImageTarget = (target) => !target.closest("button, input, textarea, [contenteditable=true], .informative-title, .informative-body, .feed-title-layer, .feed-subtitle, .feed-kicker, .logo-layer");
-  const sync = () => {
-    updateMediaTransform();
+  const isImageTarget = (target) => {
+    if (state.format === "closing") return false;
+    if (state.format === "informative") return Boolean(target.closest(".informative-image-window")) && !target.closest("button, input");
+    return !target.closest("button, input, textarea, [contenteditable=true], .informative-title, .informative-body, .feed-title-layer, .feed-subtitle, .feed-kicker, .logo-layer");
   };
+  const sync = () => updateMediaTransform();
   stage.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || !state.feedImage || !isImageTarget(event.target)) return;
+    const activeImage = state.format === "informative" ? state.infoImage : state.feedImage;
+    if (event.button !== 0 || !activeImage || !isImageTarget(event.target)) return;
     event.preventDefault();
     state.previewClickTarget = event.target;
     const rect = stage.getBoundingClientRect();
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, scale: rect.width / FEED.width };
+    const frameWidth = state.format === "informative" ? INFORMATIVE.image.width : FEED.width;
+    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : FEED.height;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.format === "informative" ? state.infoPanX : state.panX, panY: state.format === "informative" ? state.infoPanY : state.panY, scale: rect.width / (state.format === "informative" ? INFORMATIVE.width : FEED.width), frameWidth, frameHeight };
     moved = false;
     stage.setPointerCapture(event.pointerId);
     stage.classList.add("is-dragging");
@@ -3411,13 +3570,22 @@ function bindDirectImageControls() {
     const dy = event.clientY - drag.y;
     if (!moved && Math.hypot(dx, dy) > 3) closeTextEditPopover();
     moved ||= Math.hypot(dx, dy) > 3;
-    state.panX = drag.panX + dx / drag.scale / FEED.width * 100;
-    state.panY = drag.panY + dy / drag.scale / FEED.height * 100;
+    const nextX = drag.panX + dx / drag.scale / drag.frameWidth * 100;
+    const nextY = drag.panY + dy / drag.scale / drag.frameHeight * 100;
+    if (state.format === "informative") {
+      state.infoPanX = nextX;
+      state.infoPanY = nextY;
+    } else {
+      state.panX = nextX;
+      state.panY = nextY;
+    }
     sync();
   });
   const endDrag = (event) => {
     if (!drag || event.pointerId !== drag.id) return;
-    if (moved && state.panX === drag.panX && state.panY === drag.panY) {
+    const currentX = state.format === "informative" ? state.infoPanX : state.panX;
+    const currentY = state.format === "informative" ? state.infoPanY : state.panY;
+    if (moved && currentX === drag.panX && currentY === drag.panY) {
       setStatus("Limite da imagem atingido. Amplie com a roda do mouse para ter mais espaço de movimento.");
     }
     drag = null;
@@ -3431,17 +3599,31 @@ function bindDirectImageControls() {
     if (moved) { event.stopImmediatePropagation(); moved = false; state.previewClickTarget = null; }
   }, true);
   stage.addEventListener("wheel", (event) => {
-    if (!state.feedImage || !isImageTarget(event.target)) return;
+    const activeImage = state.format === "informative" ? state.infoImage : state.feedImage;
+    if (!activeImage || !isImageTarget(event.target)) return;
     event.preventDefault();
     const rect = stage.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width * FEED.width - FEED.width / 2;
-    const y = (event.clientY - rect.top) / rect.height * FEED.height - FEED.height / 2;
+    const frameWidth = state.format === "informative" ? INFORMATIVE.image.width : FEED.width;
+    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : FEED.height;
+    const currentZoom = state.format === "informative" ? state.infoZoom : state.zoom;
+    const currentPanX = state.format === "informative" ? state.infoPanX : state.panX;
+    const currentPanY = state.format === "informative" ? state.infoPanY : state.panY;
+    const x = (event.clientX - rect.left) / rect.width * (state.format === "informative" ? INFORMATIVE.width : FEED.width) - frameWidth / 2 - (state.format === "informative" ? INFORMATIVE.image.x : 0);
+    const y = (event.clientY - rect.top) / rect.height * (state.format === "informative" ? INFORMATIVE.height : FEED.height) - frameHeight / 2 - (state.format === "informative" ? INFORMATIVE.image.y : 0);
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
-    const next = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, FEED.width, FEED.height, state.zoom * Math.exp(-delta * 0.0015)).zoom;
-    const ratio = next / state.zoom;
-    state.panX = (x - (x - state.panX / 100 * FEED.width) * ratio) / FEED.width * 100;
-    state.panY = (y - (y - state.panY / 100 * FEED.height) * ratio) / FEED.height * 100;
-    state.zoom = next;
+    const next = EditorCore.imageGeometry(activeImage.naturalWidth, activeImage.naturalHeight, frameWidth, frameHeight, currentZoom * Math.exp(-delta * 0.0015)).zoom;
+    const ratio = next / currentZoom;
+    const nextPanX = (x - (x - currentPanX / 100 * frameWidth) * ratio) / frameWidth * 100;
+    const nextPanY = (y - (y - currentPanY / 100 * frameHeight) * ratio) / frameHeight * 100;
+    if (state.format === "informative") {
+      state.infoPanX = nextPanX;
+      state.infoPanY = nextPanY;
+      state.infoZoom = next;
+    } else {
+      state.panX = nextPanX;
+      state.panY = nextPanY;
+      state.zoom = next;
+    }
     sync();
   }, { passive: false });
 }
@@ -3472,7 +3654,8 @@ function bindTextEditPopover() {
   window.addEventListener("resize", syncMobileViewport);
   document.getElementById("mobilePanelClose").addEventListener("click", () => document.body.classList.remove("mobile-controls-open"));
   document.querySelectorAll("[data-mobile-zoom]").forEach(button => button.addEventListener("click", () => {
-    state.zoom *= button.dataset.mobileZoom === "in" ? 1.15 : 1 / 1.15;
+    if (state.format === "informative") state.infoZoom *= button.dataset.mobileZoom === "in" ? 1.15 : 1 / 1.15;
+    else state.zoom *= button.dataset.mobileZoom === "in" ? 1.15 : 1 / 1.15;
     updateMediaTransform();
   }));
   const titleButton = document.getElementById("mobileTitleHighlight");
@@ -3512,22 +3695,34 @@ function drawInformativeFrame(ctx) {
     drawImageCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height);
     ctx.filter = "none";
   }
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(INFORMATIVE.image.x + 28, INFORMATIVE.image.y);
-  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width - 28, INFORMATIVE.image.y);
-  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width, INFORMATIVE.image.y + 28);
-  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width, INFORMATIVE.image.y + INFORMATIVE.image.height - 28);
-  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width - 28, INFORMATIVE.image.y + INFORMATIVE.image.height);
-  ctx.lineTo(INFORMATIVE.image.x + 28, INFORMATIVE.image.y + INFORMATIVE.image.height);
-  ctx.lineTo(INFORMATIVE.image.x, INFORMATIVE.image.y + INFORMATIVE.image.height - 28);
-  ctx.lineTo(INFORMATIVE.image.x, INFORMATIVE.image.y + 28);
-  ctx.closePath();
-  ctx.clip();
-  drawImageCoverTransformed(ctx, state.feedImage || state.background, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.zoom, (state.panX / 100) * INFORMATIVE.width, (state.panY / 100) * INFORMATIVE.height);
-  ctx.restore();
-  drawFeedTextures(ctx);
+  if (state.infoImage) {
+    ctx.save();
+    ctx.beginPath();
+    const image = INFORMATIVE.image;
+    ctx.moveTo(image.x, image.y + image.height * 0.074);
+    ctx.lineTo(image.x, image.y + image.height);
+    ctx.lineTo(image.x + image.width * 0.874, image.y + image.height * 0.998);
+    ctx.lineTo(image.x + image.width, image.y + image.height * 0.794);
+    ctx.lineTo(image.x + image.width, image.y + image.height * 0.172);
+    ctx.lineTo(image.x + image.width * 0.894, image.y);
+    ctx.lineTo(image.x + image.width * 0.553, image.y);
+    ctx.lineTo(image.x + image.width * 0.461, image.y + image.height * 0.072);
+    ctx.closePath();
+    ctx.clip();
+    drawImageCoverTransformed(ctx, state.infoImage, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, (state.infoPanX / 100) * INFORMATIVE.image.width, (state.infoPanY / 100) * INFORMATIVE.image.height);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,.12)";
+    ctx.font = `28px Gotham, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("+", INFORMATIVE.image.x + INFORMATIVE.image.width / 2, INFORMATIVE.image.y + INFORMATIVE.image.height / 2);
+  }
+  drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
   drawInformativeCopy(ctx);
+  if (state.informativeSymbols) {
+    const symbols = state.informativeSymbols;
+    ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  }
   drawLogo(ctx);
   ctx.restore();
 }
@@ -3539,19 +3734,29 @@ function drawInformativeCopy(ctx) {
   ctx.textBaseline = "top";
   ctx.font = `43px "Tusker Story", Impact, sans-serif`;
   ctx.fillText(state.infoTitle || "TÍTULO DO POST AQUI", INFORMATIVE.title.x, INFORMATIVE.title.y);
-  ctx.font = `400 ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`;
-  const words = String(state.infoBody || "").split(/\s+/);
-  let line = "";
+  ctx.letterSpacing = ".15px";
+  let x = INFORMATIVE.body.x;
   let y = INFORMATIVE.body.y;
-  words.forEach((word) => {
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width > INFORMATIVE.body.width && line) {
-      ctx.fillText(line, INFORMATIVE.body.x, y);
-      line = word;
+  for (const token of state.infoBody.matchAll(/\n|[^\S\n]+|[^\s]+/g)) {
+    if (token[0] === "\n") {
+      x = INFORMATIVE.body.x;
       y += INFORMATIVE.body.lineHeight;
-    } else line = candidate;
-  });
-  if (line) ctx.fillText(line, INFORMATIVE.body.x, y);
+      continue;
+    }
+    const runs = getInformativeBodyRuns(token.index, token.index + token[0].length);
+    const setFont = run => { ctx.font = `${run.bold ? 700 : 400} ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`; };
+    const width = runs.reduce((sum, run) => { setFont(run); return sum + ctx.measureText(run.text).width; }, 0);
+    if (x > INFORMATIVE.body.x && x + width > INFORMATIVE.body.x + INFORMATIVE.body.width) {
+      x = INFORMATIVE.body.x;
+      y += INFORMATIVE.body.lineHeight;
+    }
+    if (x === INFORMATIVE.body.x && /^\s+$/.test(token[0])) continue;
+    for (const run of runs) {
+      setFont(run);
+      ctx.fillText(run.text, x, y);
+      x += ctx.measureText(run.text).width;
+    }
+  }
   ctx.restore();
 }
 function openTextEditPopover(selection, event) {
@@ -3571,4 +3776,58 @@ function openTextEditPopover(selection, event) {
 function closeTextEditPopover() {
   document.getElementById("textEditPopover").hidden = true;
   window.getSelection()?.removeAllRanges();
+}
+
+function updateClosingPreview() {
+  const canvas = document.getElementById("closingPreview");
+  if (canvas && state.format === "closing") drawClosingFrame(canvas.getContext("2d"));
+}
+
+function drawClosingFrame(ctx) {
+  ctx.save();
+  ctx.fillStyle = "#101010";
+  ctx.fillRect(0, 0, 1080, 1350);
+  const image = state.closingImage || state.feedImage || state.background;
+  if (image) {
+    ctx.save();
+    ctx.filter = "blur(19px) brightness(.82)";
+    drawImageCover(ctx, image, -30, -30, 1140, 1410);
+    ctx.restore();
+  }
+  drawFeedTextures(ctx);
+  const shade = ctx.createLinearGradient(0, 0, 0, 1350);
+  shade.addColorStop(0, "rgba(0,0,0,.06)");
+  shade.addColorStop(.55, "rgba(0,0,0,.12)");
+  shade.addColorStop(1, "rgba(0,0,0,.8)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, 1080, 1350);
+  const lines = ["SIGA A @LP_ZEROBR AQUI VOCÊ ESTÁ", "ENTRE O NOVO E O NOSTÁLGICO"];
+  const padding = getTitlePadding();
+  let fontSize = 60;
+  let tracking = fontSize * feedTypography.title.tracking / 1000;
+  const maxWidth = 920 - padding.left - padding.right;
+  while (Math.max(...lines.map(text => measureTrackedText(text, fontSize, tracking))) > maxWidth && fontSize > 28) {
+    fontSize -= 1;
+    tracking = fontSize * feedTypography.title.tracking / 1000;
+  }
+  const referenceMetrics = getTitleGlyphMetrics("ÁÉÍÓÚÂÊÔÃÕÇ", fontSize);
+  const height = referenceMetrics.ascent + referenceMetrics.descent + padding.top + padding.bottom;
+  const top = 629 - height / 2;
+  ctx.font = `${fontSize}px "Tusker Story", Impact, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  lines.forEach((text, index) => {
+    const y = top + index * (height + TITLE_LINE_GAP);
+    const metrics = getTitleGlyphMetrics(text, fontSize);
+    if (index === 0) {
+      const width = measureTrackedText(text, fontSize, tracking) + padding.left + padding.right;
+      ctx.fillStyle = HIGHLIGHT_COLORS.yellow;
+      ctx.fillRect((1080 - width) / 2, y, width, height);
+    }
+    ctx.fillStyle = "#fff";
+    drawTrackedText(ctx, text, 540, y + height / 2 + (metrics.ascent - metrics.descent) / 2, tracking);
+  });
+  const symbols = state.informativeSymbols;
+  if (symbols) ctx.drawImage(symbols, 355, 754, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  ctx.restore();
 }

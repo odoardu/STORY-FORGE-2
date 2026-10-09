@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    
     <main class="experience-shell" data-format="feed">
+      <button type="button" class="mobile-sheet-backdrop" id="mobileSheetBackdrop" aria-label="Fechar ajustes"></button>
       <div class="ambient-scene" aria-hidden="true"></div>
 
       <header class="app-header" aria-label="Topo do editor">
@@ -19,7 +21,7 @@
           </span>
           <div>
             <strong>StoryForge</strong>
-            <span>Editor LPZ Zero</span>
+            <span>Estúdio LPZ</span>
           </div>
         </div>
 
@@ -31,6 +33,7 @@
         <div class="format-switch" role="group" aria-label="Modelo da publicação">
           <button class="format-option is-active" type="button" data-format="feed" aria-pressed="true">Feed</button>
           <button class="format-option" type="button" data-format="informative" aria-pressed="false">Informativo</button>
+          <button class="format-option" type="button" data-format="closing" aria-pressed="false">Encerramento</button>
         </div>
                 <div class="export-actions">
                   <button class="export-button" id="exportButton" type="button">
@@ -53,23 +56,9 @@
               </svg>
               <span>Imagem</span>
             </button>
-            <button class="dock-button" type="button" data-panel="borders" aria-controls="panel-borders" aria-selected="false">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
-              </svg>
-              <span>Tarjas</span>
-            </button>
 
 
           </nav>
-          <h2 class="sidebar-section-title">TEXTOS</h2>
-          <div class="text-shortcuts">
-            <button type="button" data-edit-text="kicker">Chapéu <span>↗</span></button>
-            <button type="button" data-edit-text="title">Título <span>↗</span></button>
-            <button type="button" data-edit-text="subtitle">Subtítulo <span>↗</span></button>
-            <button class="informative-only" type="button" data-edit-text="infoTitle">Título do informativo <span>↗</span></button>
-            <button class="informative-only" type="button" data-edit-text="infoBody">Texto do informativo <span>↗</span></button>
-          </div>
           <p class="sidebar-tip">Arraste a foto para enquadrar. Use a roda do mouse para ampliar.</p>
         </aside>
         <aside class="control-panel-shell is-open" aria-label="Controles do feed">
@@ -83,6 +72,10 @@
 
 
 
+          <div class="closing-controls">
+            <label class="upload-button" for="closingImageInput"><input id="closingImageInput" type="file" accept="image/*" /><span>Trocar imagem do encerramento</span></label>
+            <button class="soft-button" id="closingUseFeed" type="button">Usar imagem do Feed</button>
+          </div>
           <div class="dock-panel-stack">
             <section class="dock-panel is-active" id="panel-media" data-panel="media" aria-hidden="false">
               <div class="dock-panel-header">
@@ -90,6 +83,7 @@
                 <p>
                   <span class="story-only">Carregue o MP4 que fica no retangulo central.</span>
                   <span class="feed-only">Escolha a imagem de fundo do feed 1080 x 1350.</span>
+                  <span class="informative-only">O fundo usa a mesma imagem do Feed, com blur total e escurecimento. Envie outra imagem para a máscara.</span>
                 </p>
               </div>
 
@@ -144,6 +138,8 @@
                   <span>Selecionar imagem</span>
                 </label>
 
+
+
                 <button class="soft-button soft-button-wide feed-only" id="randomFeedImageButton" type="button">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M16 3h5v5M21 3l-7 7" />
@@ -171,6 +167,7 @@
                     <small id="feedImageSub">Você também pode enviar sua imagem.</small>
                   </div>
                 </div>
+
               </div>
 
 
@@ -237,7 +234,7 @@
         <section class="media-console" aria-label="Preview do feed">
           <div class="preview-toolbar">
             <div>
-              <strong>Sua arte</strong>
+              <strong>Sua arte</strong><button type="button" class="workspace-image-button" id="workspaceImageButton">Imagem de fundo</button><div class="mobile-only mobile-canvas-zoom"><button type="button" data-canvas-zoom="out" aria-label="Diminuir zoom da foto">−</button><span>Zoom</span><button type="button" data-canvas-zoom="in" aria-label="Ampliar foto">+</button></div>
               <span id="previewModeLabel" hidden></span>
             </div>
             <span id="previewRatioLabel" hidden>9:16</span>
@@ -247,10 +244,11 @@
             <div class="stage-host">
               <div class="stage-frame" id="stageFrame">
                 <div class="story-stage" id="storyStage" data-format="feed">
+                  <canvas id="closingPreview" width="1080" height="1350" aria-label="Prévia do encerramento"></canvas>
                   <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
                   <div class="feed-stage-content" id="feedLayer" aria-hidden="true">
                     <img class="feed-background" id="feedImage" alt="" />
-                    <div class="informative-image-window"><img class="informative-image" id="informativeImage" alt="" /></div>
+                    <div class="informative-image-window"><img class="informative-image" id="informativeImage" alt="" /><button type="button" class="informative-upload" id="informativeUploadButton" aria-label="Enviar ou trocar imagem do vetor">+</button><input id="informativeImageInput" type="file" accept="image/*" hidden /></div>
                     <div class="feed-blur-mask"><img class="feed-blur-copy" id="feedBlurImage" alt="" /></div>
                     <div class="feed-empty" id="feedEmpty">
                       <span>FEED</span>
@@ -264,6 +262,7 @@
                       <div class="feed-title-layer" id="feedTitleLayer"></div>
                       <div class="feed-subtitle" id="feedSubtitlePreview">AMOSTRA DE TEXTO SECUNDARIO</div>
                     </div>
+                    <img class="informative-symbols informative-only" src="./assets/informative-linkin-park-logos.png" alt="" />
                     <div class="informative-copy informative-only">
                       <div class="informative-title" id="informativeTitlePreview">TÍTULO DO POST AQUI</div>
                       <div class="informative-body" id="informativeBodyPreview">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</div>
@@ -372,7 +371,7 @@ DA SUA PUBLICAÇÃO</textarea>
                   <small class="field-hint">Selecione um trecho e clique com o botão direito para aplicar ou remover o negrito.</small>
                 </label></div>
       <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
-      <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label></div>
+      <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label><button class="mobile-only mobile-format" type="button" id="mobileInfoBold">Negrito na seleção</button></div>
     </section>
     <script src="./editor-core.js" defer></script>
     <script src="./app.js" defer></script>
