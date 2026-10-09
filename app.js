@@ -3790,8 +3790,8 @@ function drawClosingFrame(ctx) {
   const image = state.closingImage || state.feedImage || state.background;
   if (image) {
     ctx.save();
-    ctx.filter = "blur(19px) brightness(.82)";
-    drawImageCover(ctx, image, -30, -30, 1140, 1410);
+    ctx.filter = "blur(34px) saturate(.78) brightness(.76)";
+    drawImageCover(ctx, image, -70, -70, 1220, 1490);
     ctx.restore();
   }
   if (state.background) {
