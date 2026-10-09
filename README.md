@@ -7,8 +7,11 @@ Editor de artes de Feed para a LP Zero Brasil.
 - Envie uma imagem ou use a opção de imagem aleatória.
 - Arraste a imagem na arte para mover; use o scroll para alterar o zoom.
 - Clique no título, chapéu ou subtítulo para editar em uma bolha.
-- Selecione um trecho do subtítulo para acessar o negrito contextual.
-- Ajuste o layout e o logo e exporte em PNG.
+- Selecione um trecho do subtítulo e clique com o botão direito para aplicar ou remover o negrito.
+- Selecione trechos do título e clique com o botão direito para aplicar ou remover tarjas. O texto começa sem destaque.
+- A tipografia e as margens das tarjas são fixas, baseadas no Canva. Escolha a cor no Layout.
+- A imagem mantém a proporção original e só é recortada pela moldura; fotos maiores começam em seu tamanho original, e o arraste e o zoom impedem áreas vazias.
+- Ajuste o logo e exporte em PNG.
 
 ## Executar e validar
 
@@ -18,6 +21,7 @@ Requisito: Node.js 22 ou superior. Não há dependências de produção.
 node server.mjs
 npm run build
 node --check app.js
+node --test scripts/editor-core.test.mjs
 ```
 
 ## Estrutura
