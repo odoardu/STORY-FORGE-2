@@ -1,5 +1,17 @@
 # Histórico de mudanças
 
+## 09/10/2026 — Modelo informativo
+
+### Novidades
+- Adicionado o modelo informativo 1080 × 1350, alternável pelo seletor Feed / Informativo.
+- Foto principal com moldura recortada em vários lados, inspirada na referência do Canva.
+- Fundo criado com a mesma textura do editor e blur aplicado sobre toda a imagem, sem máscara apenas na parte inferior.
+- Título e texto informativo editáveis separadamente, usando Tusker para o título e Gotham para o corpo.
+- Exportação PNG do modelo informativo com nome próprio e preservação da API de geração de posts.
+
+### Observação
+- A interface mobile continua temporária e o novo modelo será refinado com os testes visuais do Canva.
+
 ## 09/10/2026 — Interface mobile temporária
 
 ### Interface

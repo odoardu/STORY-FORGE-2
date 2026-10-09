@@ -1968,6 +1968,40 @@ progress::-moz-progress-bar {
 .content-sidebar, .control-panel-shell, .media-console, .editor-status, .editor-status .status-line { min-width: 0; }
 .editor-status progress { flex-shrink: 0; }
 
+/* Modelo informativo: foto recortada, fundo com blur integral e bloco editorial. */
+.informative-only { display: none !important; }
+.experience-shell[data-format="informative"] .feed-only,
+.experience-shell[data-format="informative"] .story-only { display: none !important; }
+.experience-shell[data-format="informative"] .informative-only { display: block !important; }
+.experience-shell[data-format="informative"] .text-shortcuts .informative-only { display: flex !important; }
+.experience-shell[data-format="informative"] .story-stage { background: #080808; }
+.experience-shell[data-format="informative"] .feed-stage-content { display: block; }
+.story-stage[data-format="informative"] .texture-base,
+.story-stage[data-format="informative"] .video-slot,
+.story-stage[data-format="informative"] .title-layer { display: none; }
+.experience-shell[data-format="informative"] .feed-copy { display: none; }
+.experience-shell[data-format="informative"] .feed-background { display: block; opacity: .12; filter: contrast(1.04) saturate(1.04) brightness(.72) blur(19px); }
+.experience-shell[data-format="informative"] .feed-blur-mask { display: block; opacity: .9; mask-image: none; -webkit-mask-image: none; }
+.experience-shell[data-format="informative"] .feed-blur-copy { display: block; opacity: .9; filter: blur(19px) contrast(1.04) saturate(1.04) brightness(.65); mask-image: none; -webkit-mask-image: none; }
+.experience-shell[data-format="informative"] .feed-blur-gradient { display: none; }
+.experience-shell[data-format="informative"] .feed-vignette { background: rgba(0,0,0,.2); z-index: 3; }
+.informative-image-window { position: absolute; left: 92px; top: 76px; width: 896px; height: 426px; z-index: 5; overflow: hidden; clip-path: polygon(3.2% 0, 96.8% 0, 100% 6.6%, 100% 93.4%, 96.8% 100%, 3.2% 100%, 0 93.4%, 0 6.6%); background: #111; }
+.informative-image { position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; transform: translate(-50%,-50%) translate(var(--pan-x,0),var(--pan-y,0)) scale(var(--zoom,1)); transform-origin: center; filter: contrast(1.06) saturate(1.04) brightness(.88); user-select: none; pointer-events: none; }
+.informative-copy { position: absolute; inset: 0; z-index: 6; color: #fff; pointer-events: auto; }
+.informative-title { position: absolute; left: 92px; top: 558px; width: 896px; color: #fff; font-family: "Tusker Story", Impact, sans-serif; font-size: 43px; line-height: 52px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+.informative-body { position: absolute; left: 92px; top: 646px; width: 860px; color: #fff; font-family: Gotham, Montserrat, sans-serif; font-size: 24px; line-height: 31px; letter-spacing: .15px; white-space: normal; cursor: pointer; }
+.experience-shell[data-format="informative"] .logo-layer { z-index: 7; }
+.experience-shell[data-format="informative"] #pngExportButton { display: none; }
+.format-switch { display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid #3b3b3b; border-radius: 5px; background: #202020; }
+.format-option { border: 0; border-radius: 3px; padding: 7px 11px; color: #aaa; background: transparent; font: 600 11px Gotham, sans-serif; cursor: pointer; }
+.format-option.is-active { background: #e5c649; color: #161616; }
+.format-option:hover { color: #fff; }
+.experience-shell[data-format="informative"] .format-option[data-format="informative"] { color: #161616; }
+.experience-shell[data-format="informative"] .format-option[data-format="feed"] { color: #aaa; background: transparent; }
+.experience-shell[data-format="informative"] .text-edit-popover .informative-only { display: block !important; }
+.text-edit-popover [data-text-editor="infoTitleInput"] .informative-only,
+.text-edit-popover [data-text-editor="infoBodyInput"] .informative-only { display: block !important; }
+
 /* Feed editor: one navigation and direct manipulation. */
 [hidden] { display: none !important; }
 .story-only { display: none !important; }

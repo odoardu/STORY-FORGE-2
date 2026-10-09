@@ -64,6 +64,16 @@ const FEED = {
   },
 };
 
+const INFORMATIVE = {
+  width: 1080,
+  height: 1350,
+  ratio: "4:5",
+  image: { x: 92, y: 76, width: 896, height: 426 },
+  title: { x: 92, y: 558, width: 896, fontSize: 43, lineHeight: 52 },
+  body: { x: 92, y: 646, width: 860, fontSize: 24, lineHeight: 31 },
+  logo: { width: 160, x: 0, y: 1182, opacity: 100 },
+};
+
 // Canva displays point sizes and letter spacing in thousandths of an em.
 // Keep the reference values fixed; convert once for preview and PNG.
 const CANVA_TYPE_DEFAULTS = {
@@ -95,6 +105,13 @@ const FORMATS = {
     height: FEED.height,
     ratio: "4:5",
     name: "Feed vertical",
+    size: "1080 x 1350",
+  },
+  informative: {
+    width: INFORMATIVE.width,
+    height: INFORMATIVE.height,
+    ratio: INFORMATIVE.ratio,
+    name: "Modelo informativo",
     size: "1080 x 1350",
   },
 };
@@ -214,6 +231,11 @@ const elements = {
   feedKickerPreview: document.getElementById("feedKickerPreview"),
   feedTitleLayer: document.getElementById("feedTitleLayer"),
   feedSubtitlePreview: document.getElementById("feedSubtitlePreview"),
+  informativeImage: document.getElementById("informativeImage"),
+  informativeTitlePreview: document.getElementById("informativeTitlePreview"),
+  informativeBodyPreview: document.getElementById("informativeBodyPreview"),
+  infoTitleInput: document.getElementById("infoTitleInput"),
+  infoBodyInput: document.getElementById("infoBodyInput"),
   titleInput: document.getElementById("titleInput"),
   titleLayer: document.getElementById("titleLayer"),
   titleFontSizeInput: document.getElementById("titleFontSizeInput"),
@@ -275,6 +297,8 @@ const state = {
   feedTextureSoftLightUrl: "",
   feedTextureSoftLightImage: null,
   feedTitleStrips: [],
+  infoTitle: "TÍTULO DO POST AQUI",
+  infoBody: "Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.",
   zoom: 1,
   panX: 0,
   panY: 0,
@@ -312,6 +336,7 @@ const state = {
   logoSettings: {
     story: { width: 220, x: 0, y: 1710, opacity: 100 },
     feed: { width: FEED.logo.width, x: FEED.logo.x, y: FEED.logo.y, opacity: FEED.logo.opacity },
+    informative: { width: INFORMATIVE.logo.width, x: INFORMATIVE.logo.x, y: INFORMATIVE.logo.y, opacity: INFORMATIVE.logo.opacity },
   },
   titleHighlightColor: "yellow",
   activeDockPanel: "media",
@@ -545,7 +570,7 @@ function saveLogoSettingsForCurrentFormat() {
 }
 
 function applyLogoSettingsForFormat(format) {
-  const settings = state.logoSettings[format] || STORY.logo;
+  const settings = state.logoSettings[format] || (format === "informative" ? INFORMATIVE.logo : STORY.logo);
   state.logoWidth = settings.width;
   state.logoX = settings.x;
   state.logoY = settings.y;
@@ -557,11 +582,12 @@ function applyLogoSettingsForFormat(format) {
 function configureLogoRange(format = state.format) {
   if (!elements.logoYInput) return;
 
-  if (format === "feed") {
-    setRangeConfig(elements.logoWidthInput, { min: 120, max: 420, defaultValue: FEED.logo.width, step: 1 });
-    setRangeConfig(elements.logoXInput, { min: -280, max: 280, defaultValue: FEED.logo.x, step: 1 });
-    setRangeConfig(elements.logoYInput, { min: 1040, max: 1280, defaultValue: FEED.logo.y, step: 1 });
-    setRangeConfig(elements.logoOpacityInput, { min: 10, max: 100, defaultValue: FEED.logo.opacity, step: 1 });
+  if (format === "feed" || format === "informative") {
+    const logo = format === "informative" ? INFORMATIVE.logo : FEED.logo;
+    setRangeConfig(elements.logoWidthInput, { min: 120, max: 420, defaultValue: logo.width, step: 1 });
+    setRangeConfig(elements.logoXInput, { min: -280, max: 280, defaultValue: logo.x, step: 1 });
+    setRangeConfig(elements.logoYInput, { min: 1040, max: 1280, defaultValue: logo.y, step: 1 });
+    setRangeConfig(elements.logoOpacityInput, { min: 10, max: 100, defaultValue: logo.opacity, step: 1 });
   } else {
     setRangeConfig(elements.logoWidthInput, { min: 120, max: 420, defaultValue: STORY.logo.width, step: 1 });
     setRangeConfig(elements.logoXInput, { min: -280, max: 280, defaultValue: STORY.logo.x, step: 1 });
@@ -718,11 +744,11 @@ function bindEvents() {
   bindSubtitleContextBold();
   bindTextEditPopover();
   elements.stage.addEventListener("click", (event) => {
-    const target = (state.previewClickTarget || event.target).closest(".logo-layer, .headline-strip, .feed-title-layer, .feed-subtitle, .feed-kicker");
+    const target = (state.previewClickTarget || event.target).closest(".logo-layer, .headline-strip, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body");
     state.previewClickTarget = null;
-    const selection = target?.matches(".logo-layer") ? "logo" : target?.matches(".feed-subtitle") ? "subtitle" : target?.matches(".feed-kicker") ? "kicker" : target ? "title" : "media";
+    const selection = target?.matches(".logo-layer") ? "logo" : target?.matches(".feed-subtitle") ? "subtitle" : target?.matches(".feed-kicker") ? "kicker" : target?.matches(".informative-title") ? "infoTitle" : target?.matches(".informative-body") ? "infoBody" : target ? "title" : "media";
     if (selection === "logo") return;
-    if (["title", "subtitle", "kicker"].includes(selection)) {
+    if (["title", "subtitle", "kicker", "infoTitle", "infoBody"].includes(selection)) {
       selectPreviewElement(selection);
       openTextEditPopover(selection, event);
     } else {
@@ -775,6 +801,8 @@ function bindEvents() {
   elements.feedImageInput?.addEventListener("change", handleFeedImageUpload);
   elements.randomFeedImageButton?.addEventListener("click", () => loadRandomFeedImage());
   elements.feedKickerInput?.addEventListener("input", updateFeedText);
+  elements.infoTitleInput?.addEventListener("input", () => { state.infoTitle = elements.infoTitleInput.value; updateInformativeText(); });
+  elements.infoBodyInput?.addEventListener("input", () => { state.infoBody = elements.infoBodyInput.value; updateInformativeText(); });
   document.querySelectorAll("[data-edit-text]").forEach(button => {
     button.addEventListener("click", () => {
       const selection = button.dataset.editText;
@@ -936,7 +964,7 @@ function togglePreviewMute() {
 }
 
 function applyFormat(format, options = {}) {
-  if (format !== "feed") return;
+  if (!FORMATS[format]) return;
 
   if (format === state.format && !options.keepPanel) {
     elements.formatButtons.forEach((button) => {
@@ -971,11 +999,14 @@ function applyFormat(format, options = {}) {
   elements.previewModeLabel.textContent = "";
   selectPreviewElement(state.activeDockPanel || "media");
 
-  elements.exportLabel.textContent = format === "feed" ? "Exportar PNG" : state.exportExt === "mp4" ? "Salvar MP4" : "Salvar WEBM";
-  elements.pngExportButton.querySelector("span").textContent = format === "feed" ? "Salvar PNG" : "Exportar PNG";
+  elements.exportLabel.textContent = format === "story" ? (state.exportExt === "mp4" ? "Salvar MP4" : "Salvar WEBM") : "Exportar PNG";
+  elements.pngExportButton.querySelector("span").textContent = format === "story" ? "Exportar PNG" : "Salvar PNG";
 
   if (format === "feed") {
     elements.trackTitle.textContent = state.feedImageName || "Feed 1080 x 1350";
+    elements.trackSub.textContent = state.feedImage ? "Imagem pronta" : "Imagem aleatoria temporaria";
+  } else if (format === "informative") {
+    elements.trackTitle.textContent = "Modelo informativo";
     elements.trackSub.textContent = state.feedImage ? "Imagem pronta" : "Imagem aleatoria temporaria";
   } else {
     elements.trackTitle.textContent = state.videoName || "Sem arquivo";
@@ -985,6 +1016,7 @@ function applyFormat(format, options = {}) {
   updateStageScale();
   updateText();
   updateFeedText();
+  updateInformativeText();
   updateMediaTransform();
   updateLogoTransform();
   requestAnimationFrame(updateControlPanelFade);
@@ -1081,13 +1113,14 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
     state.panY = 0;
     updateMediaTransform();
     elements.feedImage.src = url;
+    if (elements.informativeImage) elements.informativeImage.src = url;
     if (elements.feedBlurImage) {
       elements.feedBlurImage.src = url;
     }
     elements.feedLayer.classList.add("has-image");
     elements.feedImageMain.textContent = state.feedImageName;
     elements.feedImageSub.textContent = meta || "Imagem do feed";
-    if (state.format === "feed") {
+    if (state.format === "feed" || state.format === "informative") {
       elements.trackTitle.textContent = state.feedImageName;
       elements.trackSub.textContent = meta || "Feed 1080 x 1350";
     }
@@ -1637,6 +1670,16 @@ function getTitleHighlightRects(layout, marks) {
   return rectangles;
 }
 
+function updateInformativeText() {
+  if (!elements.informativeTitlePreview) return;
+  const title = elements.infoTitleInput?.value ?? state.infoTitle;
+  const body = elements.infoBodyInput?.value ?? state.infoBody;
+  state.infoTitle = title;
+  state.infoBody = body;
+  elements.informativeTitlePreview.textContent = title || "TÍTULO DO POST AQUI";
+  elements.informativeBodyPreview.textContent = body || " ";
+}
+
 function getTitleGlyphMetrics(text, fontSize) {
   const key = `${fontSize}:${text || " "}`;
   if (getTitleGlyphMetrics.cache.has(key)) return getTitleGlyphMetrics.cache.get(key);
@@ -1973,13 +2016,14 @@ function animateTitleStripIn(strip) {
 }
 
 function updateMediaTransform() {
-  const mediaBox = state.format === "feed" ? FEED : STORY.video;
-  if (state.format === "feed" && state.feedImage) {
+  const mediaBox = ["feed", "informative"].includes(state.format) ? FEED : STORY.video;
+  if (["feed", "informative"].includes(state.format) && state.feedImage) {
     const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, FEED.width, FEED.height, state.zoom, state.panX / 100 * FEED.width, state.panY / 100 * FEED.height);
     state.zoom = geometry.zoom;
     state.panX = geometry.panX / FEED.width * 100;
     state.panY = geometry.panY / FEED.height * 100;
-    [elements.feedImage, elements.feedBlurImage].forEach(image => {
+    [elements.feedImage, elements.feedBlurImage, elements.informativeImage].forEach(image => {
+      if (!image) return;
       image.style.width = `${geometry.baseWidth}px`;
       image.style.height = `${geometry.baseHeight}px`;
     });
@@ -1995,6 +2039,9 @@ function updateMediaTransform() {
   elements.feedBlurImage?.style.setProperty("--zoom", state.zoom);
   elements.feedBlurImage?.style.setProperty("--pan-x", `${x}px`);
   elements.feedBlurImage?.style.setProperty("--pan-y", `${y}px`);
+  elements.informativeImage?.style.setProperty("--zoom", state.zoom);
+  elements.informativeImage?.style.setProperty("--pan-x", `${x}px`);
+  elements.informativeImage?.style.setProperty("--pan-y", `${y}px`);
   updateRangeOutput(elements.zoomInput, elements.zoomValue);
   updateRangeOutput(elements.panXInput, elements.panXValue);
   updateRangeOutput(elements.panYInput, elements.panYValue);
@@ -2305,7 +2352,7 @@ function updatePlaybackIcons() {
 }
 
 async function exportPrimary() {
-  if (state.format === "feed") {
+  if (["feed", "informative"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2314,7 +2361,7 @@ async function exportPrimary() {
 }
 
 async function exportCurrentPng() {
-  if (state.format === "feed") {
+  if (["feed", "informative"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2436,10 +2483,12 @@ async function exportFeedPng() {
 
   try {
     updateFeedText();
-    drawFeedFrame(renderContext);
+    updateInformativeText();
+    if (state.format === "informative") drawInformativeFrame(renderContext);
+    else drawFeedFrame(renderContext);
     const blob = await canvasToBlob(elements.canvas, "image/png");
     const saved = await downloadExport(blob, makeFeedExportName());
-    setStatus(`PNG do feed — download iniciado: ${saved.fileName}`);
+    setStatus(`${state.format === "informative" ? "PNG informativo" : "PNG do feed"} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui gerar o PNG do feed");
@@ -2480,8 +2529,9 @@ function renderUntilEnd(video, duration) {
 }
 
 function drawFrame(video) {
-  if (state.format === "feed") {
-    drawFeedFrame(renderContext);
+  if (["feed", "informative"].includes(state.format)) {
+    if (state.format === "informative") drawInformativeFrame(renderContext);
+    else drawFeedFrame(renderContext);
     return;
   }
 
@@ -3269,7 +3319,7 @@ function makeFeedExportName() {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
-  return `${base || "feed"}-lpz-zero-feed.png`;
+  return `${base || "feed"}-lpz-zero-${state.format === "informative" ? "informativo" : "feed"}.png`;
 }
 
 function makeExportBaseName() {
@@ -3297,11 +3347,13 @@ function setStatus(message) {
 function selectPreviewElement(selection) {
   elements.stage.querySelectorAll(".is-selected").forEach(node => node.classList.remove("is-selected"));
   const selectors = {
-    media: state.format === "feed" ? "#feedImage" : "#videoSlot",
-    title: state.format === "feed" ? "#feedTitleLayer" : "#titleLayer .headline-strip",
-    text: state.format === "feed" ? "#feedTitleLayer" : "#titleLayer .headline-strip",
+    media: ["feed", "informative"].includes(state.format) ? "#feedImage" : "#videoSlot",
+    title: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeTitlePreview" : "#titleLayer .headline-strip",
+    text: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeBodyPreview" : "#titleLayer .headline-strip",
     subtitle: "#feedSubtitlePreview",
     kicker: "#feedKickerPreview",
+    infoTitle: "#informativeTitlePreview",
+    infoBody: "#informativeBodyPreview",
     logo: "#logoLayer",
   };
   if (selectors[selection]) elements.stage.querySelectorAll(selectors[selection]).forEach(node => node.classList.add("is-selected"));
@@ -3339,7 +3391,7 @@ function bindDirectImageControls() {
   const stage = elements.stage;
   let drag = null;
   let moved = false;
-  const isImageTarget = (target) => !target.closest("button, input, textarea, [contenteditable=true]");
+  const isImageTarget = (target) => !target.closest("button, input, textarea, [contenteditable=true], .informative-title, .informative-body, .feed-title-layer, .feed-subtitle, .feed-kicker, .logo-layer");
   const sync = () => {
     updateMediaTransform();
   };
@@ -3399,7 +3451,7 @@ function bindTextEditPopover() {
   const popover = document.getElementById("textEditPopover");
   document.getElementById("closeTextEditPopover").addEventListener("click", closeTextEditPopover);
   document.addEventListener("pointerdown", (event) => {
-    if (popover.hidden || popover.contains(event.target) || event.target.closest(".feed-title-layer, .feed-kicker, .feed-subtitle, [data-edit-text]")) return;
+    if (popover.hidden || popover.contains(event.target) || event.target.closest(".feed-title-layer, .feed-kicker, .feed-subtitle, .informative-title, .informative-body, [data-edit-text]")) return;
     closeTextEditPopover();
   });
   document.addEventListener("keydown", (event) => {
@@ -3444,11 +3496,69 @@ function bindTextEditPopover() {
     applyFeedSubtitleWeight(allBold ? "regular" : "bold");
   });
 }
+
+function drawInformativeFrame(ctx) {
+  ctx.save();
+  ctx.fillStyle = "#07070a";
+  ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+  if (state.feedImage) {
+    ctx.filter = "contrast(1.04) saturate(1.04) brightness(0.72) blur(19px)";
+    drawImageCoverTransformed(ctx, state.feedImage, 0, 0, INFORMATIVE.width, INFORMATIVE.height, state.zoom, (state.panX / 100) * INFORMATIVE.width, (state.panY / 100) * INFORMATIVE.height);
+    ctx.filter = "none";
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+  } else if (state.background) {
+    ctx.filter = "contrast(1.08) brightness(0.62) blur(12px)";
+    drawImageCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height);
+    ctx.filter = "none";
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(INFORMATIVE.image.x + 28, INFORMATIVE.image.y);
+  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width - 28, INFORMATIVE.image.y);
+  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width, INFORMATIVE.image.y + 28);
+  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width, INFORMATIVE.image.y + INFORMATIVE.image.height - 28);
+  ctx.lineTo(INFORMATIVE.image.x + INFORMATIVE.image.width - 28, INFORMATIVE.image.y + INFORMATIVE.image.height);
+  ctx.lineTo(INFORMATIVE.image.x + 28, INFORMATIVE.image.y + INFORMATIVE.image.height);
+  ctx.lineTo(INFORMATIVE.image.x, INFORMATIVE.image.y + INFORMATIVE.image.height - 28);
+  ctx.lineTo(INFORMATIVE.image.x, INFORMATIVE.image.y + 28);
+  ctx.closePath();
+  ctx.clip();
+  drawImageCoverTransformed(ctx, state.feedImage || state.background, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.zoom, (state.panX / 100) * INFORMATIVE.width, (state.panY / 100) * INFORMATIVE.height);
+  ctx.restore();
+  drawFeedTextures(ctx);
+  drawInformativeCopy(ctx);
+  drawLogo(ctx);
+  ctx.restore();
+}
+
+function drawInformativeCopy(ctx) {
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = `43px "Tusker Story", Impact, sans-serif`;
+  ctx.fillText(state.infoTitle || "TÍTULO DO POST AQUI", INFORMATIVE.title.x, INFORMATIVE.title.y);
+  ctx.font = `400 ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`;
+  const words = String(state.infoBody || "").split(/\s+/);
+  let line = "";
+  let y = INFORMATIVE.body.y;
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width > INFORMATIVE.body.width && line) {
+      ctx.fillText(line, INFORMATIVE.body.x, y);
+      line = word;
+      y += INFORMATIVE.body.lineHeight;
+    } else line = candidate;
+  });
+  if (line) ctx.fillText(line, INFORMATIVE.body.x, y);
+  ctx.restore();
+}
 function openTextEditPopover(selection, event) {
   document.body.classList.remove("mobile-controls-open");
   const popover = document.getElementById("textEditPopover");
-  const fieldIds = { title: "titleInput", kicker: "feedKickerInput", subtitle: "feedSubtitleInput" };
-  const titles = { title: "Título", kicker: "Chapéu", subtitle: "Subtítulo" };
+  const fieldIds = { title: "titleInput", kicker: "feedKickerInput", subtitle: "feedSubtitleInput", infoTitle: "infoTitleInput", infoBody: "infoBodyInput" };
+  const titles = { title: "Título", kicker: "Chapéu", subtitle: "Subtítulo", infoTitle: "Título do informativo", infoBody: "Texto do informativo" };
   const field = document.getElementById(fieldIds[selection]);
   if (!field) return;
   document.getElementById("textEditHeading").textContent = titles[selection];

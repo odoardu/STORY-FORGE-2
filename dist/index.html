@@ -28,6 +28,10 @@
           <span id="formatSizeLabel">1080 x 1350</span>
           <span id="formatNameLabel">Feed vertical</span>
         </div>
+        <div class="format-switch" role="group" aria-label="Modelo da publicação">
+          <button class="format-option is-active" type="button" data-format="feed" aria-pressed="true">Feed</button>
+          <button class="format-option" type="button" data-format="informative" aria-pressed="false">Informativo</button>
+        </div>
                 <div class="export-actions">
                   <button class="export-button" id="exportButton" type="button">
                     <span id="exportLabel">Exportar PNG</span>
@@ -63,6 +67,8 @@
             <button type="button" data-edit-text="kicker">Chapéu <span>↗</span></button>
             <button type="button" data-edit-text="title">Título <span>↗</span></button>
             <button type="button" data-edit-text="subtitle">Subtítulo <span>↗</span></button>
+            <button class="informative-only" type="button" data-edit-text="infoTitle">Título do informativo <span>↗</span></button>
+            <button class="informative-only" type="button" data-edit-text="infoBody">Texto do informativo <span>↗</span></button>
           </div>
           <p class="sidebar-tip">Arraste a foto para enquadrar. Use a roda do mouse para ampliar.</p>
         </aside>
@@ -244,6 +250,7 @@
                   <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
                   <div class="feed-stage-content" id="feedLayer" aria-hidden="true">
                     <img class="feed-background" id="feedImage" alt="" />
+                    <div class="informative-image-window"><img class="informative-image" id="informativeImage" alt="" /></div>
                     <div class="feed-blur-mask"><img class="feed-blur-copy" id="feedBlurImage" alt="" /></div>
                     <div class="feed-empty" id="feedEmpty">
                       <span>FEED</span>
@@ -256,6 +263,10 @@
                       <div class="feed-kicker" id="feedKickerPreview">CHAPEU</div>
                       <div class="feed-title-layer" id="feedTitleLayer"></div>
                       <div class="feed-subtitle" id="feedSubtitlePreview">AMOSTRA DE TEXTO SECUNDARIO</div>
+                    </div>
+                    <div class="informative-copy informative-only">
+                      <div class="informative-title" id="informativeTitlePreview">TÍTULO DO POST AQUI</div>
+                      <div class="informative-body" id="informativeBodyPreview">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</div>
                     </div>
                   </div>
                   <div class="video-slot" id="videoSlot">
@@ -360,6 +371,8 @@ DA SUA PUBLICAÇÃO</textarea>
                   <button class="mobile-only mobile-format" id="mobileSubtitleBold" type="button">Aplicar / remover negrito na seleção</button>
                   <small class="field-hint">Selecione um trecho e clique com o botão direito para aplicar ou remover o negrito.</small>
                 </label></div>
+      <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
+      <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label></div>
     </section>
     <script src="./editor-core.js" defer></script>
     <script src="./app.js" defer></script>
