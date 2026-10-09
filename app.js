@@ -85,7 +85,7 @@ const CANVA_TYPE_DEFAULTS = {
 const feedTypography = Object.freeze(Object.fromEntries(Object.entries(CANVA_TYPE_DEFAULTS).map(([role, values]) => [role, Object.freeze({ ...values })])));
 // Shared highlight insets in output pixels for Feed and Closing.
 // Vertical insets are reduced equally; color never affects geometry.
-const TITLE_LINE_GAP = 4.5968;
+const TITLE_LINE_GAP = FEED.title.rowGap;
 const TITLE_HIGHLIGHT_PADDING = Object.freeze({ left: 10, right: 10, top: 5.46, bottom: 5.46 });
 
 function getFeedTypography(role) {
@@ -1711,6 +1711,12 @@ function getFeedTitleLayouts(fittedFontSize) {
       offset = start + text.length;
     });
   });
+  // A multiline title must share one font size. If only the longest line
+  // shrinks, its glyph box changes and the perceived line spacing breaks.
+  const uniformFontSize = Math.min(...layouts.map(layout => layout.fontSize));
+  if (layouts.length > 1 && uniformFontSize < fontSize) {
+    return getFeedTitleLayouts(uniformFontSize);
+  }
   const padding = getTitlePadding();
   const referenceMetrics = getTitleGlyphMetrics("ÁÉÍÓÚÂÊÔÃÕÇ", fontSize);
   const commonHeight = referenceMetrics.ascent + referenceMetrics.descent + padding.top + padding.bottom;
@@ -1744,10 +1750,12 @@ function getTitleHighlightRects(layout, marks) {
     const selectedText = layout.text.slice(start, end);
     const width = measureTrackedText(selectedText, layout.fontSize, layout.tracking) * layout.scaleX;
     rectangles.push({
-      x: left + offset * layout.scaleX - padding.left,
-      y: layout.y,
-      width: width + padding.left + padding.right,
-      height: layout.height,
+      // Round every edge so each highlight keeps the exact same bleed in
+      // preview and export instead of accumulating fractional-pixel drift.
+      x: Math.round(left + offset * layout.scaleX - padding.left),
+      y: Math.round(layout.y),
+      width: Math.round(width + padding.left + padding.right),
+      height: Math.round(layout.height),
     });
     start = end;
   }

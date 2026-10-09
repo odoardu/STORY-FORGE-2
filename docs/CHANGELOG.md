@@ -1,5 +1,12 @@
 # Histórico de mudanças
 
+## v0.4.1 — 09/10/2026
+
+### Correções
+- Padronizada a sangria horizontal e vertical das tarjas em todas as linhas.
+- A geometria das tarjas não depende mais de acentos, cedilhas ou da primeira letra do trecho.
+- Prévia e exportação PNG usam a mesma medida fixa para cada tarja.
+
 ## v0.4.0 — 09/10/2026
 
 ### Novidades
