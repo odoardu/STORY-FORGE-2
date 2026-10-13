@@ -17,6 +17,7 @@ const mime = new Map([
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
+  [".webmanifest", "application/manifest+json; charset=utf-8"],
   [".png", "image/png"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
@@ -190,31 +191,11 @@ async function listTextures(res) {
 
 async function randomFeedImage(req, res) {
   try {
-    const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
-    const seed = (requestUrl.searchParams.get("seed") || String(Date.now())).slice(0, 200);
-    const imageUrl = `https://picsum.photos/1080/1350?random=${encodeURIComponent(seed)}`;
-    const response = await fetch(imageUrl, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Imagem externa respondeu ${response.status}`);
-    }
-
-    const body = Buffer.from(await response.arrayBuffer());
-    res.writeHead(200, {
-      "content-type": response.headers.get("content-type") || "image/jpeg",
-      "content-length": body.length,
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff",
-      "x-frame-options": "SAMEORIGIN",
-      "referrer-policy": "strict-origin-when-cross-origin",
-    });
-    res.end(body);
-  } catch (error) {
-    sendJson(res, 502, { ok: false, error: error.message || "Erro ao buscar imagem aleatoria" });
-  }
+    const photos = JSON.parse(await readFile(join(root, "assets/linkin-park/photos.json"), "utf8"));
+    const photo = photos[Math.floor(Math.random() * photos.length)];
+    res.writeHead(302, { location: photo.path, "cache-control": "no-store" });
+    res.end();
+  } catch { sendJson(res, 503, { ok: false, error: "Acervo local indisponível" }); }
 }
 
 const server = createServer(async (req, res) => {

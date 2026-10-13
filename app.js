@@ -95,6 +95,7 @@ function getFeedTypography(role) {
 }
 
 const FORMATS = {
+  stories: { width: 1080, height: 1920, ratio: "9:16", name: "Stories vertical", size: "1080 x 1920" },
   closing: { width: 1080, height: 1350, ratio: "4:5", name: "Encerramento", size: "1080 x 1350" },
   story: {
     width: STORY.width,
@@ -205,7 +206,7 @@ const elements = {
   previewRatioLabel: document.getElementById("previewRatioLabel"),
   formatNameLabel: document.getElementById("formatNameLabel"),
   formatSizeLabel: document.getElementById("formatSizeLabel"),
-  formatButtons: Array.from(document.querySelectorAll(".format-option")),
+  formatButtons: Array.from(document.querySelectorAll(".format-option[data-format]")),
   slot: document.getElementById("videoSlot"),
   video: document.getElementById("previewVideo"),
   emptyMedia: document.getElementById("emptyMedia"),
@@ -348,6 +349,7 @@ const state = {
   logoY: FEED.logo.y,
   logoOpacity: 100,
   logoSettings: {
+    stories: { width: 210, x: 0, y: 1700, opacity: 100 },
     story: { width: 220, x: 0, y: 1710, opacity: 100 },
     feed: { width: FEED.logo.width, x: FEED.logo.x, y: FEED.logo.y, opacity: FEED.logo.opacity },
     informative: { width: INFORMATIVE.logo.width, x: INFORMATIVE.logo.x, y: INFORMATIVE.logo.y, opacity: INFORMATIVE.logo.opacity },
@@ -355,6 +357,112 @@ const state = {
   titleHighlightColor: "yellow",
   activeDockPanel: "media",
 };
+
+const MAX_INFORMATIVE_PAGES = 5;
+const informativePageKeys = ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoImageName", "infoImageObjectUrl", "infoImage", "infoZoom", "infoPanX", "infoPanY"];
+const informativePageDefaults = Object.fromEntries(informativePageKeys.map(key => [key, state[key]]));
+function createInformativePage() {
+  return { ...informativePageDefaults, infoBodyBold: [] };
+}
+state.informativePages = [createInformativePage()];
+state.activeInformativePage = 0;
+// Existing text, image and export controls always work on the selected page.
+for (const key of informativePageKeys) {
+  Object.defineProperty(state, key, {
+    enumerable: true,
+    get() { return state.informativePages[state.activeInformativePage][key]; },
+    set(value) { state.informativePages[state.activeInformativePage][key] = value; },
+  });
+}
+
+function renderInformativePageTabs() {
+  const host = elements.frame.closest(".stage-host");
+  const boards = document.getElementById("informativeArtboards");
+  const add = document.getElementById("addInformativePage");
+  host.append(elements.frame);
+  boards.replaceChildren();
+  if (state.format === "informative") {
+    const activeIndex = state.activeInformativePage;
+    state.informativePages.forEach((page, index) => {
+      const board = document.createElement("section");
+      board.className = `informative-artboard${index === activeIndex ? " is-active" : ""}`;
+      const label = document.createElement("button");
+      label.type = "button";
+      label.className = "artboard-label";
+      label.textContent = `Informativo ${index + 1}`;
+      label.setAttribute("aria-pressed", String(index === activeIndex));
+      label.addEventListener("click", () => selectInformativePage(index));
+      board.append(label);
+      if (index === activeIndex) {
+        board.append(elements.frame);
+      } else {
+        const preview = document.createElement("button");
+        preview.type = "button";
+        preview.className = "artboard-preview";
+        preview.setAttribute("aria-label", `Editar informativo ${index + 1}`);
+        const snapshot = elements.frame.cloneNode(true);
+        snapshot.classList.add("artboard-static");
+        snapshot.removeAttribute("id");
+        snapshot.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
+        snapshot.querySelectorAll("canvas, input, video").forEach(node => node.remove());
+        snapshot.querySelectorAll(".is-selected").forEach(node => node.classList.remove("is-selected"));
+        snapshot.querySelectorAll("button").forEach(node => {
+          const visual = document.createElement("span");
+          visual.className = node.className;
+          visual.textContent = node.textContent;
+          node.replaceWith(visual);
+        });
+        snapshot.querySelector(".informative-title").textContent = page.infoTitle || "TÍTULO DO POST AQUI";
+        const body = snapshot.querySelector(".informative-body");
+        try {
+          state.activeInformativePage = index;
+          body.replaceChildren(...getInformativeBodyRuns().map(run => {
+            const span = document.createElement(run.bold ? "strong" : "span");
+            span.textContent = run.text;
+            return span;
+          }));
+        } finally { state.activeInformativePage = activeIndex; }
+        const layer = snapshot.querySelector(".feed-stage-content");
+        layer.classList.toggle("has-informative-image", Boolean(page.infoImage));
+        const image = snapshot.querySelector(".informative-image");
+        if (page.infoImage) {
+          image.src = page.infoImageUrl;
+          const geometry = EditorCore.imageGeometry(page.infoImage.naturalWidth, page.infoImage.naturalHeight, INFORMATIVE.image.width, INFORMATIVE.image.height, page.infoZoom, page.infoPanX / 100 * INFORMATIVE.image.width, page.infoPanY / 100 * INFORMATIVE.image.height);
+          image.style.width = `${geometry.baseWidth}px`;
+          image.style.height = `${geometry.baseHeight}px`;
+          image.style.setProperty("--zoom", geometry.zoom);
+          image.style.setProperty("--pan-x", `${geometry.panX}px`);
+          image.style.setProperty("--pan-y", `${geometry.panY}px`);
+        } else image.removeAttribute("src");
+        preview.append(snapshot);
+        preview.addEventListener("click", () => selectInformativePage(index));
+        board.append(preview);
+      }
+      boards.append(board);
+    });
+    boards.append(add);
+  } else {
+    boards.append(add);
+  }
+  add.disabled = state.informativePages.length >= MAX_INFORMATIVE_PAGES;
+  add.title = add.disabled ? "Limite de 5 páginas atingido" : "Adicionar página informativa (máximo 5)";
+}
+
+function selectInformativePage(index) {
+  if (!state.informativePages[index]) return;
+  closeTextEditPopover();
+  state.activeInformativePage = index;
+  elements.infoTitleInput.value = state.infoTitle;
+  elements.infoBodyInput.value = state.infoBody;
+  elements.informativeImageInput.value = "";
+  if (state.infoImageUrl) elements.informativeImage.src = state.infoImageUrl;
+  else elements.informativeImage.removeAttribute("src");
+  elements.feedLayer.classList.toggle("has-informative-image", Boolean(state.infoImage));
+  if (elements.informativeImageMain) elements.informativeImageMain.textContent = state.infoImageName || "Enviar imagem";
+  if (elements.informativeImageSub) elements.informativeImageSub.textContent = state.infoImage ? "Imagem independente aplicada" : "Envie a imagem do bloco";
+  applyFormat("informative", { keepPanel: true });
+  requestAnimationFrame(() => document.querySelector(".informative-artboard.is-active")?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+}
 
 const HIGHLIGHT_COLORS = {
   yellow: "#dfc330",
@@ -412,6 +520,7 @@ async function init() {
   updateFeedText();
   updateMediaTransform();
   updateLogoTransform();
+  updateStoriesPreview();
   requestAnimationFrame(updateControlPanelFade);
 }
 
@@ -428,6 +537,7 @@ function syncFeedEffectControls() {
   updateEffectRangeOutput(elements.maskBlurInput, elements.maskBlurValue, "px");
   updateEffectRangeOutput(elements.blurGradientInput, elements.blurGradientValue, "%");
   updateFeedEffectStyles();
+  updateStoriesPreview();
 }
 
 function updateMaskLockState() {
@@ -759,7 +869,7 @@ function bindEvents() {
   document.querySelectorAll("[data-canvas-zoom]").forEach(button => button.addEventListener("click", () => {
     const factor = button.dataset.canvasZoom === "in" ? 1.15 : 1 / 1.15;
     if (state.format === "informative") state.infoZoom *= factor;
-    else if (state.format === "feed") state.zoom *= factor;
+    else if (["feed", "stories"].includes(state.format)) state.zoom *= factor;
     updateMediaTransform();
   }));
   const infoBoldButton = document.getElementById("mobileInfoBold");
@@ -775,6 +885,20 @@ function bindEvents() {
     setActiveDockPanel("media");
     elements.controlPanelShell.scrollTop = 0;
   });
+  document.getElementById("dockImage").addEventListener("click", () => {
+    document.body.classList.remove("mobile-dock-expanded");
+    document.getElementById("dockMore").setAttribute("aria-expanded", "false");
+    if (state.format === "informative") { elements.informativeImageInput.click(); return; }
+    if (state.format === "stories") { elements.feedImageInput.click(); return; }
+    closeTextEditPopover();
+    document.body.classList.toggle("mobile-controls-open");
+    document.getElementById("mobilePanelClose").focus({ preventScroll: true });
+  });
+  document.getElementById("dockMore").addEventListener("click", () => {
+    closeTextEditPopover();
+    const expanded = document.body.classList.toggle("mobile-dock-expanded");
+    document.getElementById("dockMore").setAttribute("aria-expanded", String(expanded));
+  });
   document.getElementById("closingImageInput").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
@@ -783,6 +907,7 @@ function bindEvents() {
       const image = await loadImage(url);
       state.closingImage = image;
       updateClosingPreview();
+    updateStoriesPreview();
       setStatus("Imagem do encerramento atualizada");
     } catch { setStatus("Não foi possível abrir essa imagem"); }
     finally { URL.revokeObjectURL(url); event.target.value = ""; }
@@ -790,6 +915,7 @@ function bindEvents() {
   document.getElementById("closingUseFeed").addEventListener("click", () => {
     state.closingImage = null;
     updateClosingPreview();
+    updateStoriesPreview();
     setStatus("Encerramento vinculado à imagem do Feed");
   });
   bindDirectImageControls();
@@ -846,8 +972,24 @@ function bindEvents() {
   }
 
   elements.formatButtons.forEach((button) => {
-    button.addEventListener("click", () => applyFormat(button.dataset.format));
+    button.addEventListener("click", () => {
+      document.body.classList.remove("mobile-dock-expanded");
+      document.getElementById("dockMore").setAttribute("aria-expanded", "false");
+      button.dataset.format === "informative" ? selectInformativePage(0) : applyFormat(button.dataset.format);
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const host = document.querySelector(".stage-host");
+        host.getAnimations().forEach(animation => animation.cancel());
+        host.animate([{ opacity: .5, transform: "scale(.985)" }, { opacity: 1, transform: "scale(1)" }], { duration: 280, easing: "cubic-bezier(.16,1,.3,1)" });
+      }
+    });
   });
+  document.getElementById("addInformativePage").addEventListener("click", () => {
+    if (state.informativePages.length >= MAX_INFORMATIVE_PAGES) return;
+    state.informativePages.push(createInformativePage());
+    selectInformativePage(state.informativePages.length - 1);
+    setStatus(`Página informativa ${state.informativePages.length} de ${MAX_INFORMATIVE_PAGES} adicionada`);
+  });
+  renderInformativePageTabs();
 
   elements.videoInput.addEventListener("change", handleVideoUpload);
   elements.feedImageInput?.addEventListener("change", handleFeedImageUpload);
@@ -883,7 +1025,11 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-edit-text]").forEach(button => {
     button.addEventListener("click", () => {
-      const selection = button.dataset.editText;
+      document.body.classList.remove("mobile-dock-expanded");
+      document.getElementById("dockMore").setAttribute("aria-expanded", "false");
+      const selection = state.format === "informative"
+        ? ({ title: "infoTitle", subtitle: "infoBody" }[button.dataset.editText] || button.dataset.editText)
+        : button.dataset.editText;
       const bounds = button.getBoundingClientRect();
       selectPreviewElement(selection);
       openTextEditPopover(selection, { clientX: bounds.right, clientY: bounds.top });
@@ -1050,6 +1196,7 @@ function applyFormat(format, options = {}) {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
     });
+    renderInformativePageTabs();
     return;
   }
 
@@ -1078,6 +1225,7 @@ function applyFormat(format, options = {}) {
   });
 
   elements.formatSizeLabel.textContent = spec.size;
+  renderInformativePageTabs();
   elements.formatNameLabel.textContent = spec.name;
   elements.previewRatioLabel.textContent = spec.ratio;
   elements.previewModeLabel.textContent = "";
@@ -1103,6 +1251,7 @@ function applyFormat(format, options = {}) {
   updateInformativeText();
   updateMediaTransform();
   updateLogoTransform();
+  updateStoriesPreview();
   requestAnimationFrame(updateControlPanelFade);
 }
 
@@ -1114,9 +1263,9 @@ function updateStageScale() {
   const stageHost = elements.frame.closest(".stage-host");
   const spec = getCurrentFormatSpec();
   const hostStyle = getComputedStyle(stageHost);
-  const availableWidth = Math.max(100, stageHost.clientWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight));
-  const availableHeight = Math.max(100, stageHost.clientHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom));
-  const scale = Math.min(availableWidth / spec.width, availableHeight / spec.height, 0.72);
+  const availableWidth = Math.max(100, stageHost.clientWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (state.format === "informative" ? 16 : 0));
+  const availableHeight = Math.max(100, stageHost.clientHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (state.format === "informative" ? 35 : 0));
+  const scale = Math.min(availableWidth / spec.width, availableHeight / spec.height, state.format === "informative" ? 0.44 : 0.72);
   const width = Math.ceil(spec.width * scale);
   const height = Math.ceil(spec.height * scale);
   stageHost.style.justifyContent = width > availableWidth ? "flex-start" : "center";
@@ -1126,6 +1275,13 @@ function updateStageScale() {
   elements.stage.style.marginLeft = "0";
   elements.frame.style.width = `${width}px`;
   elements.frame.style.height = `${height}px`;
+  stageHost.style.setProperty("--artboard-width", `${width}px`);
+  stageHost.style.setProperty("--artboard-height", `${height}px`);
+  document.querySelectorAll(".artboard-static").forEach(frame => {
+    frame.style.width = `${width}px`;
+    frame.style.height = `${height}px`;
+    frame.querySelector(".story-stage").style.transform = `scale(${scale})`;
+  });
 }
 
 function handleVideoUpload(event) {
@@ -1157,27 +1313,37 @@ function handleFeedImageUpload(event) {
 
   const url = URL.createObjectURL(file);
   applyFeedImage(url, file.name, formatFileSize(file.size), true);
-  applyFormat("feed");
+  if (state.format !== "stories") applyFormat("feed");
 }
 
 async function loadRandomFeedImage(options = {}) {
-  if (!elements.feedImage) return;
-
-  const seed = `${Date.now()}-${Math.round(Math.random() * 100000)}`;
-  const url = `/api/random-feed-image?seed=${encodeURIComponent(seed)}`;
-
+  if (!elements.feedImage || state.randomPhotoLoading) return;
+  state.randomPhotoLoading = true;
   try {
-    await applyFeedImage(url, "Foto de exemplo", "Envie sua foto para personalizar.", false);
-    if (!options.silent) {
-      applyFormat("feed");
-      setStatus("Foto de exemplo aplicada");
-    }
+    const response = await fetch("/assets/linkin-park/photos.json");
+    if (!response.ok) throw new Error("Acervo local indisponível");
+    const photos = await response.json();
+    const candidates = photos.filter(photo => photo.id !== state.randomPhotoId);
+    const pool = candidates.length ? candidates : photos;
+    const photo = pool[Math.floor(Math.random() * pool.length)];
+    if (!photo) throw new Error("Acervo vazio");
+    await applyFeedImage(photo.path, "Linkin Park — " + photo.id, `${photo.width} × ${photo.height} · ${photo.author}`, false);
+    state.randomPhotoId = photo.id;
+    state.zoom = 0;
+    state.panX = 0;
+    state.panY = 0;
+    updateMediaTransform();
+    updateStoriesPreview();
+    const credit = document.getElementById("photoCredit");
+    credit.hidden = false;
+    credit.href = photo.source;
+    credit.textContent = `Foto: ${photo.author} · ${photo.license}`;
+    credit.title = `${photo.title} — ${photo.width} × ${photo.height}. Foto sujeita a recorte e efeitos na arte.`;
+    if (!options.silent) setStatus("Foto do Linkin Park aplicada");
   } catch (error) {
-    console.warn("Nao consegui carregar imagem aleatoria", error);
-    if (!options.silent) {
-      setStatus("Não foi possível carregar a foto. Tente novamente ou envie uma imagem.");
-    }
-  }
+    console.warn("Não consegui carregar a foto do Linkin Park", error);
+    if (!options.silent) setStatus("Não foi possível carregar a foto. Tente novamente ou envie uma imagem.");
+  } finally { state.randomPhotoLoading = false; }
 }
 
 async function applyFeedImage(url, name, meta, isObjectUrl = false) {
@@ -1188,11 +1354,13 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
       URL.revokeObjectURL(state.feedImageObjectUrl);
     }
 
+    document.getElementById("photoCredit").hidden = true;
     state.feedImageUrl = url;
     state.feedImageName = name || "Imagem do feed";
     state.feedImageObjectUrl = isObjectUrl ? url : "";
     state.feedImage = image;
     updateClosingPreview();
+    updateStoriesPreview();
     state.zoom = 1;
     state.panX = 0;
     state.panY = 0;
@@ -1204,6 +1372,10 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
     elements.feedLayer.classList.add("has-image");
     elements.feedImageMain.textContent = state.feedImageName;
     elements.feedImageSub.textContent = meta || "Imagem do feed";
+    if (state.format === "informative") {
+      renderInformativePageTabs();
+      updateStageScale();
+    }
     if (state.format === "feed" || state.format === "informative") {
       elements.trackTitle.textContent = state.feedImageName;
       elements.trackSub.textContent = meta || "Feed 1080 x 1350";
@@ -1332,6 +1504,7 @@ function updateFeedText() {
   });
 
   trimFeedTitleStrips(layouts.length);
+  updateStoriesPreview();
 }
 
 function renderFeedSubtitlePreview(titleLayouts = getFeedTitleLayouts()) {
@@ -1727,7 +1900,9 @@ function getFeedTitleLayouts(fittedFontSize) {
   }
   const top = Math.min(FEED.title.top - 6.6, FEED.title.maxBottom - blockHeight);
   layouts.forEach((layout, index) => {
-    const metrics = getTitleGlyphMetrics(layout.text, layout.fontSize);
+    // Keep the CONHECA alignment for every line. Accents and cedillas must
+    // not move the text inside the highlight or change its perceived padding.
+    const metrics = getTitleGlyphMetrics("CONHECA", layout.fontSize);
     layout.y = top + index * (commonHeight + gap);
     layout.height = commonHeight;
     layout.baselineY = layout.y + commonHeight / 2 + (metrics.ascent - metrics.descent) / 2;
@@ -1773,16 +1948,24 @@ function handleInformativeImageUpload(event) {
 }
 
 async function applyInformativeImage(url, name, meta, isObjectUrl = false) {
+  const page = state.informativePages[state.activeInformativePage];
   try {
     const image = await loadImage(url);
-    if (state.infoImageObjectUrl && state.infoImageObjectUrl !== url) URL.revokeObjectURL(state.infoImageObjectUrl);
-    state.infoImageUrl = url;
-    state.infoImageName = name || "Imagem do bloco";
-    state.infoImageObjectUrl = isObjectUrl ? url : "";
-    state.infoImage = image;
-    state.infoZoom = 1;
-    state.infoPanX = 0;
-    state.infoPanY = 0;
+    if (page.infoImageObjectUrl && page.infoImageObjectUrl !== url) URL.revokeObjectURL(page.infoImageObjectUrl);
+    page.infoImageUrl = url;
+    page.infoImageName = name || "Imagem do bloco";
+    page.infoImageObjectUrl = isObjectUrl ? url : "";
+    page.infoImage = image;
+    page.infoZoom = 1;
+    page.infoPanX = 0;
+    page.infoPanY = 0;
+    if (page !== state.informativePages[state.activeInformativePage]) {
+      if (state.format === "informative") {
+        renderInformativePageTabs();
+        updateStageScale();
+      }
+      return;
+    }
     if (elements.informativeImage) elements.informativeImage.src = url;
     elements.feedLayer?.classList.add("has-informative-image");
     if (elements.informativeImageMain) elements.informativeImageMain.textContent = state.infoImageName;
@@ -1924,7 +2107,7 @@ function getFeedLineLayout(text, index, initialFontSize, minFontSize) {
   const visibleTextWidth = textWidth * scaleX;
   const width = Math.min(FEED.title.maxWidth, Math.ceil(visibleTextWidth + padding.left + padding.right));
   const height = FEED.title.highlightHeight;
-  const lineMetrics = getTitleGlyphMetrics(safeText, fontSize);
+  const lineMetrics = getTitleGlyphMetrics("CONHECA", fontSize);
   const baselineY = FEED.title.top - 6.6 + index * FEED.title.lineHeight + height / 2 + FEED.title.baselineShift + (lineMetrics.ascent - lineMetrics.descent) / 2;
 
   return {
@@ -2162,12 +2345,12 @@ function animateTitleStripIn(strip) {
 function updateMediaTransform() {
   if (state.format === "closing") { updateClosingPreview(); return; }
   const isInformative = state.format === "informative";
-  const mediaBox = isInformative ? INFORMATIVE.image : state.format === "feed" ? FEED : STORY.video;
-  if (state.format === "feed" && state.feedImage) {
-    const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, FEED.width, FEED.height, state.zoom, state.panX / 100 * FEED.width, state.panY / 100 * FEED.height);
+  const mediaBox = isInformative ? INFORMATIVE.image : state.format === "stories" ? FORMATS.stories : state.format === "feed" ? FEED : STORY.video;
+  if (["feed", "stories"].includes(state.format) && state.feedImage) {
+    const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, mediaBox.width, mediaBox.height, state.zoom, state.panX / 100 * mediaBox.width, state.panY / 100 * mediaBox.height);
     state.zoom = geometry.zoom;
-    state.panX = geometry.panX / FEED.width * 100;
-    state.panY = geometry.panY / FEED.height * 100;
+    state.panX = geometry.panX / mediaBox.width * 100;
+    state.panY = geometry.panY / mediaBox.height * 100;
     [elements.feedImage, elements.feedBlurImage].forEach(image => {
       if (!image) return;
       image.style.width = `${geometry.baseWidth}px`;
@@ -2206,6 +2389,7 @@ function updateMediaTransform() {
   updateRangeOutput(elements.panXInput, elements.panXValue);
   updateRangeOutput(elements.panYInput, elements.panYValue);
   updateFeedEffectStyles();
+  updateStoriesPreview();
 }
 
 function updateFeedEffectStyles() {
@@ -2227,6 +2411,7 @@ function updateLogoTransform() {
   if (elements.logoPreview && elements.logoPreview.src !== state.logoUrl) {
     elements.logoPreview.src = state.logoUrl || "";
   }
+  updateStoriesPreview();
 }
 
 async function loadLogoPresets() {
@@ -2512,7 +2697,7 @@ function updatePlaybackIcons() {
 }
 
 async function exportPrimary() {
-  if (["feed", "informative", "closing"].includes(state.format)) {
+  if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2521,7 +2706,7 @@ async function exportPrimary() {
 }
 
 async function exportCurrentPng() {
-  if (["feed", "informative", "closing"].includes(state.format)) {
+  if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -2644,12 +2829,16 @@ async function exportFeedPng() {
   try {
     updateFeedText();
     updateInformativeText();
-    if (state.format === "closing") drawClosingFrame(renderContext);
+    if (state.format === "stories") {
+      updateStoriesPreview();
+      renderContext.drawImage(document.getElementById("storiesPreview"), 0, 0);
+    }
+    else if (state.format === "closing") drawClosingFrame(renderContext);
     else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
     const blob = await canvasToBlob(elements.canvas, "image/png");
     const saved = await downloadExport(blob, makeFeedExportName());
-    setStatus(`${state.format === "closing" ? "PNG encerramento" : state.format === "informative" ? "PNG informativo" : "PNG do feed"} — download iniciado: ${saved.fileName}`);
+    setStatus(`${state.format === "stories" ? "PNG Stories" : state.format === "closing" ? "PNG encerramento" : state.format === "informative" ? "PNG informativo" : "PNG do feed"} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui gerar o PNG do feed");
@@ -2690,8 +2879,12 @@ function renderUntilEnd(video, duration) {
 }
 
 function drawFrame(video) {
-  if (["feed", "informative", "closing"].includes(state.format)) {
-    if (state.format === "closing") drawClosingFrame(renderContext);
+  if (["feed", "informative", "closing", "stories"].includes(state.format)) {
+    if (state.format === "stories") {
+      updateStoriesPreview();
+      renderContext.drawImage(document.getElementById("storiesPreview"), 0, 0);
+    }
+    else if (state.format === "closing") drawClosingFrame(renderContext);
     else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
     return;
@@ -3481,7 +3674,7 @@ function makeFeedExportName() {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
-  return `${base || "feed"}-lpz-zero-${state.format === "closing" ? "encerramento" : state.format === "informative" ? "informativo" : "feed"}.png`;
+  return `${base || "feed"}-lpz-zero-${state.format === "stories" ? "stories" : state.format === "closing" ? "encerramento" : state.format === "informative" ? `informativo-${state.activeInformativePage + 1}` : "feed"}.png`;
 }
 
 function makeExportBaseName() {
@@ -3509,9 +3702,9 @@ function setStatus(message) {
 function selectPreviewElement(selection) {
   elements.stage.querySelectorAll(".is-selected").forEach(node => node.classList.remove("is-selected"));
   const selectors = {
-    media: ["feed", "informative", "closing"].includes(state.format) ? "#feedImage" : "#videoSlot",
-    title: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeTitlePreview" : "#titleLayer .headline-strip",
-    text: state.format === "feed" ? "#feedTitleLayer" : state.format === "informative" ? "#informativeBodyPreview" : "#titleLayer .headline-strip",
+    media: ["feed", "informative", "closing", "stories"].includes(state.format) ? "#feedImage" : "#videoSlot",
+    title: ["feed", "stories"].includes(state.format) ? "#feedTitleLayer" : state.format === "informative" ? "#informativeTitlePreview" : "#titleLayer .headline-strip",
+    text: ["feed", "stories"].includes(state.format) ? "#feedTitleLayer" : state.format === "informative" ? "#informativeBodyPreview" : "#titleLayer .headline-strip",
     subtitle: "#feedSubtitlePreview",
     kicker: "#feedKickerPreview",
     infoTitle: "#informativeTitlePreview",
@@ -3566,7 +3759,7 @@ function bindDirectImageControls() {
     state.previewClickTarget = event.target;
     const rect = stage.getBoundingClientRect();
     const frameWidth = state.format === "informative" ? INFORMATIVE.image.width : FEED.width;
-    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : FEED.height;
+    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : state.format === "stories" ? 1920 : FEED.height;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.format === "informative" ? state.infoPanX : state.panX, panY: state.format === "informative" ? state.infoPanY : state.panY, scale: rect.width / (state.format === "informative" ? INFORMATIVE.width : FEED.width), frameWidth, frameHeight };
     moved = false;
     stage.setPointerCapture(event.pointerId);
@@ -3612,7 +3805,7 @@ function bindDirectImageControls() {
     event.preventDefault();
     const rect = stage.getBoundingClientRect();
     const frameWidth = state.format === "informative" ? INFORMATIVE.image.width : FEED.width;
-    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : FEED.height;
+    const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : state.format === "stories" ? 1920 : FEED.height;
     const currentZoom = state.format === "informative" ? state.infoZoom : state.zoom;
     const currentPanX = state.format === "informative" ? state.infoPanX : state.panX;
     const currentPanY = state.format === "informative" ? state.infoPanY : state.panY;
@@ -3779,6 +3972,11 @@ function openTextEditPopover(selection, event) {
   popover.hidden = false;
   popover.style.left = `${Math.max(8, Math.min(innerWidth - popover.offsetWidth - 8, event.clientX + 16))}px`;
   popover.style.top = `${Math.max(8, Math.min(innerHeight - popover.offsetHeight - 8, event.clientY + 16))}px`;
+  if (document.activeElement?.closest(".glass-dock")) {
+    const dock = document.querySelector(".glass-dock").getBoundingClientRect();
+    popover.style.left = `${Math.max(12, (innerWidth - popover.offsetWidth) / 2)}px`;
+    popover.style.top = `${Math.max(12, dock.top - popover.offsetHeight - 16)}px`;
+  }
   field.focus({ preventScroll: true });
 }
 function closeTextEditPopover() {
@@ -3828,21 +4026,69 @@ function drawClosingFrame(ctx) {
   const referenceMetrics = getTitleGlyphMetrics("ÁÉÍÓÚÂÊÔÃÕÇ", fontSize);
   const height = referenceMetrics.ascent + referenceMetrics.descent + padding.top + padding.bottom;
   const top = 629 - height / 2;
+  const closingLineGap = 0;
   ctx.font = `${fontSize}px "Tusker Story", Impact, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   lines.forEach((text, index) => {
-    const y = top + index * (height + TITLE_LINE_GAP);
+    const y = top + index * (height + closingLineGap);
     const metrics = getTitleGlyphMetrics(text, fontSize);
-    if (index === 0) {
+    if (index === 0 && state.titleHighlightColor !== "none") {
       const width = measureTrackedText(text, fontSize, tracking) + padding.left + padding.right;
-      ctx.fillStyle = HIGHLIGHT_COLORS.yellow;
+      ctx.fillStyle = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
       ctx.fillRect((1080 - width) / 2, y, width, height);
     }
     ctx.fillStyle = "#fff";
     drawTrackedText(ctx, text, 540, y + height / 2 + (metrics.ascent - metrics.descent) / 2, tracking);
   });
   const symbols = state.informativeSymbols;
-  if (symbols) ctx.drawImage(symbols, 355, 754, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  if (symbols) ctx.drawImage(symbols, 355, 784, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
   ctx.restore();
 }
+
+
+function updateStoriesPreview() {
+  if (state.format !== "stories") return;
+  const canvas = document.getElementById("storiesPreview");
+  drawStoriesFrame(canvas.getContext("2d"));
+}
+
+function drawStoriesFrame(ctx) {
+  ctx.reset();
+  ctx.save();
+  ctx.fillStyle = "#07070a";
+  ctx.fillRect(0, 0, 1080, 1920);
+  if (state.feedImage) {
+    ctx.filter = "contrast(1.07) saturate(1.08) brightness(0.9)";
+    drawImageCoverTransformed(ctx, state.feedImage, 0, 0, 1080, 1920, state.zoom, state.panX / 100 * 1080, state.panY / 100 * 1920);
+    ctx.filter = "none";
+  } else {
+    const gradient = ctx.createLinearGradient(0, 0, 1080, 1920);
+    gradient.addColorStop(0, "#2eb8b1");
+    gradient.addColorStop(.58, "#19151b");
+    gradient.addColorStop(1, "#050506");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1080, 1920);
+  }
+  ctx.save();
+  ctx.scale(1, 1920 / 1350);
+  drawFeedOverlay(ctx);
+  drawFeedTextures(ctx);
+  ctx.restore();
+  // Keep the Feed typography undistorted, with more space above the copy.
+  const shade = ctx.createLinearGradient(0, 850, 0, 1700);
+  shade.addColorStop(0, "rgba(0,0,0,0)");
+  shade.addColorStop(.6, "rgba(0,0,0,.55)");
+  shade.addColorStop(1, "rgba(0,0,0,.75)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 850, 1080, 1070);
+  ctx.save();
+  ctx.translate(540, 450);
+  ctx.scale(1.1, 1.1);
+  ctx.translate(-540, 0);
+  drawFeedCopy(ctx);
+  ctx.restore();
+  drawLogo(ctx);
+  ctx.restore();
+}
+

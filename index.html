@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>StoryForge LPZ</title>
+    <meta name="theme-color" content="#000000" />
+    <meta name="application-name" content="Story Forge" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Story Forge" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/assets/pwa/icon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -30,19 +39,6 @@
           <span id="formatSizeLabel">1080 x 1350</span>
           <span id="formatNameLabel">Feed vertical</span>
         </div>
-        <div class="format-switch" role="group" aria-label="Modelo da publicação">
-          <button class="format-option is-active" type="button" data-format="feed" aria-pressed="true">Feed</button>
-          <button class="format-option" type="button" data-format="informative" aria-pressed="false">Informativo</button>
-          <button class="format-option" type="button" data-format="closing" aria-pressed="false">Encerramento</button>
-        </div>
-                <div class="export-actions">
-                  <button class="export-button" id="exportButton" type="button">
-                    <span id="exportLabel">Exportar PNG</span>
-                  </button>
-                  <button class="export-button export-button-secondary" hidden id="pngExportButton" type="button">
-                    <span>Exportar PNG</span>
-                  </button>
-                </div>
       </header>
 
       <section class="workspace" aria-label="Editor de feed">
@@ -75,6 +71,13 @@
           <div class="closing-controls">
             <label class="upload-button" for="closingImageInput"><input id="closingImageInput" type="file" accept="image/*" /><span>Trocar imagem do encerramento</span></label>
             <button class="soft-button" id="closingUseFeed" type="button">Usar imagem do Feed</button>
+          </div>
+          <div class="editor-text-tools" aria-label="Editar textos do Feed">
+            <h2>Textos da publicação</h2>
+            <button type="button" data-edit-text="title">Título <span>Texto e tarja</span></button>
+            <button type="button" data-edit-text="subtitle">Subtítulo <span>Texto de apoio</span></button>
+            <button type="button" data-edit-text="kicker">Chapéu <span>Texto ou símbolo</span></button>
+            <p>Você também pode clicar nos textos da arte.</p>
           </div>
           <div class="dock-panel-stack">
             <section class="dock-panel is-active" id="panel-media" data-panel="media" aria-hidden="false">
@@ -235,15 +238,25 @@
           <div class="preview-toolbar">
             <div>
               <strong>Sua arte</strong><button type="button" class="workspace-image-button" id="workspaceImageButton">Imagem de fundo</button><div class="mobile-only mobile-canvas-zoom"><button type="button" data-canvas-zoom="out" aria-label="Diminuir zoom da foto">−</button><span>Zoom</span><button type="button" data-canvas-zoom="in" aria-label="Ampliar foto">+</button></div>
+              <span class="stories-note">Clique nos textos para editar · Arraste a foto para enquadrar</span>
               <span id="previewModeLabel" hidden></span>
             </div>
+            <div class="canvas-text-tools" aria-label="Editar textos da arte">
+              <button type="button" data-edit-text="title" class="feed-text-action">Editar título</button>
+              <button type="button" data-edit-text="subtitle" class="feed-text-action">Subtítulo</button>
+              <button type="button" data-edit-text="infoTitle" class="info-text-action">Editar título</button>
+              <button type="button" data-edit-text="infoBody" class="info-text-action">Editar texto</button>
+            </div>
+            <a id="photoCredit" hidden target="_blank" rel="noopener noreferrer"></a>
             <span id="previewRatioLabel" hidden>9:16</span>
           </div>
 
           <div class="preview-card">
             <div class="stage-host">
+              <div id="informativeArtboards" aria-label="Pranchetas informativas"><button id="addInformativePage" type="button" aria-label="Adicionar página informativa" title="Adicionar página informativa (máximo 5)"><span>+</span><small>Adicionar página</small></button></div>
               <div class="stage-frame" id="stageFrame">
                 <div class="story-stage" id="storyStage" data-format="feed">
+                  <canvas id="storiesPreview" width="1080" height="1920" aria-label="Prévia de Stories baseada no Feed"></canvas>
                   <canvas id="closingPreview" width="1080" height="1350" aria-label="Prévia do encerramento"></canvas>
                   <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
                   <div class="feed-stage-content" id="feedLayer" aria-hidden="true">
@@ -314,6 +327,7 @@
           </div>
         </section>
       </section>
+      <nav class="glass-dock" aria-label="Ferramentas do estúdio"><div class="dock-formats" role="group" aria-label="Formato"><button type="button" class="format-option glass-tool is-active" data-format="feed" aria-label="Feed" aria-pressed="true" data-tooltip="Feed"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 15h8M8 18h5"/></svg></button><button type="button" class="format-option glass-tool" data-format="stories" aria-label="Stories" aria-pressed="false" data-tooltip="Stories"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10 18h4"/></svg></button><button type="button" class="format-option glass-tool" data-format="informative" aria-label="Informativo" aria-pressed="false" data-tooltip="Informativo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M8 2h11a2 2 0 0 1 2 2v12M6 10h8M6 14h8M6 18h5"/></svg></button><button type="button" class="format-option glass-tool" data-format="closing" aria-label="Encerramento" aria-pressed="false" data-tooltip="Encerramento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18M5 4h14l-3 5 3 5H5"/></svg></button></div><span class="dock-divider" aria-hidden="true"></span><div class="dock-editing" role="group" aria-label="Edição"><button type="button" class="glass-tool" id="dockImage" aria-label="Trocar imagem" data-tooltip="Imagem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="title" aria-label="Título" data-tooltip="Título"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="subtitle" aria-label="Texto de apoio" data-tooltip="Texto de apoio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="kicker" aria-label="Chapéu" data-tooltip="Chapéu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></button></div><button type="button" class="glass-tool dock-mobile-more" id="dockMore" aria-label="Ferramentas" aria-expanded="false" data-tooltip="Ferramentas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button><span class="dock-divider" aria-hidden="true"></span><button class="glass-tool dock-export" id="exportButton" type="button" aria-label="Exportar PNG" data-tooltip="Exportar PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span id="exportLabel" class="sr-only">Exportar PNG</span></button><button id="pngExportButton" hidden type="button"><span>Exportar PNG</span></button></nav>
       <footer class="editor-status" aria-live="polite">                <div class="status-line" id="statusLine">Pronto</div>
                 <progress id="exportProgress" value="0" max="1"></progress></footer>
     </main>
@@ -375,5 +389,6 @@ DA SUA PUBLICAÇÃO</textarea>
     </section>
     <script src="./editor-core.js" defer></script>
     <script src="./app.js" defer></script>
+    <script src="./pwa.js" defer></script>
   </body>
 </html>
