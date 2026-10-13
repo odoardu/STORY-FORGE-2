@@ -56,6 +56,7 @@ const FEED = {
     y: 1190,
     opacity: 100,
   },
+  copy: { top: 764, bottom: 1122, imageKickerGap: 12, textKickerGap: 1.242, subtitleGap: 24 },
   subtitle: {
     safeLeft: 70,
     safeRight: 70,
@@ -295,6 +296,12 @@ const state = {
   format: "feed",
   videoUrl: "",
   videoName: "",
+  mediaKind: "image",
+  videoTrimStart: 0,
+  videoTrimEnd: 0,
+  videoDuration: 0,
+  videoLoadingToken: 0,
+  exportingVideo: false,
   feedImageUrl: "",
   feedImageName: "",
   feedImageObjectUrl: "",
@@ -355,6 +362,7 @@ const state = {
     informative: { width: INFORMATIVE.logo.width, x: INFORMATIVE.logo.x, y: INFORMATIVE.logo.y, opacity: INFORMATIVE.logo.opacity },
   },
   titleHighlightColor: "yellow",
+  dockAttachmentFormat: null,
   activeDockPanel: "media",
 };
 
@@ -482,6 +490,30 @@ const renderContext = elements.canvas.getContext("2d", { alpha: false, willReadF
 const feedEffectCanvas = document.createElement("canvas");
 const feedEffectContext = feedEffectCanvas.getContext("2d", { willReadFrequently: true });
 
+const activeMediaLoads = new Set();
+let mediaLoadingHideTimer;
+function beginMediaLoading() {
+  const job = Symbol("media");
+  const host = document.getElementById("mediaLoading");
+  const label = document.getElementById("mediaLoadingLabel");
+  const bar = document.getElementById("mediaLoadingBar");
+  clearTimeout(mediaLoadingHideTimer);
+  activeMediaLoads.add(job);
+  host.hidden = false;
+  host.classList.remove("is-complete", "is-error");
+  host.setAttribute("aria-busy", "true");
+  bar.removeAttribute("aria-valuenow");
+  label.textContent = "Preparando mídia…";
+  return (success, message = null) => {
+    if (!activeMediaLoads.delete(job) || activeMediaLoads.size) return;
+    host.setAttribute("aria-busy", "false");
+    host.classList.add(success ? "is-complete" : "is-error");
+    label.textContent = message || (success ? "Mídia pronta" : "Não foi possível abrir a mídia");
+    if (success) bar.setAttribute("aria-valuenow", "100");
+    mediaLoadingHideTimer = setTimeout(() => { host.hidden = true; }, success ? 850 : 3500);
+  };
+}
+
 init();
 
 async function init() {
@@ -510,8 +542,9 @@ async function init() {
   updateMaskLockState();
   state.previousTitleText = elements.titleInput.value;
   bindEvents();
+  bindVideoControls();
   applyFormat("feed", { keepPanel: true });
-  document.body.classList.remove("mobile-controls-open");
+  closeMediaPopover();
   await applyLogo("/assets/logos/LOGO%201%20MONO.png", "Linkin Park Zero Brasil", "Logo padrão");
   await loadFeedTextures();
   loadRandomFeedImage({ silent: true });
@@ -538,6 +571,7 @@ function syncFeedEffectControls() {
   updateEffectRangeOutput(elements.blurGradientInput, elements.blurGradientValue, "%");
   updateFeedEffectStyles();
   updateStoriesPreview();
+  refreshVideoArtwork();
 }
 
 function updateMaskLockState() {
@@ -865,7 +899,7 @@ function getSubtitleToggleMark(toggle) {
 }
 
 function bindEvents() {
-  document.getElementById("mobileSheetBackdrop").addEventListener("click", () => document.body.classList.remove("mobile-controls-open"));
+  document.getElementById("mobileSheetBackdrop").addEventListener("click", () => closeMediaPopover());
   document.querySelectorAll("[data-canvas-zoom]").forEach(button => button.addEventListener("click", () => {
     const factor = button.dataset.canvasZoom === "in" ? 1.15 : 1 / 1.15;
     if (state.format === "informative") state.infoZoom *= factor;
@@ -873,47 +907,60 @@ function bindEvents() {
     updateMediaTransform();
   }));
   const infoBoldButton = document.getElementById("mobileInfoBold");
-  infoBoldButton.addEventListener("pointerdown", event => event.preventDefault());
+  const rememberInfoSelection = () => {
+    const input = elements.infoBodyInput;
+    if (input.selectionEnd > input.selectionStart) state.infoEditSelection = { start: input.selectionStart, end: input.selectionEnd, text: input.value, page: state.activeInformativePage };
+  };
+  elements.infoBodyInput.addEventListener("select", rememberInfoSelection);
+  infoBoldButton.addEventListener("pointerdown", event => { rememberInfoSelection(); if (event.pointerType !== "touch") event.preventDefault(); });
   infoBoldButton.addEventListener("click", () => {
-    const { selectionStart: start, selectionEnd: end } = elements.infoBodyInput;
+    let { selectionStart: start, selectionEnd: end } = elements.infoBodyInput;
+    if (start === end && state.infoEditSelection?.text === elements.infoBodyInput.value && state.infoEditSelection.page === state.activeInformativePage) ({ start, end } = state.infoEditSelection);
     if (start === end) { setStatus("Selecione um trecho para aplicar negrito"); return; }
     state.infoBodyBold = EditorCore.toggleRange(state.infoBodyBold, start, end);
     updateInformativeText();
   });
-  document.getElementById("workspaceImageButton").addEventListener("click", () => {
-    if (state.format === "informative") { elements.informativeImageInput.click(); return; }
-    setActiveDockPanel("media");
-    elements.controlPanelShell.scrollTop = 0;
+  document.addEventListener("pointerdown", event => {
+    if (event.target.closest(".glass-dock, .control-panel-shell, .video-options")) return;
+    if (state.dockAttachmentFormat) {
+      state.dockAttachmentFormat = null;
+      closeMediaPopover();
+    }
   });
-  document.getElementById("dockImage").addEventListener("click", () => {
-    document.body.classList.remove("mobile-dock-expanded");
-    document.getElementById("dockMore").setAttribute("aria-expanded", "false");
-    if (state.format === "informative") { elements.informativeImageInput.click(); return; }
-    if (state.format === "stories") { elements.feedImageInput.click(); return; }
-    closeTextEditPopover();
-    document.body.classList.toggle("mobile-controls-open");
-    document.getElementById("mobilePanelClose").focus({ preventScroll: true });
+  elements.stage.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const selections = { feedTitleLayer: "title", feedSubtitlePreview: "subtitle", feedKickerPreview: "kicker", informativeTitlePreview: "infoTitle", informativeBodyPreview: "infoBody" };
+    const selection = selections[event.target.id];
+    if (!selection) return;
+    event.preventDefault();
+    selectPreviewElement(selection);
+    openTextEditPopover(selection, event);
   });
-  document.getElementById("dockMore").addEventListener("click", () => {
-    closeTextEditPopover();
-    const expanded = document.body.classList.toggle("mobile-dock-expanded");
-    document.getElementById("dockMore").setAttribute("aria-expanded", String(expanded));
+  document.getElementById("workspaceImageButton").addEventListener("click", toggleMediaPopover);
+  document.getElementById("dockImage").addEventListener("click", toggleMediaPopover);
+  document.querySelector(".informative-upload-action").addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); elements.informativeImageInput.click(); }
   });
   document.getElementById("closingImageInput").addEventListener("change", async event => {
     const file = event.target.files[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
+    const finishLoading = beginMediaLoading();
+    let mediaReady = false;
     try {
       const image = await loadImage(url);
+      mediaReady = true;
       state.closingImage = image;
+      closeMediaPopover();
       updateClosingPreview();
     updateStoriesPreview();
       setStatus("Imagem do encerramento atualizada");
     } catch { setStatus("Não foi possível abrir essa imagem"); }
-    finally { URL.revokeObjectURL(url); event.target.value = ""; }
+    finally { finishLoading(mediaReady); URL.revokeObjectURL(url); event.target.value = ""; }
   });
   document.getElementById("closingUseFeed").addEventListener("click", () => {
     state.closingImage = null;
+    closeMediaPopover();
     updateClosingPreview();
     updateStoriesPreview();
     setStatus("Encerramento vinculado à imagem do Feed");
@@ -922,6 +969,7 @@ function bindEvents() {
   bindSubtitleContextBold();
   bindTextEditPopover();
   elements.stage.addEventListener("click", (event) => {
+    if (state.format === "closing") { toggleMediaPopover(); return; }
     const target = (state.previewClickTarget || event.target).closest(".logo-layer, .headline-strip, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body");
     state.previewClickTarget = null;
     const selection = target?.matches(".logo-layer") ? "logo" : target?.matches(".feed-subtitle") ? "subtitle" : target?.matches(".feed-kicker") ? "kicker" : target?.matches(".informative-title") ? "infoTitle" : target?.matches(".informative-body") ? "infoBody" : target ? "title" : "media";
@@ -973,9 +1021,16 @@ function bindEvents() {
 
   elements.formatButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      if (state.exportingVideo) return;
+      const next = button.dataset.format;
+      const showAttachment = ["feed", "stories"].includes(next) && state.dockAttachmentFormat !== next;
+      closeMediaPopover();
+      closeTextEditPopover();
       document.body.classList.remove("mobile-dock-expanded");
-      document.getElementById("dockMore").setAttribute("aria-expanded", "false");
+      document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
       button.dataset.format === "informative" ? selectInformativePage(0) : applyFormat(button.dataset.format);
+      state.dockAttachmentFormat = showAttachment ? next : null;
+      syncDockAffordances();
       if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
         const host = document.querySelector(".stage-host");
         host.getAnimations().forEach(animation => animation.cancel());
@@ -1026,7 +1081,7 @@ function bindEvents() {
   document.querySelectorAll("[data-edit-text]").forEach(button => {
     button.addEventListener("click", () => {
       document.body.classList.remove("mobile-dock-expanded");
-      document.getElementById("dockMore").setAttribute("aria-expanded", "false");
+      document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
       const selection = state.format === "informative"
         ? ({ title: "infoTitle", subtitle: "infoBody" }[button.dataset.editText] || button.dataset.editText)
         : button.dataset.editText;
@@ -1145,6 +1200,7 @@ function bindTitleHighlightControls() {
       state.titleHighlightColor = chip.dataset.color || "yellow";
       chips.forEach((btn) => {
         btn.classList.toggle("is-active", btn.dataset.color === state.titleHighlightColor);
+        btn.setAttribute("aria-pressed", String(btn.dataset.color === state.titleHighlightColor));
       });
       updateText();
       updateFeedText();
@@ -1174,6 +1230,7 @@ function bindLogoControl(stateKey, input, output) {
 
 async function togglePreviewPlayback() {
   if (!state.videoUrl) return;
+  if (elements.video.currentTime < state.videoTrimStart || elements.video.currentTime >= state.videoTrimEnd) elements.video.currentTime = state.videoTrimStart;
   if (elements.video.paused) {
     await elements.video.play();
   } else {
@@ -1188,6 +1245,7 @@ function togglePreviewMute() {
 }
 
 function applyFormat(format, options = {}) {
+  if (state.exportingVideo) return;
   if (!FORMATS[format]) return;
 
   if (format === state.format && !options.keepPanel) {
@@ -1203,7 +1261,7 @@ function applyFormat(format, options = {}) {
   saveLogoSettingsForCurrentFormat();
   state.format = format;
   document.getElementById("workspaceImageButton").textContent = format === "informative" ? "Imagem do vetor" : "Imagem de fundo";
-  document.body.classList.remove("mobile-controls-open");
+  closeMediaPopover();
   closeTextEditPopover();
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     elements.frame.animate([{ opacity: .45 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
@@ -1252,6 +1310,8 @@ function applyFormat(format, options = {}) {
   updateMediaTransform();
   updateLogoTransform();
   updateStoriesPreview();
+  syncVideoControls();
+  refreshVideoArtwork();
   requestAnimationFrame(updateControlPanelFade);
 }
 
@@ -1284,27 +1344,200 @@ function updateStageScale() {
   });
 }
 
-function handleVideoUpload(event) {
-  const [file] = event.target.files;
-  if (!file) return;
-
-  if (state.videoUrl) {
-    URL.revokeObjectURL(state.videoUrl);
+async function handleVideoUpload(event) {
+  const file = event.target.files[0];
+  if (!file || state.exportingVideo) return;
+  if (file.type && !file.type.startsWith("video/")) { setStatus("Selecione um arquivo de vídeo."); return; }
+  const finishLoading = beginMediaLoading();
+  let mediaReady = false;
+  const token = ++state.videoLoadingToken;
+  const url = URL.createObjectURL(file);
+  const candidate = document.createElement("video");
+  candidate.src = url;
+  candidate.muted = true;
+  candidate.playsInline = true;
+  setStatus("Abrindo vídeo…");
+  try {
+    await waitForVideo(candidate);
+    if (!Number.isFinite(candidate.duration) || candidate.duration <= 0) throw new Error("Duração inválida");
+    if (token !== state.videoLoadingToken) { URL.revokeObjectURL(url); return; }
+    elements.video.pause();
+    if (state.videoUrl) URL.revokeObjectURL(state.videoUrl);
+    state.videoUrl = url;
+    state.videoName = file.name;
+    state.mediaKind = "video";
+    document.getElementById("photoCredit").hidden = true;
+    state.videoDuration = candidate.duration;
+    state.videoTrimStart = 0;
+    state.videoTrimEnd = candidate.duration;
+    state.zoom = 1;
+    state.panX = state.panY = 0;
+    elements.video.src = url;
+    elements.video.muted = true;
+    elements.video.loop = false;
+    await waitForVideo(elements.video);
+    elements.fileMain.textContent = file.name;
+    elements.fileSub.textContent = `${formatFileSize(file.size)} · ${candidate.videoWidth} × ${candidate.videoHeight}`;
+    const fileInfo = document.getElementById("videoFileInfo");
+    fileInfo.dataset.tooltip = `${file.name} · ${elements.fileSub.textContent}`;
+    fileInfo.setAttribute("aria-label", fileInfo.dataset.tooltip);
+    if (!["feed", "stories"].includes(state.format)) applyFormat("stories");
+    syncVideoControls();
+    closeMediaPopover();
+    updateMediaTransform();
+    refreshVideoArtwork();
+    buildVideoFilmstrip(url).catch(() => {});
+    mediaReady = true;
+    setStatus("Vídeo pronto. Ajuste o trecho e exporte.");
+  } catch {
+    if (state.videoUrl !== url) URL.revokeObjectURL(url);
+    setStatus("Não foi possível abrir esse vídeo. Tente MP4 (H.264) ou WebM.");
+  } finally {
+    finishLoading(mediaReady);
+    candidate.removeAttribute("src");
+    candidate.load();
+    event.target.value = "";
   }
+}
 
-  state.videoUrl = URL.createObjectURL(file);
-  state.videoName = file.name;
-  elements.video.src = state.videoUrl;
-  elements.video.currentTime = 0;
-  elements.video.muted = true;
-  elements.video.loop = true;
-  elements.slot.classList.add("has-media");
-  elements.fileMain.textContent = file.name;
-  elements.fileSub.textContent = formatFileSize(file.size);
-  if (elements.trackTitle) elements.trackTitle.textContent = file.name;
-  if (elements.trackSub) elements.trackSub.textContent = formatFileSize(file.size);
-  setStatus("Video carregado");
+function hasArtworkVideo() {
+  return state.mediaKind === "video" && Boolean(state.videoUrl) && ["feed", "stories"].includes(state.format);
+}
+
+function getArtworkMedia() {
+  const video = state.renderVideo || elements.video;
+  return state.mediaKind === "video" && video.readyState >= 2 ? video : state.feedImage;
+}
+
+function syncVideoControls() {
+  const active = hasArtworkVideo();
+  const visibilityChanged = elements.shell.classList.contains("has-artwork-video") !== active;
+  document.getElementById("videoTimeline").hidden = !active;
+  if (!active) document.getElementById("videoOptions").open = false;
+  elements.shell.classList.toggle("has-artwork-video", active);
+  document.body.classList.toggle("has-artwork-video", active);
+  for (const id of ["videoTrimStart", "videoTrimEnd"]) document.getElementById(id).max = state.videoDuration;
+  document.getElementById("videoTrimStart").value = String(state.videoTrimStart);
+  document.getElementById("videoTrimEnd").value = String(state.videoTrimEnd);
+  const seek = document.getElementById("videoSeek");
+  seek.min = 0;
+  seek.max = state.videoDuration || 1;
+  const selection = document.getElementById("videoClipSelection");
+  selection.style.left = `${state.videoDuration ? state.videoTrimStart / state.videoDuration * 100 : 0}%`;
+  selection.style.right = `${state.videoDuration ? 100 - state.videoTrimEnd / state.videoDuration * 100 : 0}%`;
+  document.getElementById("videoTrimDuration").textContent = `${(state.videoTrimEnd - state.videoTrimStart).toFixed(1).replace(".", ",")} s`;
+  const label = active ? "Exportar vídeo" : "Exportar PNG";
+  elements.exportLabel.textContent = label;
+  elements.exportButton.setAttribute("aria-label", label);
+  elements.exportButton.dataset.tooltip = label;
+  if (active) elements.trackTitle.textContent = state.videoName;
   updatePlaybackIcons();
+  syncDockAffordances();
+  if (visibilityChanged) updateStageScale();
+}
+
+async function buildVideoFilmstrip(url) {
+  const probe = document.createElement("video");
+  probe.src = url;
+  probe.muted = true;
+  probe.playsInline = true;
+  try {
+    await waitForVideo(probe);
+    const canvas = document.getElementById("videoTimelineFrames");
+    const ctx = canvas.getContext("2d");
+    const count = 10;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let index = 0; index < count; index++) {
+      if (state.videoUrl !== url) return;
+      await seekVideo(probe, Math.min(probe.duration - 0.04, probe.duration * (index + 0.5) / count));
+      if (state.videoUrl !== url) return;
+      drawImageCover(ctx, probe, index * canvas.width / count, 0, canvas.width / count, canvas.height);
+    }
+  } finally { probe.removeAttribute("src"); probe.load(); }
+}
+
+function refreshVideoArtwork() {
+  if (!hasArtworkVideo() || state.exportingVideo || elements.video.readyState < 2) return;
+  if (state.format === "stories") updateStoriesPreview();
+  else drawFeedFrame(document.getElementById("videoArtworkPreview").getContext("2d"));
+}
+
+function bindVideoControls() {
+  document.getElementById("videoOptions").addEventListener("toggle", event => {
+    if (event.target.open) { closeMediaPopover(); closeTextEditPopover(); }
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    const mediaOpen = document.body.classList.contains("mobile-controls-open");
+    state.dockAttachmentFormat = null;
+    closeMediaPopover(mediaOpen);
+    document.getElementById("videoOptions").open = false;
+    document.body.classList.remove("mobile-dock-expanded");
+    document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
+    syncDockAffordances();
+  });
+  document.getElementById("videoIncludeAudio").addEventListener("change", event => {
+    document.getElementById("videoAudioControl").dataset.tooltip = event.target.checked ? "Exportar com áudio" : "Exportar sem áudio";
+  });
+  let previewFrame = 0;
+  let lastPaint = 0;
+  const animate = timestamp => {
+    previewFrame = 0;
+    if (elements.video.paused || !hasArtworkVideo() || state.exportingVideo) return;
+    if (timestamp - lastPaint >= 1000 / 30) { refreshVideoArtwork(); lastPaint = timestamp; }
+    previewFrame = requestAnimationFrame(animate);
+  };
+  elements.video.addEventListener("play", () => { if (!previewFrame) previewFrame = requestAnimationFrame(animate); });
+  for (const name of ["pause", "seeked", "loadeddata"]) elements.video.addEventListener(name, refreshVideoArtwork);
+  elements.video.addEventListener("timeupdate", () => {
+    const video = elements.video;
+    if (hasArtworkVideo() && !state.exportingVideo && !video.paused && video.currentTime >= state.videoTrimEnd) video.currentTime = state.videoTrimStart;
+    document.getElementById("videoSeek").value = video.currentTime;
+    document.getElementById("videoCurrentTime").textContent = `${video.currentTime.toFixed(1).replace(".", ",")} s`;
+  });
+  elements.video.addEventListener("ended", () => {
+    if (hasArtworkVideo() && !state.exportingVideo) {
+      elements.video.currentTime = state.videoTrimStart;
+      elements.video.play().catch(() => setStatus("Toque em Play para continuar."));
+    }
+  });
+  for (const id of ["videoTrimStart", "videoTrimEnd"]) for (const eventName of ["input", "change"]) document.getElementById(id).addEventListener(eventName, event => {
+    if (!state.videoDuration) return;
+    const startChanged = id === "videoTrimStart";
+    const value = Number(event.target.value);
+    const range = EditorCore.videoTrim(state.videoDuration, startChanged ? value : state.videoTrimStart, startChanged ? state.videoTrimEnd : value, startChanged ? "start" : "end");
+    state.videoTrimStart = range.start;
+    state.videoTrimEnd = range.end;
+    elements.video.pause();
+    elements.video.currentTime = startChanged ? range.start : Math.max(range.start, range.end - 1 / 30);
+    syncVideoControls();
+    refreshVideoArtwork();
+  });
+  document.getElementById("videoSeek").addEventListener("input", event => {
+    elements.video.pause();
+    elements.video.currentTime = clamp(Number(event.target.value), state.videoTrimStart, state.videoTrimEnd);
+  });
+  document.getElementById("resetVideoTrim").addEventListener("click", () => {
+    state.videoTrimStart = 0;
+    state.videoTrimEnd = state.videoDuration;
+    elements.video.currentTime = 0;
+    syncVideoControls();
+  });
+  document.getElementById("removeVideo").addEventListener("click", () => {
+    ++state.videoLoadingToken;
+    elements.video.pause();
+    state.mediaKind = "image";
+    syncVideoControls();
+    updateMediaTransform();
+    updateStoriesPreview();
+    setStatus("Imagem de fundo restaurada.");
+  });
+  // Repaint paused video when artwork controls change.
+  document.addEventListener("pointerdown", event => {
+    if (!event.target.closest(".video-options")) document.getElementById("videoOptions").open = false;
+  });
+  document.addEventListener("input", () => requestAnimationFrame(refreshVideoArtwork));
+  document.addEventListener("click", () => requestAnimationFrame(refreshVideoArtwork));
 }
 
 function handleFeedImageUpload(event) {
@@ -1312,7 +1545,7 @@ function handleFeedImageUpload(event) {
   if (!file) return;
 
   const url = URL.createObjectURL(file);
-  applyFeedImage(url, file.name, formatFileSize(file.size), true);
+  applyFeedImage(url, file.name, formatFileSize(file.size), true).catch(() => setStatus("Não foi possível abrir essa imagem. Tente outro arquivo.")).finally(() => { event.target.value = ""; });
   if (state.format !== "stories") applyFormat("feed");
 }
 
@@ -1327,6 +1560,7 @@ async function loadRandomFeedImage(options = {}) {
     const pool = candidates.length ? candidates : photos;
     const photo = pool[Math.floor(Math.random() * pool.length)];
     if (!photo) throw new Error("Acervo vazio");
+    if (options.silent && (state.mediaKind === "video" || state.videoLoadingToken)) return;
     await applyFeedImage(photo.path, "Linkin Park — " + photo.id, `${photo.width} × ${photo.height} · ${photo.author}`, false);
     state.randomPhotoId = photo.id;
     state.zoom = 0;
@@ -1347,18 +1581,25 @@ async function loadRandomFeedImage(options = {}) {
 }
 
 async function applyFeedImage(url, name, meta, isObjectUrl = false) {
+  const finishLoading = isObjectUrl ? beginMediaLoading() : null;
+  let mediaReady = false;
   try {
     const image = await loadImage(url);
+    mediaReady = true;
 
     if (state.feedImageObjectUrl && state.feedImageObjectUrl !== url) {
       URL.revokeObjectURL(state.feedImageObjectUrl);
     }
 
     document.getElementById("photoCredit").hidden = true;
+    state.mediaKind = "image";
+    elements.video.pause();
+    syncVideoControls();
     state.feedImageUrl = url;
     state.feedImageName = name || "Imagem do feed";
     state.feedImageObjectUrl = isObjectUrl ? url : "";
     state.feedImage = image;
+    if (isObjectUrl) closeMediaPopover();
     updateClosingPreview();
     updateStoriesPreview();
     state.zoom = 1;
@@ -1385,6 +1626,8 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
       URL.revokeObjectURL(url);
     }
     throw error;
+  } finally {
+    finishLoading?.(mediaReady);
   }
 }
 
@@ -1445,8 +1688,10 @@ function updateFeedText() {
     elements.feedKickerPreview.replaceChildren(image);
   }
   const layouts = getFeedTitleLayouts();
-  const kickerOffset = layouts[0].y - (FEED.title.top - 6.6);
-  elements.feedKickerPreview.style.top = `${(imageKicker ? 735 : 737.35) + kickerOffset}px`;
+  const titleTop = layouts[0].y;
+  elements.feedTitleLayer.style.top = `${titleTop}px`;
+  elements.feedTitleLayer.style.height = `${getFeedTitleBlockMetrics(layouts).bottom - titleTop}px`;
+  elements.feedKickerPreview.style.top = `${getFeedKickerPosition(layouts)}px`;
   renderFeedSubtitlePreview(layouts);
 
   const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
@@ -1482,7 +1727,7 @@ function updateFeedText() {
     preview.style.backgroundSize = "100% 100%";
     preview.style.backgroundRepeat = "no-repeat";
     preview.style.transform = `translate(-50%, -50%) scaleX(${layout.scaleX})`;
-    strip.style.top = `${layout.y - FEED.title.top}px`;
+    strip.style.top = `${layout.y - titleTop}px`;
     strip.style.width = `${layout.width}px`;
     strip.style.height = `${layout.height}px`;
 
@@ -1616,8 +1861,8 @@ function applySubtitlePreviewStyles(lineCount = 1, titleLayouts = getFeedTitleLa
   preview.style.transform = `translate(-50%, -50%) rotate(${state.subtitleRotation}deg) scale(${state.subtitleScaleX / 100}, ${layout.scaleY})`;
 }
 
-function applyFeedSubtitleWeight(weight) {
-  applySubtitleSelectionMark("bold", weight === "bold");
+function applyFeedSubtitleWeight(weight, selection = null) {
+  applySubtitleSelectionMark("bold", weight === "bold", selection);
   updateSubtitleToolbarState();
   updateFeedText();
   requestAnimationFrame(updateFeedText);
@@ -1693,8 +1938,22 @@ function getSubtitleMarkedSegments() {
   return normalizeSubtitleSegments(segments);
 }
 
+function readSubtitleNodes(parent) {
+  let text = "";
+  for (const node of parent.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) { text += node.textContent; continue; }
+    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+    if (node.tagName === "BR") { text += "\n"; continue; }
+    const block = /^(DIV|P|LI)$/.test(node.tagName);
+    if (block && text && !text.endsWith("\n")) text += "\n";
+    text += readSubtitleNodes(node);
+    if (block && node.nextSibling && !text.endsWith("\n")) text += "\n";
+  }
+  return text;
+}
+
 function getSubtitlePlainText() {
-  const raw = elements.feedSubtitleInput?.innerText ?? elements.feedSubtitleInput?.textContent ?? "";
+  const raw = elements.feedSubtitleInput ? readSubtitleNodes(elements.feedSubtitleInput) : "";
   return raw.replace(/\u00a0/g, " ").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n");
 }
 
@@ -1727,8 +1986,8 @@ function hasSameSubtitleStyle(segment, style) {
   );
 }
 
-function applySubtitleSelectionMark(property, value) {
-  const selection = getSubtitleSelectionOffsets();
+function applySubtitleSelectionMark(property, value, selectedRange = null) {
+  const selection = selectedRange || getSubtitleSelectionOffsets();
   if (!selection || selection.start === selection.end) {
     setStatus("Selecione um trecho do subtitulo primeiro");
     return;
@@ -1776,8 +2035,8 @@ function getSubtitleSelectionOffsets() {
   endRange.selectNodeContents(root);
   endRange.setEnd(range.endContainer, range.endOffset);
 
-  const start = startRange.toString().length;
-  const end = endRange.toString().length;
+  const start = readSubtitleNodes(startRange.cloneContents()).length;
+  const end = readSubtitleNodes(endRange.cloneContents()).length;
   return {
     start: Math.min(start, end),
     end: Math.max(start, end),
@@ -1869,6 +2128,24 @@ function normalizeLine(value) {
   return value.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
+function getFeedKickerMetrics() {
+  const isImage = state.kickerMode === "image" && state.kickerImage;
+  return {
+    isImage,
+    height: isImage ? 430 * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth : getFeedTypography("kicker").lineHeight,
+    gap: isImage ? FEED.copy.imageKickerGap : FEED.copy.textKickerGap,
+  };
+}
+
+function getFeedKickerPosition(titleLayouts) {
+  const metrics = getFeedKickerMetrics();
+  if (state.format === "stories") {
+    const offset = titleLayouts[0].y - (FEED.title.top - 6.6);
+    return (metrics.isImage ? 735 : 737.35) + offset;
+  }
+  return titleLayouts[0].y - metrics.gap - (metrics.isImage ? 0 : metrics.height / 2);
+}
+
 function getFeedTitleLayouts(fittedFontSize) {
   const items = EditorCore.titleLines(elements.titleInput.value, state.titleHighlights);
   const fontSize = fittedFontSize || getFeedTypography("title").fontSize;
@@ -1884,6 +2161,7 @@ function getFeedTitleLayouts(fittedFontSize) {
       offset = start + text.length;
     });
   });
+  if (!layouts.length) layouts.push({ ...getFeedLineLayout(" ", 0, fontSize, FEED.title.minFontSize), highlightMarks: [] });
   // A multiline title must share one font size. If only the longest line
   // shrinks, its glyph box changes and the perceived line spacing breaks.
   const uniformFontSize = Math.min(...layouts.map(layout => layout.fontSize));
@@ -1898,7 +2176,10 @@ function getFeedTitleLayouts(fittedFontSize) {
   if ((layouts.length > 4 && fontSize > 46) || (blockHeight > FEED.title.maxBottom - FEED.title.minTop && fontSize > 28)) {
     return getFeedTitleLayouts(fontSize - 1);
   }
-  const top = Math.min(FEED.title.top - 6.6, FEED.title.maxBottom - blockHeight);
+  const kicker = getFeedKickerMetrics();
+  const top = state.format === "stories"
+    ? Math.min(FEED.title.top - 6.6, FEED.title.maxBottom - blockHeight)
+    : FEED.copy.top + kicker.height + kicker.gap;
   layouts.forEach((layout, index) => {
     // Keep the CONHECA alignment for every line. Accents and cedillas must
     // not move the text inside the highlight or change its perceived padding.
@@ -1908,7 +2189,22 @@ function getFeedTitleLayouts(fittedFontSize) {
     layout.baselineY = layout.y + commonHeight / 2 + (metrics.ascent - metrics.descent) / 2;
     layout.highlightRects = getTitleHighlightRects(layout, layout.highlightMarks);
   });
-  return layouts.length ? layouts : [{ ...getFeedLineLayout(" ", 0, fontSize, FEED.title.minFontSize), highlightRects: [] }];
+  if (state.format !== "stories") {
+    // Measure the entire block before moving it: short copy stays at its anchor.
+    applyAutoSubtitleState(layouts);
+    const subtitleLines = layoutSubtitleLines(measureContext, getSubtitleDisplaySegments(), layouts);
+    const bottom = getFeedTitleBlockMetrics(layouts).bottom + FEED.copy.subtitleGap + subtitleLines.length * state.subtitleLineHeight;
+    const requiredShift = Math.max(0, bottom - FEED.copy.bottom);
+    const maxShift = FEED.copy.top - FEED.title.minTop;
+    if (requiredShift > maxShift && fontSize > 28 && blockHeight > 200) return getFeedTitleLayouts(fontSize - 1);
+    const shift = Math.min(requiredShift, maxShift);
+    layouts.forEach(layout => {
+      layout.y -= shift;
+      layout.baselineY -= shift;
+      layout.highlightRects = getTitleHighlightRects(layout, layout.highlightMarks);
+    });
+  }
+  return layouts;
 }
 
 function getTitleHighlightRects(layout, marks) {
@@ -1948,9 +2244,12 @@ function handleInformativeImageUpload(event) {
 }
 
 async function applyInformativeImage(url, name, meta, isObjectUrl = false) {
+  const finishLoading = isObjectUrl ? beginMediaLoading() : null;
+  let mediaReady = false;
   const page = state.informativePages[state.activeInformativePage];
   try {
     const image = await loadImage(url);
+    mediaReady = true;
     if (page.infoImageObjectUrl && page.infoImageObjectUrl !== url) URL.revokeObjectURL(page.infoImageObjectUrl);
     page.infoImageUrl = url;
     page.infoImageName = name || "Imagem do bloco";
@@ -1966,6 +2265,7 @@ async function applyInformativeImage(url, name, meta, isObjectUrl = false) {
       }
       return;
     }
+    if (isObjectUrl) closeMediaPopover();
     if (elements.informativeImage) elements.informativeImage.src = url;
     elements.feedLayer?.classList.add("has-informative-image");
     if (elements.informativeImageMain) elements.informativeImageMain.textContent = state.infoImageName;
@@ -1979,6 +2279,8 @@ async function applyInformativeImage(url, name, meta, isObjectUrl = false) {
   } catch (error) {
     if (isObjectUrl) URL.revokeObjectURL(url);
     throw error;
+  } finally {
+    finishLoading?.(mediaReady);
   }
 }
 
@@ -2346,8 +2648,9 @@ function updateMediaTransform() {
   if (state.format === "closing") { updateClosingPreview(); return; }
   const isInformative = state.format === "informative";
   const mediaBox = isInformative ? INFORMATIVE.image : state.format === "stories" ? FORMATS.stories : state.format === "feed" ? FEED : STORY.video;
-  if (["feed", "stories"].includes(state.format) && state.feedImage) {
-    const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, mediaBox.width, mediaBox.height, state.zoom, state.panX / 100 * mediaBox.width, state.panY / 100 * mediaBox.height);
+  const media = getArtworkMedia();
+  if (["feed", "stories"].includes(state.format) && media) {
+    const geometry = EditorCore.imageGeometry(media.videoWidth || media.naturalWidth, media.videoHeight || media.naturalHeight, mediaBox.width, mediaBox.height, state.zoom, state.panX / 100 * mediaBox.width, state.panY / 100 * mediaBox.height);
     state.zoom = geometry.zoom;
     state.panX = geometry.panX / mediaBox.width * 100;
     state.panY = geometry.panY / mediaBox.height * 100;
@@ -2390,6 +2693,7 @@ function updateMediaTransform() {
   updateRangeOutput(elements.panYInput, elements.panYValue);
   updateFeedEffectStyles();
   updateStoriesPreview();
+  refreshVideoArtwork();
 }
 
 function updateFeedEffectStyles() {
@@ -2544,8 +2848,11 @@ async function applyLogoFromCard(button) {
 }
 
 async function applyLogo(url, name, meta, isObjectUrl = false) {
+  const finishLoading = isObjectUrl ? beginMediaLoading() : null;
+  let mediaReady = false;
   try {
     const image = await loadImage(url);
+    mediaReady = true;
 
     if (state.logoObjectUrl && state.logoObjectUrl !== url) {
       URL.revokeObjectURL(state.logoObjectUrl);
@@ -2564,6 +2871,8 @@ async function applyLogo(url, name, meta, isObjectUrl = false) {
       URL.revokeObjectURL(url);
     }
     setStatus("Nao consegui carregar a logo");
+  } finally {
+    finishLoading?.(mediaReady);
   }
 }
 
@@ -2694,9 +3003,16 @@ function updatePlaybackIcons() {
   elements.toggleMute.classList.toggle("is-muted", elements.video.muted);
   elements.panelPlayButton?.classList.toggle("is-playing", !elements.video.paused);
   elements.panelMuteButton?.classList.toggle("is-muted", elements.video.muted);
+  if (elements.panelMuteButton) {
+    const label = elements.video.muted ? "Ouvir prévia" : "Silenciar prévia";
+    elements.panelMuteButton.setAttribute("aria-label", label);
+    elements.panelMuteButton.setAttribute("aria-pressed", String(!elements.video.muted));
+    elements.panelMuteButton.dataset.tooltip = label;
+  }
 }
 
 async function exportPrimary() {
+  if (hasArtworkVideo()) { await exportStoryVideo(); return; }
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
     return;
@@ -2720,9 +3036,21 @@ async function exportStoryVideo() {
     return;
   }
 
+  if (!window.MediaRecorder || !elements.canvas.captureStream) {
+    const message = "Este navegador não exporta vídeo. Tente Safari atualizado, Chrome ou Edge.";
+    setStatus(message); beginMediaLoading()(false, message); return;
+  }
+  state.exportMime = pickRecorderMime();
+  if (!state.exportMime) { const message = "Nenhum formato de vídeo disponível neste navegador."; setStatus(message); beginMediaLoading()(false, message); return; }
+  state.exportExt = state.exportMime.includes("mp4") ? "mp4" : "webm";
+  document.getElementById("videoOptions").open = false;
+  state.exportingVideo = true;
+  const previewWasPlaying = !elements.video.paused;
+  elements.video.pause();
+  document.body.classList.add("is-video-exporting");
   elements.exportButton.disabled = true;
   elements.progress.value = 0;
-  setStatus("Preparando render");
+  setStatus("Preparando vídeo…");
 
   const exportVideo = document.createElement("video");
   exportVideo.src = state.videoUrl;
@@ -2733,15 +3061,20 @@ async function exportStoryVideo() {
   exportVideo.volume = 0;
 
   let audioContext = null;
+  let stream = null;
+  let recorder = null;
 
   try {
     await waitForVideo(exportVideo);
-    const duration = Number.isFinite(exportVideo.duration) && exportVideo.duration > 0 ? exportVideo.duration : 8;
-    const stream = elements.canvas.captureStream(30);
+    const trim = EditorCore.videoTrim(exportVideo.duration, state.videoTrimStart, state.videoTrimEnd);
+    await seekVideo(exportVideo, trim.start);
+    state.renderVideo = exportVideo;
+    drawFrame(exportVideo);
+    stream = elements.canvas.captureStream(30);
 
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
+      if (AudioContextClass && document.getElementById("videoIncludeAudio").checked) {
         audioContext = new AudioContextClass();
         const source = audioContext.createMediaElementSource(exportVideo);
         const destination = audioContext.createMediaStreamDestination();
@@ -2750,15 +3083,15 @@ async function exportStoryVideo() {
         await audioContext.resume();
       }
     } catch (error) {
-      tryAddCapturedAudio(exportVideo, stream);
+      if (document.getElementById("videoIncludeAudio").checked) tryAddCapturedAudio(exportVideo, stream);
     }
 
-    if (!stream.getAudioTracks().length) {
-      tryAddCapturedAudio(exportVideo, stream);
+    if (!stream.getAudioTracks().length && document.getElementById("videoIncludeAudio").checked) {
+      if (document.getElementById("videoIncludeAudio").checked) tryAddCapturedAudio(exportVideo, stream);
     }
 
     const chunks = [];
-    const recorder = new MediaRecorder(stream, {
+    recorder = new MediaRecorder(stream, {
       mimeType: state.exportMime,
       videoBitsPerSecond: 9_000_000,
       audioBitsPerSecond: 192_000,
@@ -2774,10 +3107,10 @@ async function exportStoryVideo() {
       recorder.addEventListener("stop", resolve, { once: true });
     });
 
-    recorder.start(500);
-    setStatus("Renderizando video");
+    setStatus("Exportando trecho…");
+    recorder.start(100);
     await exportVideo.play();
-    await renderUntilEnd(exportVideo, duration);
+    await renderUntilEnd(exportVideo, trim.end, trim.start);
 
     if (recorder.state !== "inactive") {
       recorder.stop();
@@ -2785,13 +3118,20 @@ async function exportStoryVideo() {
     await stopped;
 
     const blob = new Blob(chunks, { type: state.exportMime });
-    const saved = await downloadExport(blob, makeExportName());
+    const saved = await downloadExport(blob, makeExportName().replace("-lpz-zero.", `-lpz-zero-${state.format}.`));
     setStatus(`${state.exportExt.toUpperCase()} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui renderizar este video");
   } finally {
     exportVideo.pause();
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    stream?.getTracks().forEach(track => track.stop());
+    state.renderVideo = null;
+    state.exportingVideo = false;
+    document.body.classList.remove("is-video-exporting");
+    refreshVideoArtwork();
+    if (previewWasPlaying) elements.video.play().catch(() => {});
     if (audioContext) {
       audioContext.close().catch(() => {});
     }
@@ -2848,7 +3188,7 @@ async function exportFeedPng() {
   }
 }
 
-function renderUntilEnd(video, duration) {
+function renderUntilEnd(video, duration, start = 0) {
   return new Promise((resolve) => {
     let done = false;
     const finish = () => {
@@ -2864,9 +3204,9 @@ function renderUntilEnd(video, duration) {
     const tick = () => {
       if (done) return;
       drawFrame(video);
-      elements.progress.value = Math.min(1, video.currentTime / duration);
+      elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
 
-      if (video.ended || video.currentTime >= duration - 0.05) {
+      if (video.ended || video.currentTime >= duration) {
         finish();
         return;
       }
@@ -2909,15 +3249,16 @@ function drawFrame(video) {
 }
 
 function drawFeedFrame(ctx) {
+  const media = getArtworkMedia();
   ctx.save();
   ctx.fillStyle = "#07070a";
   ctx.fillRect(0, 0, FEED.width, FEED.height);
 
-  if (state.feedImage) {
+  if (media) {
     ctx.filter = "contrast(1.07) saturate(1.08) brightness(0.9)";
     drawImageCoverTransformed(
       ctx,
-      state.feedImage,
+      media,
       0,
       0,
       FEED.width,
@@ -2937,7 +3278,7 @@ function drawFeedFrame(ctx) {
   }
 
   drawFeedOverlay(ctx);
-  if (state.feedImage) {
+  if (media) {
     drawFeedBlurMask(ctx);
     drawFeedBlurTopGradient(ctx);
   }
@@ -2964,55 +3305,56 @@ function ensureCanvasSize(canvas, width, height) {
   }
 }
 
-function drawFeedBlurMask(ctx) {
-  if (!state.feedImage || !feedEffectContext) return;
+function drawFeedBlurMask(ctx, width = FEED.width, height = FEED.height) {
+  const media = getArtworkMedia();
+  if (!media || !feedEffectContext) return;
 
-  ensureCanvasSize(feedEffectCanvas, FEED.width, FEED.height);
+  ensureCanvasSize(feedEffectCanvas, width, height);
   const fx = feedEffectContext;
-  fx.clearRect(0, 0, FEED.width, FEED.height);
+  fx.clearRect(0, 0, width, height);
 
   fx.save();
   fx.filter = `blur(${clamp(Number(state.maskBlur) || 0, 0, 120)}px)`;
   drawImageCoverTransformed(
     fx,
-    state.feedImage,
+    media,
     0,
     0,
-    FEED.width,
-    FEED.height,
+    width,
+    height,
     state.zoom,
-    (state.panX / 100) * FEED.width,
-    (state.panY / 100) * FEED.height,
+    (state.panX / 100) * width,
+    (state.panY / 100) * height,
   );
   fx.restore();
 
   fx.save();
   fx.globalCompositeOperation = "destination-in";
-  const mask = fx.createLinearGradient(0, 0, 0, FEED.height);
+  const mask = fx.createLinearGradient(0, 0, 0, height);
   mask.addColorStop(0, "rgba(0,0,0,0)");
   mask.addColorStop(0.52, "rgba(0,0,0,0)");
   mask.addColorStop(0.68, "rgba(0,0,0,0.36)");
   mask.addColorStop(1, "rgba(0,0,0,1)");
   fx.fillStyle = mask;
-  fx.fillRect(0, 0, FEED.width, FEED.height);
+  fx.fillRect(0, 0, width, height);
   fx.restore();
 
   ctx.drawImage(feedEffectCanvas, 0, 0);
 }
 
-function drawFeedBlurTopGradient(ctx) {
+function drawFeedBlurTopGradient(ctx, width = FEED.width, height = FEED.height) {
   const opacity = clamp(Number(state.blurGradientOpacity) || 0, 0, 100) / 100;
   if (opacity <= 0) return;
 
   const startY = 0;
-  const softShade = ctx.createLinearGradient(0, startY, 0, FEED.height);
+  const softShade = ctx.createLinearGradient(0, startY, 0, height);
   softShade.addColorStop(0, "rgba(0,0,0,0)");
   softShade.addColorStop(0.44, "rgba(0,0,0,0)");
   softShade.addColorStop(0.66, `rgba(0,0,0,${opacity * 0.42})`);
   softShade.addColorStop(0.82, `rgba(0,0,0,${opacity})`);
   softShade.addColorStop(1, `rgba(0,0,0,${opacity})`);
   ctx.fillStyle = softShade;
-  ctx.fillRect(0, startY, FEED.width, FEED.height - startY);
+  ctx.fillRect(0, startY, width, height - startY);
 }
 
 function drawFeedTextures(ctx) {
@@ -3038,13 +3380,13 @@ function drawFeedCopy(ctx) {
 
   const kicker = getFeedTypography("kicker");
   const titleLayouts = getFeedTitleLayouts();
-  const kickerOffset = titleLayouts[0].y - (FEED.title.top - 6.6);
+  const kickerPosition = getFeedKickerPosition(titleLayouts);
   if (state.kickerMode === "image" && state.kickerImage) {
     const width = 430;
     const height = width * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth;
-    ctx.drawImage(state.kickerImage, (FEED.width - width) / 2, 735 + kickerOffset - height, width, height);
+    ctx.drawImage(state.kickerImage, (FEED.width - width) / 2, kickerPosition - height, width, height);
   } else {
-    drawTrackedTextWithFont(ctx, normalizeLine(elements.feedKickerInput.value || "CHAPEU"), FEED.width / 2, 737.35 + kickerOffset, kicker.tracking, `400 ${kicker.fontSize}px Gotham, Montserrat, "Segoe UI", Arial, sans-serif`);
+    drawTrackedTextWithFont(ctx, normalizeLine(elements.feedKickerInput.value || "CHAPEU"), FEED.width / 2, kickerPosition, kicker.tracking, `400 ${kicker.fontSize}px Gotham, Montserrat, "Segoe UI", Arial, sans-serif`);
   }
 
   const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.yellow;
@@ -3165,26 +3507,28 @@ function drawLogo(ctx) {
 }
 
 function drawImageCover(ctx, image, x, y, width, height) {
-  const imageRatio = image.width / image.height;
+  const mediaWidth = image.videoWidth || image.naturalWidth || image.width;
+  const mediaHeight = image.videoHeight || image.naturalHeight || image.height;
+  const imageRatio = mediaWidth / mediaHeight;
   const targetRatio = width / height;
-  let sourceWidth = image.width;
-  let sourceHeight = image.height;
+  let sourceWidth = mediaWidth;
+  let sourceHeight = mediaHeight;
   let sourceX = 0;
   let sourceY = 0;
 
   if (imageRatio > targetRatio) {
-    sourceWidth = image.height * targetRatio;
-    sourceX = (image.width - sourceWidth) / 2;
+    sourceWidth = mediaHeight * targetRatio;
+    sourceX = (mediaWidth - sourceWidth) / 2;
   } else {
-    sourceHeight = image.width / targetRatio;
-    sourceY = (image.height - sourceHeight) / 2;
+    sourceHeight = mediaWidth / targetRatio;
+    sourceY = (mediaHeight - sourceHeight) / 2;
   }
 
   ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
 }
 
 function drawImageCoverTransformed(ctx, image, x, y, width, height, zoom = 1, panX = 0, panY = 0) {
-  const geometry = EditorCore.imageGeometry(image.naturalWidth || image.width, image.naturalHeight || image.height, width, height, zoom, panX, panY);
+  const geometry = EditorCore.imageGeometry(image.videoWidth || image.naturalWidth || image.width, image.videoHeight || image.naturalHeight || image.height, width, height, zoom, panX, panY);
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, width, height);
@@ -3444,6 +3788,12 @@ function getSubtitleBlockLayout(lineCount = 1, titleLayouts = getFeedTitleLayout
   const settings = getAutoSubtitleSettings(titleLayouts);
   const maxWidth = getEffectiveSubtitleMaxWidth(titleLayouts);
   const rawHeight = Math.max(1, lineCount) * state.subtitleLineHeight;
+  if (state.format !== "stories") {
+    const top = settings.titleBottom + FEED.copy.subtitleGap;
+    const availableHeight = Math.max(1, FEED.copy.bottom - top);
+    const scaleY = Math.min(1, availableHeight / rawHeight);
+    return { x: FEED.width / 2, y: top + rawHeight * scaleY / 2, maxWidth, scaleY };
+  }
   const fittedScaleY = Math.min(1, Math.max(0.88, safe.height / Math.max(1, rawHeight)));
   const displayHeight = rawHeight * fittedScaleY;
   const x = FEED.width / 2;
@@ -3588,6 +3938,18 @@ function tryAddCapturedAudio(video, stream) {
   } catch (error) {
     console.warn("Audio capture unavailable", error);
   }
+}
+
+function seekVideo(video, time) {
+  if (Math.abs(video.currentTime - time) < 0.001) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { video.removeEventListener("seeked", done); video.removeEventListener("error", fail); };
+    const done = () => { cleanup(); resolve(); };
+    const fail = () => { cleanup(); reject(new Error("Não foi possível posicionar o vídeo")); };
+    video.addEventListener("seeked", done, { once: true });
+    video.addEventListener("error", fail, { once: true });
+    video.currentTime = time;
+  });
 }
 
 function waitForVideo(video) {
@@ -3738,7 +4100,7 @@ function bindSubtitleContextBold() {
     for (let index = offsets.start; index < offsets.end; index++) {
       if (!getSubtitleStyleAt(index).bold) { allBold = false; break; }
     }
-    applyFeedSubtitleWeight(allBold ? "regular" : "bold");
+    applyFeedSubtitleWeight(allBold ? "regular" : "bold", offsets);
     setStatus(allBold ? "Negrito removido do trecho selecionado" : "Negrito aplicado ao trecho selecionado");
   });
 }
@@ -3746,6 +4108,8 @@ function bindDirectImageControls() {
   const stage = elements.stage;
   let drag = null;
   let moved = false;
+  const touchPoints = new Map();
+  let pinch = null;
   const isImageTarget = (target) => {
     if (state.format === "closing") return false;
     if (state.format === "informative") return Boolean(target.closest(".informative-image-window")) && !target.closest("button, input");
@@ -3753,19 +4117,60 @@ function bindDirectImageControls() {
   };
   const sync = () => updateMediaTransform();
   stage.addEventListener("pointerdown", (event) => {
-    const activeImage = state.format === "informative" ? state.infoImage : state.feedImage;
+    if (!touchPoints.size) { moved = false; state.previewClickTarget = null; }
+    const activeImage = state.format === "informative" ? state.infoImage : getArtworkMedia();
     if (event.button !== 0 || !activeImage || !isImageTarget(event.target)) return;
     event.preventDefault();
     state.previewClickTarget = event.target;
     const rect = stage.getBoundingClientRect();
     const frameWidth = state.format === "informative" ? INFORMATIVE.image.width : FEED.width;
     const frameHeight = state.format === "informative" ? INFORMATIVE.image.height : state.format === "stories" ? 1920 : FEED.height;
+    if (event.pointerType === "touch") {
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      stage.setPointerCapture(event.pointerId);
+      if (touchPoints.size === 2) {
+        const [first, second] = [...touchPoints.values()];
+        const scale = rect.width / (state.format === "informative" ? INFORMATIVE.width : FEED.width);
+        const offsetX = state.format === "informative" ? INFORMATIVE.image.x : 0;
+        const offsetY = state.format === "informative" ? INFORMATIVE.image.y : 0;
+        pinch = {
+          distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+          zoom: state.format === "informative" ? state.infoZoom : state.zoom,
+          panX: (state.format === "informative" ? state.infoPanX : state.panX) / 100 * frameWidth,
+          panY: (state.format === "informative" ? state.infoPanY : state.panY) / 100 * frameHeight,
+          centerX: ((first.x + second.x) / 2 - rect.left) / scale - offsetX - frameWidth / 2,
+          centerY: ((first.y + second.y) / 2 - rect.top) / scale - offsetY - frameHeight / 2,
+          rect, scale, frameWidth, frameHeight, offsetX, offsetY,
+        };
+        drag = null;
+        moved = true;
+        closeTextEditPopover();
+        stage.classList.add("is-dragging");
+        return;
+      }
+    }
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: state.format === "informative" ? state.infoPanX : state.panX, panY: state.format === "informative" ? state.infoPanY : state.panY, scale: rect.width / (state.format === "informative" ? INFORMATIVE.width : FEED.width), frameWidth, frameHeight };
     moved = false;
     stage.setPointerCapture(event.pointerId);
     stage.classList.add("is-dragging");
   });
   stage.addEventListener("pointermove", (event) => {
+    if (touchPoints.has(event.pointerId)) touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch && touchPoints.size === 2) {
+      const [first, second] = [...touchPoints.values()];
+      const source = state.format === "informative" ? state.infoImage : getArtworkMedia();
+      const proposedZoom = pinch.zoom * Math.hypot(second.x - first.x, second.y - first.y) / pinch.distance;
+      const nextZoom = EditorCore.imageGeometry(source.videoWidth || source.naturalWidth, source.videoHeight || source.naturalHeight, pinch.frameWidth, pinch.frameHeight, proposedZoom).zoom;
+      const ratio = nextZoom / pinch.zoom;
+      const centerX = ((first.x + second.x) / 2 - pinch.rect.left) / pinch.scale - pinch.offsetX - pinch.frameWidth / 2;
+      const centerY = ((first.y + second.y) / 2 - pinch.rect.top) / pinch.scale - pinch.offsetY - pinch.frameHeight / 2;
+      const panX = (centerX - pinch.centerX * ratio + pinch.panX * ratio) / pinch.frameWidth * 100;
+      const panY = (centerY - pinch.centerY * ratio + pinch.panY * ratio) / pinch.frameHeight * 100;
+      if (state.format === "informative") { state.infoZoom = nextZoom; state.infoPanX = panX; state.infoPanY = panY; }
+      else { state.zoom = nextZoom; state.panX = panX; state.panY = panY; }
+      sync();
+      return;
+    }
     if (!drag || drag.id !== event.pointerId) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
@@ -3783,10 +4188,22 @@ function bindDirectImageControls() {
     sync();
   });
   const endDrag = (event) => {
+    touchPoints.delete(event.pointerId);
+    if (pinch) {
+      const previous = pinch;
+      pinch = null;
+      drag = null;
+      if (touchPoints.size === 1) {
+        const [id, point] = [...touchPoints.entries()][0];
+        drag = { id, x: point.x, y: point.y, panX: state.format === "informative" ? state.infoPanX : state.panX, panY: state.format === "informative" ? state.infoPanY : state.panY, scale: previous.scale, frameWidth: previous.frameWidth, frameHeight: previous.frameHeight, wasPinch: true };
+      } else stage.classList.remove("is-dragging");
+      if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!drag || event.pointerId !== drag.id) return;
     const currentX = state.format === "informative" ? state.infoPanX : state.panX;
     const currentY = state.format === "informative" ? state.infoPanY : state.panY;
-    if (moved && currentX === drag.panX && currentY === drag.panY) {
+    if (moved && !drag.wasPinch && currentX === drag.panX && currentY === drag.panY) {
       setStatus("Limite da imagem atingido. Amplie com a roda do mouse para ter mais espaço de movimento.");
     }
     drag = null;
@@ -3800,7 +4217,7 @@ function bindDirectImageControls() {
     if (moved) { event.stopImmediatePropagation(); moved = false; state.previewClickTarget = null; }
   }, true);
   stage.addEventListener("wheel", (event) => {
-    const activeImage = state.format === "informative" ? state.infoImage : state.feedImage;
+    const activeImage = state.format === "informative" ? state.infoImage : getArtworkMedia();
     if (!activeImage || !isImageTarget(event.target)) return;
     event.preventDefault();
     const rect = stage.getBoundingClientRect();
@@ -3812,7 +4229,7 @@ function bindDirectImageControls() {
     const x = (event.clientX - rect.left) / rect.width * (state.format === "informative" ? INFORMATIVE.width : FEED.width) - frameWidth / 2 - (state.format === "informative" ? INFORMATIVE.image.x : 0);
     const y = (event.clientY - rect.top) / rect.height * (state.format === "informative" ? INFORMATIVE.height : FEED.height) - frameHeight / 2 - (state.format === "informative" ? INFORMATIVE.image.y : 0);
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
-    const next = EditorCore.imageGeometry(activeImage.naturalWidth, activeImage.naturalHeight, frameWidth, frameHeight, currentZoom * Math.exp(-delta * 0.0015)).zoom;
+    const next = EditorCore.imageGeometry(activeImage.videoWidth || activeImage.naturalWidth, activeImage.videoHeight || activeImage.naturalHeight, frameWidth, frameHeight, currentZoom * Math.exp(-delta * 0.0015)).zoom;
     const ratio = next / currentZoom;
     const nextPanX = (x - (x - currentPanX / 100 * frameWidth) * ratio) / frameWidth * 100;
     const nextPanY = (y - (y - currentPanY / 100 * frameHeight) * ratio) / frameHeight * 100;
@@ -3832,7 +4249,7 @@ function bindDirectImageControls() {
 
 function bindTextEditPopover() {
   const popover = document.getElementById("textEditPopover");
-  document.getElementById("closeTextEditPopover").addEventListener("click", closeTextEditPopover);
+  document.getElementById("closeTextEditPopover").addEventListener("click", () => closeTextEditPopover(true));
   document.addEventListener("pointerdown", (event) => {
     if (popover.hidden || popover.contains(event.target) || event.target.closest(".feed-title-layer, .feed-kicker, .feed-subtitle, .informative-title, .informative-body, [data-edit-text]")) return;
     closeTextEditPopover();
@@ -3853,25 +4270,41 @@ function bindTextEditPopover() {
   window.visualViewport?.addEventListener("resize", syncMobileViewport);
   window.visualViewport?.addEventListener("scroll", syncMobileViewport);
   window.addEventListener("resize", syncMobileViewport);
-  document.getElementById("mobilePanelClose").addEventListener("click", () => document.body.classList.remove("mobile-controls-open"));
+  document.getElementById("mobilePanelClose").addEventListener("click", () => closeMediaPopover(true));
   document.querySelectorAll("[data-mobile-zoom]").forEach(button => button.addEventListener("click", () => {
     if (state.format === "informative") state.infoZoom *= button.dataset.mobileZoom === "in" ? 1.15 : 1 / 1.15;
     else state.zoom *= button.dataset.mobileZoom === "in" ? 1.15 : 1 / 1.15;
     updateMediaTransform();
   }));
+  const rememberTitleSelection = () => {
+    const input = elements.titleInput;
+    if (input.selectionEnd > input.selectionStart) state.titleEditSelection = { start: input.selectionStart, end: input.selectionEnd, text: input.value };
+  };
+  for (const name of ["select", "keyup", "pointerup"]) elements.titleInput.addEventListener(name, rememberTitleSelection);
+  document.addEventListener("selectionchange", () => { if (document.activeElement === elements.titleInput) rememberTitleSelection(); });
+  elements.titleInput.addEventListener("input", () => { state.titleEditSelection = null; });
   const titleButton = document.getElementById("mobileTitleHighlight");
-  titleButton.addEventListener("pointerdown", event => event.preventDefault());
+  titleButton.addEventListener("pointerdown", event => { rememberTitleSelection(); if (event.pointerType !== "touch") event.preventDefault(); });
+  titleButton.addEventListener("touchstart", rememberTitleSelection, { passive: true });
   titleButton.addEventListener("click", () => {
-    const { selectionStart: start, selectionEnd: end } = elements.titleInput;
+    let { selectionStart: start, selectionEnd: end } = elements.titleInput;
+    if (start === end && state.titleEditSelection?.text === elements.titleInput.value) ({ start, end } = state.titleEditSelection);
     if (start === end) { setStatus("Selecione um trecho do título primeiro."); return; }
     state.titleHighlights = EditorCore.toggleRange(state.titleHighlights, start, end);
     if (state.titleHighlightColor === "none") state.titleHighlightColor = "yellow";
     updateFeedText();
   });
   const boldButton = document.getElementById("mobileSubtitleBold");
-  boldButton.addEventListener("pointerdown", event => event.preventDefault());
-  boldButton.addEventListener("click", () => {
+  const rememberSubtitleSelection = () => {
     const offsets = getSubtitleSelectionOffsets();
+    if (offsets && offsets.end > offsets.start) state.subtitleEditSelection = { ...offsets, text: getSubtitlePlainText() };
+  };
+  document.addEventListener("selectionchange", rememberSubtitleSelection);
+  elements.feedSubtitleInput.addEventListener("input", () => { state.subtitleEditSelection = null; });
+  boldButton.addEventListener("pointerdown", event => { rememberSubtitleSelection(); if (event.pointerType !== "touch") event.preventDefault(); });
+  boldButton.addEventListener("click", () => {
+    let offsets = getSubtitleSelectionOffsets();
+    if ((!offsets || offsets.start === offsets.end) && state.subtitleEditSelection?.text === getSubtitlePlainText()) offsets = state.subtitleEditSelection;
     if (!offsets || offsets.start === offsets.end) { setStatus("Selecione um trecho do subtítulo primeiro."); return; }
     let allBold = true;
     for (let index = offsets.start; index < offsets.end; index++) {
@@ -3960,8 +4393,64 @@ function drawInformativeCopy(ctx) {
   }
   ctx.restore();
 }
-function openTextEditPopover(selection, event) {
+function syncDockAffordances() {
+  const button = document.getElementById("dockImage");
+  document.querySelectorAll(".dock-format-unit").forEach(unit => {
+    const open = state.dockAttachmentFormat === unit.dataset.formatUnit;
+    const slot = unit.querySelector(".dock-media-slot");
+    unit.classList.toggle("has-media-attachment", open);
+    if (slot) {
+      if (open && button.parentElement !== slot) slot.append(button);
+      slot.inert = !open;
+      slot.setAttribute("aria-hidden", String(!open));
+      unit.querySelector(".format-option").setAttribute("aria-expanded", String(open));
+    }
+  });
+  button.disabled = !state.dockAttachmentFormat;
+  const mediaOpen = document.body.classList.contains("mobile-controls-open");
+  const mediaButton = document.getElementById("dockImage");
+  mediaButton.classList.toggle("is-active", mediaOpen);
+  mediaButton.setAttribute("aria-expanded", String(mediaOpen));
+  const mediaLabel = state.format === "informative" ? "Imagem do informativo" : state.format === "closing" ? "Imagem do encerramento" : "Enviar imagem ou vídeo";
+  mediaButton.setAttribute("aria-label", mediaLabel);
+  mediaButton.dataset.tooltip = mediaLabel;
+  const names = { title: state.format === "informative" ? "Título do informativo" : "Editar título", subtitle: state.format === "informative" ? "Texto do informativo" : "Editar subtítulo", kicker: "Mundo Soldier / chapéu" };
+  document.querySelectorAll(".glass-dock [data-edit-text]").forEach(button => {
+    button.dataset.tooltip = names[button.dataset.editText];
+    button.setAttribute("aria-label", names[button.dataset.editText]);
+  });
+  const expanded = document.body.classList.contains("mobile-dock-expanded");
+  document.getElementById("dockMore")?.classList.toggle("is-active", expanded);
+}
+
+function closeMediaPopover(restoreFocus = false) {
   document.body.classList.remove("mobile-controls-open");
+  syncDockAffordances();
+  if (restoreFocus) (state.dockAttachmentFormat ? document.getElementById("dockImage") : elements.formatButtons.find(button => button.dataset.format === state.format))?.focus({ preventScroll: true });
+}
+
+function toggleMediaPopover() {
+  if (state.exportingVideo) return;
+  const wasOpen = document.body.classList.contains("mobile-controls-open");
+  closeTextEditPopover();
+  document.getElementById("videoOptions").open = false;
+  document.body.classList.remove("mobile-dock-expanded");
+  document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
+  document.body.classList.toggle("mobile-controls-open", !wasOpen);
+  state.activeDockPanel = "media";
+  elements.dockPanels.forEach(panel => {
+    const active = panel.dataset.panel === "media";
+    panel.classList.toggle("is-active", active);
+    panel.classList.remove("is-leaving");
+    panel.setAttribute("aria-hidden", String(!active));
+  });
+  syncDockAffordances();
+  if (!wasOpen) document.getElementById("mobilePanelClose").focus({ preventScroll: true });
+}
+
+function openTextEditPopover(selection, event) {
+  closeMediaPopover();
+  document.getElementById("videoOptions").open = false;
   const popover = document.getElementById("textEditPopover");
   const fieldIds = { title: "titleInput", kicker: "feedKickerInput", subtitle: "feedSubtitleInput", infoTitle: "infoTitleInput", infoBody: "infoBodyInput" };
   const titles = { title: "Título", kicker: "Chapéu", subtitle: "Subtítulo", infoTitle: "Título do informativo", infoBody: "Texto do informativo" };
@@ -3970,18 +4459,20 @@ function openTextEditPopover(selection, event) {
   document.getElementById("textEditHeading").textContent = titles[selection];
   popover.querySelectorAll("[data-text-editor]").forEach(section => { section.hidden = section.dataset.textEditor !== field.id; });
   popover.hidden = false;
-  popover.style.left = `${Math.max(8, Math.min(innerWidth - popover.offsetWidth - 8, event.clientX + 16))}px`;
-  popover.style.top = `${Math.max(8, Math.min(innerHeight - popover.offsetHeight - 8, event.clientY + 16))}px`;
-  if (document.activeElement?.closest(".glass-dock")) {
-    const dock = document.querySelector(".glass-dock").getBoundingClientRect();
-    popover.style.left = `${Math.max(12, (innerWidth - popover.offsetWidth) / 2)}px`;
-    popover.style.top = `${Math.max(12, dock.top - popover.offsetHeight - 16)}px`;
-  }
+  document.body.classList.add("text-popover-open");
+  document.querySelectorAll(".glass-dock [data-edit-text]").forEach(button => {
+    const key = state.format === "informative" ? ({ title: "infoTitle", subtitle: "infoBody" }[button.dataset.editText] || button.dataset.editText) : button.dataset.editText;
+    button.classList.toggle("is-active", key === selection);
+  });
   field.focus({ preventScroll: true });
 }
-function closeTextEditPopover() {
+function closeTextEditPopover(restoreFocus = false) {
+  const trigger = document.querySelector(".glass-dock [data-edit-text].is-active");
+  document.body.classList.remove("text-popover-open");
+  document.querySelectorAll(".glass-dock [data-edit-text]").forEach(button => button.classList.remove("is-active"));
   document.getElementById("textEditPopover").hidden = true;
   window.getSelection()?.removeAllRanges();
+  if (restoreFocus) trigger?.focus({ preventScroll: true });
 }
 
 function updateClosingPreview() {
@@ -4054,13 +4545,14 @@ function updateStoriesPreview() {
 }
 
 function drawStoriesFrame(ctx) {
+  const media = getArtworkMedia();
   ctx.reset();
   ctx.save();
   ctx.fillStyle = "#07070a";
   ctx.fillRect(0, 0, 1080, 1920);
-  if (state.feedImage) {
+  if (media) {
     ctx.filter = "contrast(1.07) saturate(1.08) brightness(0.9)";
-    drawImageCoverTransformed(ctx, state.feedImage, 0, 0, 1080, 1920, state.zoom, state.panX / 100 * 1080, state.panY / 100 * 1920);
+    drawImageCoverTransformed(ctx, media, 0, 0, 1080, 1920, state.zoom, state.panX / 100 * 1080, state.panY / 100 * 1920);
     ctx.filter = "none";
   } else {
     const gradient = ctx.createLinearGradient(0, 0, 1080, 1920);
@@ -4073,6 +4565,10 @@ function drawStoriesFrame(ctx) {
   ctx.save();
   ctx.scale(1, 1920 / 1350);
   drawFeedOverlay(ctx);
+  ctx.restore();
+  if (media) { drawFeedBlurMask(ctx, 1080, 1920); drawFeedBlurTopGradient(ctx, 1080, 1920); }
+  ctx.save();
+  ctx.scale(1, 1920 / 1350);
   drawFeedTextures(ctx);
   ctx.restore();
   // Keep the Feed typography undistorted, with more space above the copy.

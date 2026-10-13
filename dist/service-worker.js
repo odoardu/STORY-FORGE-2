@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v1";
+const CACHE_NAME = "story-forge-shell-v10-mobile-release";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -14,6 +14,9 @@ const APP_SHELL = [
   "/assets/black-texture-small.jpg",
   "/assets/mundo-soldier-branca.png",
   "/assets/informative-linkin-park-logos.png",
+  "/assets/logos/LOGO%201%20MONO.png",
+  "/assets/textures/ECLUS%C3%83O%2038.png",
+  "/assets/textures/LUZ%20INDIRETA%2049.png",
   "/assets/linkin-park/photos.json",
   "/assets/pwa/icon.svg",
   "/assets/pwa/icon-192.png",

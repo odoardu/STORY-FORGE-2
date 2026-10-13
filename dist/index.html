@@ -16,6 +16,10 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="mediaLoading" class="media-loading" role="status" aria-live="polite" hidden>
+      <span id="mediaLoadingLabel">Preparando mídia…</span>
+      <div id="mediaLoadingBar" class="media-loading-track" role="progressbar" aria-label="Preparando mídia" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+    </div>
     
     <main class="experience-shell" data-format="feed">
       <button type="button" class="mobile-sheet-backdrop" id="mobileSheetBackdrop" aria-label="Fechar ajustes"></button>
@@ -57,8 +61,8 @@
           </nav>
           <p class="sidebar-tip">Arraste a foto para enquadrar. Use a roda do mouse para ampliar.</p>
         </aside>
-        <aside class="control-panel-shell is-open" aria-label="Controles do feed">
-          <button class="mobile-only mobile-panel-close" id="mobilePanelClose" type="button">Concluir</button>
+        <aside class="control-panel-shell is-open" id="mediaPopover" role="dialog" aria-label="Enviar mídia" aria-modal="false">
+          <button class="studio-action popover-close" id="mobilePanelClose" type="button" aria-label="Fechar upload" data-tooltip="Fechar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
           <div class="panel-topline">
             <div>
               <strong>Propriedades</strong>
@@ -69,8 +73,8 @@
 
 
           <div class="closing-controls">
-            <label class="upload-button" for="closingImageInput"><input id="closingImageInput" type="file" accept="image/*" /><span>Trocar imagem do encerramento</span></label>
-            <button class="soft-button" id="closingUseFeed" type="button">Usar imagem do Feed</button>
+            <label class="studio-action" for="closingImageInput" data-tooltip="Imagem do encerramento"><input id="closingImageInput" type="file" accept="image/*" aria-label="Enviar imagem do encerramento" /><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></label>
+            <button class="studio-action" id="closingUseFeed" type="button" aria-label="Usar fundo do Feed" data-tooltip="Usar fundo do Feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M4 4l7 7M16 20h4v-4M20 20l-7-7"/><rect x="9" y="3" width="12" height="12" rx="2"/><path d="M15 19H5v-8"/></svg></button>
           </div>
           <div class="editor-text-tools" aria-label="Editar textos do Feed">
             <h2>Textos da publicação</h2>
@@ -82,10 +86,10 @@
           <div class="dock-panel-stack">
             <section class="dock-panel is-active" id="panel-media" data-panel="media" aria-hidden="false">
               <div class="dock-panel-header">
-                <h2>Imagem de fundo</h2>
+                <h2>Imagem ou vídeo</h2>
                 <p>
                   <span class="story-only">Carregue o MP4 que fica no retangulo central.</span>
-                  <span class="feed-only">Escolha a imagem de fundo do feed 1080 x 1350.</span>
+                  <span class="feed-only">Escolha o fundo da sua arte.</span>
                   <span class="informative-only">O fundo usa a mesma imagem do Feed, com blur total e escurecimento. Envie outra imagem para a máscara.</span>
                 </p>
               </div>
@@ -96,54 +100,13 @@
                   <small>Arquivo de origem</small>
                 </div>
 
-                <label class="upload-button story-only" for="videoInput">
-                  <input id="videoInput" type="file" accept="video/mp4,video/*" />
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 16V5M8 9l4-4 4 4M5 19h14" />
-                  </svg>
-                  <span>Selecionar video</span>
-                </label>
-
-                <div class="file-card story-only">
-                  <span class="file-card-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M7 3h7l5 5v13H7z" />
-                      <path d="M14 3v5h5" />
-                      <path d="M10 13h4M10 17h4" />
-                    </svg>
-                  </span>
-                  <div>
-                    <strong id="fileMain">Nenhum arquivo selecionado</strong>
-                    <small id="fileSub">A area cinza recebe o MP4</small>
-                  </div>
+                <div class="media-upload-actions" role="group" aria-label="Enviar arquivo">
+                  <label class="studio-action video-upload" for="videoInput" data-tooltip="Enviar vídeo"><input id="videoInput" type="file" accept="video/mp4,video/*" aria-label="Enviar vídeo" /><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="14" rx="3"/><path d="m16 9 5-3v12l-5-3M8 9v6l4-3Z"/></svg></label>
+                  <label class="studio-action upload-image" for="feedImageInput" data-tooltip="Enviar imagem"><input id="feedImageInput" type="file" accept="image/*" aria-label="Enviar imagem" /><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></label>
+                  <label class="studio-action informative-upload-action" for="informativeImageInput" tabindex="0" role="button" aria-label="Enviar imagem do informativo" data-tooltip="Imagem do informativo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></label>
                 </div>
 
-                <div class="panel-actions story-only">
-                  <button class="soft-button" type="button" id="panelPlayButton">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M8 5.8v12.4c0 .7.8 1.1 1.4.7l9.1-6.2c.5-.3.5-1.1 0-1.4L9.4 5.1C8.8 4.7 8 5.1 8 5.8Z" />
-                    </svg>
-                    <span>Play</span>
-                  </button>
-                  <button class="soft-button" type="button" id="panelMuteButton" aria-label="Ativar ou silenciar audio">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M4 9.5C4 8.7 4.7 8 5.5 8H8l4-3.2c.7-.6 1.8-.1 1.8.8v12.8c0 .9-1.1 1.4-1.8.8L8 16H5.5C4.7 16 4 15.3 4 14.5v-5Z" />
-                    </svg>
-                    <span>Audio</span>
-                  </button>
-                </div>
-
-                <label class="upload-button feed-only" for="feedImageInput">
-                  <input id="feedImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" />
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 16V5M8 9l4-4 4 4M5 19h14" />
-                  </svg>
-                  <span>Selecionar imagem</span>
-                </label>
-
-
-
-                <button class="soft-button soft-button-wide feed-only" id="randomFeedImageButton" type="button">
+                <button class="soft-button soft-button-wide feed-only" id="randomFeedImageButton" type="button" hidden>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M16 3h5v5M21 3l-7 7" />
                     <path d="M8 21H3v-5M3 21l7-7" />
@@ -214,14 +177,14 @@
 
               <div class="control-section">
                 <div class="control-section-title">
-                  <strong>Cor do Destaque (Tarja)</strong>
+                  <strong>Tarja</strong>
                   <small>Estilo de fundo do título</small>
                 </div>
                 <div class="color-picker-group" id="panelTitleHighlightGroup">
-                  <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #dfc330;" title="Amarelo (LPZ)">Amarelo</button>
-                  <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" title="Rosa">Rosa</button>
-                  <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" title="Preto">Preto</button>
-                  <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" title="Sem Fundo">Sem Fundo</button>
+                  <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #dfc330;" aria-label="Amarelo (LPZ)" data-tooltip="Amarelo (LPZ)"></button>
+                  <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" aria-label="Rosa" data-tooltip="Rosa"></button>
+                  <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" aria-label="Preto" data-tooltip="Preto"></button>
+                  <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" aria-label="Sem Fundo" data-tooltip="Sem Fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m6 18 12-12"/></svg></button>
                 </div>
                 <small class="field-hint">Selecione um trecho do título e clique com o botão direito para aplicar ou remover a tarja. Você pode destacar vários trechos.</small>
               </div>
@@ -256,12 +219,13 @@
               <div id="informativeArtboards" aria-label="Pranchetas informativas"><button id="addInformativePage" type="button" aria-label="Adicionar página informativa" title="Adicionar página informativa (máximo 5)"><span>+</span><small>Adicionar página</small></button></div>
               <div class="stage-frame" id="stageFrame">
                 <div class="story-stage" id="storyStage" data-format="feed">
+                  <canvas id="videoArtworkPreview" width="1080" height="1350" aria-label="Prévia do vídeo com efeitos"></canvas>
                   <canvas id="storiesPreview" width="1080" height="1920" aria-label="Prévia de Stories baseada no Feed"></canvas>
                   <canvas id="closingPreview" width="1080" height="1350" aria-label="Prévia do encerramento"></canvas>
                   <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
-                  <div class="feed-stage-content" id="feedLayer" aria-hidden="true">
+                  <div class="feed-stage-content" id="feedLayer">
                     <img class="feed-background" id="feedImage" alt="" />
-                    <div class="informative-image-window"><img class="informative-image" id="informativeImage" alt="" /><button type="button" class="informative-upload" id="informativeUploadButton" aria-label="Enviar ou trocar imagem do vetor">+</button><input id="informativeImageInput" type="file" accept="image/*" hidden /></div>
+                    <div class="informative-image-window"><img class="informative-image" id="informativeImage" alt="" /><button type="button" class="informative-upload" id="informativeUploadButton" aria-label="Enviar ou trocar imagem do informativo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><input id="informativeImageInput" type="file" accept="image/*" hidden /></div>
                     <div class="feed-blur-mask"><img class="feed-blur-copy" id="feedBlurImage" alt="" /></div>
                     <div class="feed-empty" id="feedEmpty">
                       <span>FEED</span>
@@ -271,14 +235,14 @@
                     <img class="feed-texture-layer feed-texture-exclusion" id="feedTextureExclusion" alt="" />
                     <img class="feed-texture-layer feed-texture-soft-light" id="feedTextureSoftLight" alt="" />
                     <div class="feed-copy">
-                      <div class="feed-kicker" id="feedKickerPreview">CHAPEU</div>
-                      <div class="feed-title-layer" id="feedTitleLayer"></div>
-                      <div class="feed-subtitle" id="feedSubtitlePreview">AMOSTRA DE TEXTO SECUNDARIO</div>
+                      <div class="feed-kicker" id="feedKickerPreview" role="button" tabindex="0" aria-label="Editar Mundo Soldier ou chapéu">CHAPEU</div>
+                      <div class="feed-title-layer" id="feedTitleLayer" role="button" tabindex="0" aria-label="Editar título"></div>
+                      <div class="feed-subtitle" id="feedSubtitlePreview" role="button" tabindex="0" aria-label="Editar subtítulo">AMOSTRA DE TEXTO SECUNDARIO</div>
                     </div>
                     <img class="informative-symbols informative-only" src="./assets/informative-linkin-park-logos.png" alt="" />
                     <div class="informative-copy informative-only">
-                      <div class="informative-title" id="informativeTitlePreview">TÍTULO DO POST AQUI</div>
-                      <div class="informative-body" id="informativeBodyPreview">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</div>
+                      <div class="informative-title" id="informativeTitlePreview" role="button" tabindex="0" aria-label="Editar título do informativo">TÍTULO DO POST AQUI</div>
+                      <div class="informative-body" id="informativeBodyPreview" role="button" tabindex="0" aria-label="Editar texto do informativo">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</div>
                     </div>
                   </div>
                   <div class="video-slot" id="videoSlot">
@@ -327,7 +291,33 @@
           </div>
         </section>
       </section>
-      <nav class="glass-dock" aria-label="Ferramentas do estúdio"><div class="dock-formats" role="group" aria-label="Formato"><button type="button" class="format-option glass-tool is-active" data-format="feed" aria-label="Feed" aria-pressed="true" data-tooltip="Feed"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 15h8M8 18h5"/></svg></button><button type="button" class="format-option glass-tool" data-format="stories" aria-label="Stories" aria-pressed="false" data-tooltip="Stories"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10 18h4"/></svg></button><button type="button" class="format-option glass-tool" data-format="informative" aria-label="Informativo" aria-pressed="false" data-tooltip="Informativo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M8 2h11a2 2 0 0 1 2 2v12M6 10h8M6 14h8M6 18h5"/></svg></button><button type="button" class="format-option glass-tool" data-format="closing" aria-label="Encerramento" aria-pressed="false" data-tooltip="Encerramento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18M5 4h14l-3 5 3 5H5"/></svg></button></div><span class="dock-divider" aria-hidden="true"></span><div class="dock-editing" role="group" aria-label="Edição"><button type="button" class="glass-tool" id="dockImage" aria-label="Trocar imagem" data-tooltip="Imagem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="title" aria-label="Título" data-tooltip="Título"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="subtitle" aria-label="Texto de apoio" data-tooltip="Texto de apoio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button><button type="button" class="glass-tool dock-text-tool" data-edit-text="kicker" aria-label="Chapéu" data-tooltip="Chapéu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></button></div><button type="button" class="glass-tool dock-mobile-more" id="dockMore" aria-label="Ferramentas" aria-expanded="false" data-tooltip="Ferramentas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button><span class="dock-divider" aria-hidden="true"></span><button class="glass-tool dock-export" id="exportButton" type="button" aria-label="Exportar PNG" data-tooltip="Exportar PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span id="exportLabel" class="sr-only">Exportar PNG</span></button><button id="pngExportButton" hidden type="button"><span>Exportar PNG</span></button></nav>
+      <section id="videoTimeline" class="video-timeline" aria-label="Corte do vídeo" hidden>
+        <button id="panelPlayButton" class="timeline-button" type="button" aria-label="Reproduzir ou pausar vídeo">
+          <svg class="timeline-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z" /></svg>
+          <svg class="timeline-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
+        </button>
+        <div class="timeline-track">
+          <canvas id="videoTimelineFrames" width="800" height="48" aria-hidden="true"></canvas>
+          <div id="videoClipSelection" class="timeline-selection" aria-hidden="true"></div>
+          <input id="videoSeek" class="timeline-seek" type="range" data-direct-range min="0" max="1" step="0.01" value="0" aria-label="Posição no vídeo" />
+          <input id="videoTrimStart" class="timeline-handle timeline-start" type="range" data-direct-range min="0" max="1" step="0.01" value="0" aria-label="Início do corte" />
+          <input id="videoTrimEnd" class="timeline-handle timeline-end" type="range" data-direct-range min="0" max="1" step="0.01" value="1" aria-label="Fim do corte" />
+        </div>
+        <output id="videoTrimDuration" class="timeline-duration" aria-live="polite">0,0 s</output>
+        <output id="videoCurrentTime" class="sr-only">0,0 s</output>
+        <details id="videoOptions" class="video-options">
+          <summary class="timeline-button" aria-label="Mais opções do vídeo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary>
+          <div class="video-options-panel">
+            <div class="sr-only"><strong id="fileMain">Vídeo</strong><small id="fileSub"></small></div>
+            <span id="videoFileInfo" class="video-option" tabindex="0" role="img" aria-label="Informações do vídeo" data-tooltip="Informações do vídeo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg></span>
+            <label id="videoAudioControl" class="video-option" data-tooltip="Exportar com áudio"><input id="videoIncludeAudio" type="checkbox" aria-label="Incluir áudio na exportação" checked /><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3zM16 8a6 6 0 0 1 0 8M20 4v6m-2-2 2 2 2-2"/></svg></label>
+            <button id="panelMuteButton" class="video-option is-muted" type="button" aria-label="Ouvir prévia" aria-pressed="false" data-tooltip="Ouvir prévia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3zM16 8a6 6 0 0 1 0 8"/><path class="video-muted-mark" d="m3 3 18 18"/></svg></button>
+            <button id="resetVideoTrim" class="video-option" type="button" aria-label="Restaurar corte" data-tooltip="Restaurar corte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></svg></button>
+            <button id="removeVideo" class="video-option" type="button" aria-label="Usar imagem" data-tooltip="Usar imagem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button>
+          </div>
+        </details>
+      </section>
+      <nav class="glass-dock" aria-label="Ferramentas do estúdio"><div class="dock-formats" role="group" aria-label="Formato"><div class="dock-format-unit" data-format-unit="feed"><button type="button" class="format-option glass-tool is-active" data-format="feed" aria-label="Feed" aria-pressed="true" aria-expanded="false" data-tooltip="Feed"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 15h8M8 18h5"/></svg></button><span class="dock-media-slot" aria-hidden="true" inert><button type="button" class="glass-tool" id="dockImage" aria-label="Enviar imagem ou vídeo" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídia"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button></span></div><div class="dock-format-unit" data-format-unit="stories"><button type="button" class="format-option glass-tool" data-format="stories" aria-label="Stories" aria-pressed="false" aria-expanded="false" data-tooltip="Stories"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M10 18h4"/></svg></button><span class="dock-media-slot" aria-hidden="true" inert></span></div><div class="dock-format-unit" data-format-unit="informative"><button type="button" class="format-option glass-tool" data-format="informative" aria-label="Informativo" aria-pressed="false" data-tooltip="Informativo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="16" rx="2"/><path d="M8 2h11a2 2 0 0 1 2 2v12M6 10h8M6 14h8M6 18h5"/></svg></button></div><div class="dock-format-unit" data-format-unit="closing"><button type="button" class="format-option glass-tool" data-format="closing" aria-label="Encerramento" aria-pressed="false" data-tooltip="Encerramento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18M5 4h14l-3 5 3 5H5"/></svg></button></div></div><span class="dock-divider" aria-hidden="true"></span><button class="glass-tool dock-export" id="exportButton" type="button" aria-label="Exportar PNG" data-tooltip="Exportar PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span id="exportLabel" class="sr-only">Exportar PNG</span></button><button id="pngExportButton" hidden type="button"><span>Exportar PNG</span></button></nav>
       <footer class="editor-status" aria-live="polite">                <div class="status-line" id="statusLine">Pronto</div>
                 <progress id="exportProgress" value="0" max="1"></progress></footer>
     </main>
@@ -337,9 +327,9 @@
       <header><strong id="textEditHeading">Texto</strong><button id="closeTextEditPopover" type="button" aria-label="Fechar edição"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
       <div data-text-editor="titleInput" hidden><label class="field">
                   <span>Título</span>
-                  <textarea id="titleInput" rows="4" maxlength="240">ESCREVA AQUI O TÍTULO
+                  <textarea id="titleInput" aria-label="Título" rows="4" maxlength="240">ESCREVA AQUI O TÍTULO
 DA SUA PUBLICAÇÃO</textarea>
-                  <button class="mobile-only mobile-format" id="mobileTitleHighlight" type="button">Aplicar / remover tarja na seleção</button>
+                  <button class="studio-action text-selection-action" id="mobileTitleHighlight" type="button" aria-label="Tarja na seleção" data-tooltip="Tarja na seleção"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4ZM7 8h10M12 8v9"/></svg></button>
                 </label><label class="range-field story-only">
                   <span class="range-label">
                     <span>Tamanho do titulo</span>
@@ -349,13 +339,13 @@ DA SUA PUBLICAÇÃO</textarea>
                 </label>
                 <div class="control-section" style="margin-top: 10px;">
                   <div class="control-section-title">
-                    <strong>Cor do Destaque (Tarja)</strong>
+                    <strong>Tarja</strong>
                   </div>
                   <div class="color-picker-group" id="popoverTitleHighlightGroup">
-                    <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #dfc330;" title="Amarelo (LPZ)">Amarelo</button>
-                    <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" title="Rosa">Rosa</button>
-                    <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" title="Preto">Preto</button>
-                    <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" title="Sem Fundo">Sem Fundo</button>
+                    <button type="button" class="color-chip is-active" data-color="yellow" style="--chip-color: #dfc330;" aria-label="Amarelo (LPZ)" data-tooltip="Amarelo (LPZ)"></button>
+                    <button type="button" class="color-chip" data-color="pink" style="--chip-color: #e981be;" aria-label="Rosa" data-tooltip="Rosa"></button>
+                    <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" aria-label="Preto" data-tooltip="Preto"></button>
+                    <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" aria-label="Sem Fundo" data-tooltip="Sem Fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m6 18 12-12"/></svg></button>
                   </div>
                   <small class="field-hint">Selecione um trecho do título e clique com o botão direito para aplicar ou remover a tarja. Você pode destacar vários trechos.</small>
                 </div>
@@ -369,7 +359,7 @@ DA SUA PUBLICAÇÃO</textarea>
                 </label>
                 <label class="field compact-field feed-only" id="kickerTextField">
                   <span>Chapéu</span>
-                  <input id="feedKickerInput" type="text" maxlength="40" value="CHAPEU" />
+                  <input id="feedKickerInput" aria-label="Chapéu" type="text" maxlength="40" value="CHAPEU" />
                 </label></div>
       <div data-text-editor="feedSubtitleInput" hidden><label class="field compact-field feed-only">
                   <span>Subtítulo</span>
@@ -381,11 +371,11 @@ DA SUA PUBLICAÇÃO</textarea>
                     aria-label="Subtítulo do feed"
                     spellcheck="false"
                   >AMOSTRA DE TEXTO SECUNDARIO</div>
-                  <button class="mobile-only mobile-format" id="mobileSubtitleBold" type="button">Aplicar / remover negrito na seleção</button>
+                  <button class="studio-action text-selection-action" id="mobileSubtitleBold" type="button" aria-label="Negrito na seleção" data-tooltip="Negrito na seleção"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4h6a4 4 0 0 1 0 8H7m6 0a4 4 0 0 1 0 8H7"/></svg></button>
                   <small class="field-hint">Selecione um trecho e clique com o botão direito para aplicar ou remover o negrito.</small>
                 </label></div>
-      <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
-      <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label><button class="mobile-only mobile-format" type="button" id="mobileInfoBold">Negrito na seleção</button></div>
+      <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" aria-label="Título do informativo" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
+      <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" aria-label="Texto do informativo" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label><button class="studio-action text-selection-action" id="mobileInfoBold" type="button" aria-label="Negrito na seleção" data-tooltip="Negrito na seleção"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4h6a4 4 0 0 1 0 8H7m6 0a4 4 0 0 1 0 8H7"/></svg></button></div>
     </section>
     <script src="./editor-core.js" defer></script>
     <script src="./app.js" defer></script>

@@ -74,5 +74,17 @@ const EditorCore = (() => {
     return { baseWidth, baseHeight, width, height, minZoom, zoom: safeZoom, panX: x, panY: y, x: (frameWidth - width) / 2 + x, y: (frameHeight - height) / 2 + y };
   }
 
-  return Object.freeze({ mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
+  function videoTrim(duration, start = 0, end = duration, changed = "end") {
+    if (!Number.isFinite(duration) || duration <= 0) return { start: 0, end: 0 };
+    const minimum = Math.min(0.1, duration);
+    start = Number.isFinite(start) ? Math.max(0, Math.min(start, duration - minimum)) : 0;
+    end = Number.isFinite(end) ? Math.max(minimum, Math.min(end, duration)) : duration;
+    if (end - start < minimum) {
+      if (changed === "start") start = Math.max(0, end - minimum);
+      else end = Math.min(duration, start + minimum);
+    }
+    return { start, end };
+  }
+
+  return Object.freeze({ videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
 })();

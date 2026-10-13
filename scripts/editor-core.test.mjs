@@ -72,3 +72,13 @@ test('2200 × 3450 source starts at native dimensions and stops at its own edges
   assert.equal(zoomedOut.x, 0);
   assert.ok(zoomedOut.y <= 0 && zoomedOut.y + zoomedOut.height >= 1350);
 });
+
+
+test('video trim clamps bounds, prevents empty segments and preserves the changed handle', () => {
+  assert.deepEqual(plain(core.videoTrim(10, 2, 5)), { start: 2, end: 5 });
+  assert.deepEqual(plain(core.videoTrim(10, -2, 20)), { start: 0, end: 10 });
+  assert.deepEqual(plain(core.videoTrim(10, 6, 4, 'start')), { start: 3.9, end: 4 });
+  assert.deepEqual(plain(core.videoTrim(10, 6, 4, 'end')), { start: 6, end: 6.1 });
+  assert.deepEqual(plain(core.videoTrim(0.05, 0, 0.05)), { start: 0, end: 0.05 });
+  assert.deepEqual(plain(core.videoTrim(Infinity, 1, 2)), { start: 0, end: 0 });
+});
