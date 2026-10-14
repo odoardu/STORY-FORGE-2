@@ -294,7 +294,7 @@ const elements = {
 
 const state = {
   circle: { behind: true, mask: null, maskSource: null, maskToken: 0, maskBusy: false, maskTask: null, image: null, url: "", token: 0, x: .78, y: .28, size: 360, zoom: 1, panX: 0, panY: 0, framing: false },
-  closingBlur: 34, closingShade: 12, infoBackgroundBlur: 19,
+  closingBlur: 34, closingShade: 12, infoBackgroundBlur: 19, infoShade: 28,
   format: "feed",
   videoUrl: "",
   videoName: "",
@@ -889,7 +889,7 @@ function bindEvents() {
     format: format => { if (state.exportingVideo) return; format === "informative" ? selectInformativePage(state.activeInformativePage) : applyFormat(format); },
     effects: (id, value) => {
       if (id === "effectBlur") { if (state.format === "closing") state.closingBlur = value; else if (state.format === "informative") state.infoBackgroundBlur = value; else state.maskBlur = value; }
-      else if (state.format === "closing") state.closingShade = value; else state.blurGradientOpacity = value;
+      else if (state.format === "closing") state.closingShade = value; else if (state.format === "informative") state.infoShade = value; else state.blurGradientOpacity = value;
       updateFeedEffectStyles(); updateClosingPreview(); updateStoriesPreview(); updateInformativePreview();
     },
   });
@@ -3160,39 +3160,46 @@ async function exportStoryVideo() {
   exportVideo.playsInline = true;
   exportVideo.preload = "auto";
   exportVideo.loop = false;
-  exportVideo.muted = false;
-  exportVideo.volume = 0;
+  exportVideo.muted = !includeAudio;
+  exportVideo.volume = 1;
+  exportVideo.setAttribute("aria-hidden", "true");
+  exportVideo.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
+  document.body.append(exportVideo);
 
   let audioContext = null;
   let stream = null;
   let recorder = null;
 
   try {
+    let audioDestination = null;
+    if (includeAudio) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error("Este navegador não conseguiu preparar o áudio. Desative Áudio para exportar sem som.");
+      // Resume while the export click still provides user activation (especially iOS).
+      audioContext = new AudioContextClass();
+      const source = audioContext.createMediaElementSource(exportVideo);
+      audioDestination = audioContext.createMediaStreamDestination();
+      source.connect(audioDestination);
+      await audioContext.resume();
+      if (audioContext.state !== "running") throw new Error("Não foi possível ativar o áudio. Toque em exportar novamente.");
+    }
     await waitForVideo(exportVideo);
     const trim = EditorCore.videoTrim(exportVideo.duration, getTimelineState().videoTrimStart, getTimelineState().videoTrimEnd);
     await seekVideo(exportVideo, trim.start);
     state.renderVideo = exportVideo;
     state.renderInformativePage = informative ? state.informativePages[state.activeInformativePage] : null;
+    if (informative) {
+      state.renderInformativeLayers = Object.fromEntries(["background", "foreground"].map(layer => {
+        const canvas = document.createElement("canvas");
+        canvas.width = INFORMATIVE.width; canvas.height = INFORMATIVE.height;
+        drawInformativeFrame(canvas.getContext("2d"), layer);
+        return [layer, canvas];
+      }));
+    }
     drawFrame(exportVideo);
     stream = elements.canvas.captureStream(30);
-
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass && includeAudio) {
-        audioContext = new AudioContextClass();
-        const source = audioContext.createMediaElementSource(exportVideo);
-        const destination = audioContext.createMediaStreamDestination();
-        source.connect(destination);
-        destination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
-        await audioContext.resume();
-      }
-    } catch (error) {
-      if (includeAudio) tryAddCapturedAudio(exportVideo, stream);
-    }
-
-    if (!stream.getAudioTracks().length && includeAudio) {
-      if (includeAudio) tryAddCapturedAudio(exportVideo, stream);
-    }
+    audioDestination?.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+    if (includeAudio && !stream.getAudioTracks().some(track => track.readyState === "live")) throw new Error("Não foi possível capturar o áudio deste vídeo. Tente exportar novamente.");
 
     const chunks = [];
     recorder = new MediaRecorder(stream, {
@@ -3207,6 +3214,8 @@ async function exportStoryVideo() {
       }
     });
 
+    let recorderError = null;
+    recorder.addEventListener("error", event => { recorderError = event.error || new Error("Falha ao gravar o vídeo."); });
     const stopped = new Promise((resolve) => {
       recorder.addEventListener("stop", resolve, { once: true });
     });
@@ -3214,25 +3223,29 @@ async function exportStoryVideo() {
     setStatus("Exportando trecho…");
     recorder.start(100);
     await exportVideo.play();
-    await renderUntilEnd(exportVideo, trim.end, trim.start);
+    await renderUntilEnd(exportVideo, trim.end, trim.start, () => recorderError);
 
     if (recorder.state !== "inactive") {
       recorder.stop();
     }
     await stopped;
+    if (recorderError) throw recorderError;
+    if (!chunks.length) throw new Error("A gravação ficou vazia. Tente exportar novamente.");
 
     const blob = new Blob(chunks, { type: state.exportMime });
     const saved = await downloadExport(blob, makeExportName().replace("-lpz-zero.", `-lpz-zero-${state.format}.`));
     setStatus(`${state.exportExt.toUpperCase()} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
-    setStatus("Nao consegui renderizar este video");
+    const message = error.message || "Não foi possível exportar este vídeo.";
+    setStatus(message); beginMediaLoading()(false, message);
   } finally {
     exportVideo.pause();
     if (recorder && recorder.state !== "inactive") recorder.stop();
     stream?.getTracks().forEach(track => track.stop());
     state.renderVideo = null;
     state.renderInformativePage = null;
+    state.renderInformativeLayers = null;
     state.exportingVideo = false;
     document.body.classList.remove("is-video-exporting");
     refreshVideoArtwork();
@@ -3241,6 +3254,7 @@ async function exportStoryVideo() {
     if (audioContext) {
       audioContext.close().catch(() => {});
     }
+    exportVideo.removeAttribute("src"); exportVideo.load(); exportVideo.remove();
     elements.exportButton.disabled = false;
     elements.progress.value = 0;
   }
@@ -3295,33 +3309,43 @@ async function exportFeedPng() {
   }
 }
 
-function renderUntilEnd(video, duration, start = 0) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (!done) {
-        done = true;
-        drawFrame(video);
-        resolve();
-      }
-    };
-
-    video.addEventListener("ended", finish, { once: true });
-
-    const tick = () => {
+function renderUntilEnd(video, duration, start = 0, getError = () => null) {
+  return new Promise((resolve, reject) => {
+    let done = false, frame = null, lastDraw = -Infinity;
+    let lastTime = video.currentTime, lastProgress = performance.now();
+    const videoFrames = typeof video.requestVideoFrameCallback === "function";
+    const finish = (error = null) => {
       if (done) return;
-      drawFrame(video);
-      elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
-
-      if (video.ended || video.currentTime >= duration) {
-        finish();
-        return;
-      }
-
-      requestAnimationFrame(tick);
+      done = true; clearInterval(watchdog);
+      if (frame !== null) videoFrames ? video.cancelVideoFrameCallback(frame) : cancelAnimationFrame(frame);
+      video.removeEventListener("ended", ended);
+      document.removeEventListener("visibilitychange", visibility);
+      video.pause();
+      if (error) reject(error); else resolve();
     };
-
-    tick();
+    const ended = () => finish();
+    const visibility = () => { if (document.hidden) finish(new Error("A exportação foi interrompida. Mantenha esta aba aberta e tente novamente.")); };
+    const check = () => {
+      const error = getError();
+      if (error || video.error) return finish(error || new Error("O vídeo falhou durante a exportação."));
+      if (video.currentTime !== lastTime) { lastTime = video.currentTime; lastProgress = performance.now(); }
+      if (video.ended || video.currentTime >= duration) return finish();
+      if (performance.now() - lastProgress > 15000) finish(new Error("O vídeo parou de responder. Tente um trecho menor e exporte novamente."));
+    };
+    const tick = now => {
+      if (done) return;
+      try {
+        if (now - lastDraw >= 1000 / 30 - 2) { drawFrame(video); lastDraw = now; }
+        elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
+        check();
+        if (!done) frame = videoFrames ? video.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
+      } catch (error) { finish(error); }
+    };
+    const watchdog = setInterval(check, 100);
+    video.addEventListener("ended", ended, { once: true });
+    document.addEventListener("visibilitychange", visibility);
+    visibility();
+    if (!done) tick(performance.now());
   });
 }
 
@@ -4025,18 +4049,6 @@ function pickRecorderMime() {
   return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-function tryAddCapturedAudio(video, stream) {
-  const capture = video.captureStream || video.mozCaptureStream;
-  if (!capture) return;
-
-  try {
-    const captured = capture.call(video);
-    captured.getAudioTracks().forEach((track) => stream.addTrack(track));
-  } catch (error) {
-    console.warn("Audio capture unavailable", error);
-  }
-}
-
 function seekVideo(video, time) {
   if (Math.abs(video.currentTime - time) < 0.001) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -4411,55 +4423,67 @@ function bindTextEditPopover() {
   });
 }
 
-function drawInformativeFrame(ctx) {
+function drawInformativeFrame(ctx, layer = null) {
   ctx.save();
-  ctx.fillStyle = "#07070a";
-  ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
-  if (state.feedImage) {
-    ArtworkEffects.drawCover(ctx, state.feedImage, 0, 0, INFORMATIVE.width, INFORMATIVE.height, state.infoBackgroundBlur, { zoom: state.zoom, panX: state.panX / 100 * INFORMATIVE.width, panY: state.panY / 100 * INFORMATIVE.height, contrast: 1.04, saturation: 1.04, brightness: .72 });
-    ctx.filter = "none";
-    ctx.fillStyle = "rgba(0,0,0,0.18)";
-    ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
-  } else if (state.background) {
-    ArtworkEffects.drawCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height, 12, { contrast: 1.08, brightness: .62 });
-    ctx.filter = "none";
-  }
-  const informativeMedia = getInformativeMedia();
-  if (informativeMedia) {
-    ctx.save();
-    ctx.beginPath();
-    const image = INFORMATIVE.image;
-    ctx.moveTo(image.x, image.y + image.height * 0.074);
-    ctx.lineTo(image.x, image.y + image.height);
-    ctx.lineTo(image.x + image.width * 0.874, image.y + image.height * 0.998);
-    ctx.lineTo(image.x + image.width, image.y + image.height * 0.794);
-    ctx.lineTo(image.x + image.width, image.y + image.height * 0.172);
-    ctx.lineTo(image.x + image.width * 0.894, image.y);
-    ctx.lineTo(image.x + image.width * 0.553, image.y);
-    ctx.lineTo(image.x + image.width * 0.461, image.y + image.height * 0.072);
-    ctx.closePath();
-    ctx.clip();
-    drawImageCoverTransformed(ctx, informativeMedia, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, (state.infoPanX / 100) * INFORMATIVE.image.width, (state.infoPanY / 100) * INFORMATIVE.image.height);
-    ctx.restore();
-  } else {
-    const box = INFORMATIVE.image;
-    ctx.fillStyle = "#111"; ctx.beginPath();
-    for (const [index, point] of [[0,[0,.074]],[1,[0,1]],[2,[.874,.998]],[3,[1,.794]],[4,[1,.172]],[5,[.894,0]],[6,[.553,0]],[7,[.461,.072]]]) {
-      ctx[index ? "lineTo" : "moveTo"](box.x + point[0] * box.width, box.y + point[1] * box.height);
+  const cached = !layer && state.renderInformativeLayers;
+  if (layer !== "foreground") {
+    if (cached) ctx.drawImage(cached.background, 0, 0);
+    else {
+      ctx.fillStyle = "#07070a";
+      ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+      if (state.feedImage) {
+        ArtworkEffects.drawCover(ctx, state.feedImage, 0, 0, INFORMATIVE.width, INFORMATIVE.height, state.infoBackgroundBlur, { zoom: state.zoom, panX: state.panX / 100 * INFORMATIVE.width, panY: state.panY / 100 * INFORMATIVE.height, contrast: 1.04, saturation: 1.04, brightness: .72 });
+        ctx.filter = "none";
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+      } else if (state.background) {
+        ArtworkEffects.drawCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height, 12, { contrast: 1.08, brightness: .62 });
+        ctx.filter = "none";
+      }
     }
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#bbb";
-    ctx.font = `64px Gotham, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText("+", INFORMATIVE.image.x + INFORMATIVE.image.width / 2, INFORMATIVE.image.y + INFORMATIVE.image.height / 2);
+    if (layer === "background") { ctx.restore(); return; }
+    const informativeMedia = getInformativeMedia();
+    if (informativeMedia) {
+      ctx.save();
+      ctx.beginPath();
+      const image = INFORMATIVE.image;
+      ctx.moveTo(image.x, image.y + image.height * 0.074);
+      ctx.lineTo(image.x, image.y + image.height);
+      ctx.lineTo(image.x + image.width * 0.874, image.y + image.height * 0.998);
+      ctx.lineTo(image.x + image.width, image.y + image.height * 0.794);
+      ctx.lineTo(image.x + image.width, image.y + image.height * 0.172);
+      ctx.lineTo(image.x + image.width * 0.894, image.y);
+      ctx.lineTo(image.x + image.width * 0.553, image.y);
+      ctx.lineTo(image.x + image.width * 0.461, image.y + image.height * 0.072);
+      ctx.closePath();
+      ctx.clip();
+      drawImageCoverTransformed(ctx, informativeMedia, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, (state.infoPanX / 100) * INFORMATIVE.image.width, (state.infoPanY / 100) * INFORMATIVE.image.height);
+      ctx.restore();
+    } else {
+      const box = INFORMATIVE.image;
+      ctx.fillStyle = "#111"; ctx.beginPath();
+      for (const [index, point] of [[0,[0,.074]],[1,[0,1]],[2,[.874,.998]],[3,[1,.794]],[4,[1,.172]],[5,[.894,0]],[6,[.553,0]],[7,[.461,.072]]]) {
+        ctx[index ? "lineTo" : "moveTo"](box.x + point[0] * box.width, box.y + point[1] * box.height);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#bbb";
+      ctx.font = `64px Gotham, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText("+", INFORMATIVE.image.x + INFORMATIVE.image.width / 2, INFORMATIVE.image.y + INFORMATIVE.image.height / 2);
+    }
+    drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
+    ctx.fillStyle = `rgba(0,0,0,${state.infoShade / 100})`;
+    ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
   }
-  drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
-  drawInformativeCopy(ctx);
-  if (state.informativeSymbols) {
-    const symbols = state.informativeSymbols;
-    ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  if (cached) ctx.drawImage(cached.foreground, 0, 0);
+  else {
+    drawInformativeCopy(ctx);
+    if (state.informativeSymbols) {
+      const symbols = state.informativeSymbols;
+      ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+    }
+    drawLogo(ctx);
   }
-  drawLogo(ctx);
   ctx.restore();
 }
 

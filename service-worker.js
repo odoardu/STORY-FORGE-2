@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v22-mobile-dock-rounded-preview";
+const CACHE_NAME = "story-forge-shell-v23-informative-video-export";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
