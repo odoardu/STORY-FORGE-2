@@ -25,11 +25,11 @@ const StudioUI = (() => {
     const names = { feed: "Feed", stories: "Stories", informative: "Informativo", closing: "Encerramento" };
     byId("mobileFormatName").textContent = names[s.format] || "Feed";
     byId("effectBlur").value = s.format === "closing" ? s.closingBlur : s.format === "informative" ? s.infoBackgroundBlur : s.maskBlur;
-    byId("effectShade").value = s.format === "closing" ? s.closingShade : s.blurGradientOpacity;
+    byId("effectShade").value = s.format === "closing" ? s.closingShade : s.format === "informative" ? s.infoShade : s.blurGradientOpacity;
     byId("effectBlurValue").textContent = byId("effectBlur").value;
     byId("effectShadeValue").textContent = byId("effectShade").value + "%";
     byId("effectBlurLabel").textContent = ["closing", "informative"].includes(s.format) ? "Desfoque do fundo" : "Desfoque inferior";
-    byId("effectShadeField").hidden = s.format === "informative";
+    byId("effectShadeField").hidden = false;
     byId("mobileMedia").setAttribute("aria-expanded", String(document.body.classList.contains("mobile-controls-open")));
     const effectsOpen = !byId("effectsPopover").hidden;
     for (const id of ["mobileEffects", "dockEffects"]) byId(id).setAttribute("aria-expanded", String(effectsOpen));
