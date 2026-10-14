@@ -4529,7 +4529,7 @@ function closeMediaPopover(restoreFocus = false) {
   document.body.classList.remove("mobile-controls-open");
   syncDockAffordances();
   StudioUI.sync();
-  if (restoreFocus) (document.body.classList.contains("is-mobile-studio") ? document.getElementById("mobileMedia") : state.dockAttachmentFormat ? document.getElementById("dockImage") : elements.formatButtons.find(button => button.dataset.format === state.format))?.focus({ preventScroll: true });
+  if (restoreFocus) (state.dockAttachmentFormat ? document.getElementById("dockImage") : elements.formatButtons.find(button => button.dataset.format === state.format))?.focus({ preventScroll: true });
 }
 
 function toggleMediaPopover() {

@@ -1,5 +1,6 @@
 /* Studio controls: one component system, separate desktop and touch layouts. */
 :root { --ui-surface: #242424f5; --ui-border: #ffffff24; --ui-text: #f2f2f0; --ui-muted: #c0c0bb; --ui-accent: var(--pink); --ui-radius: 24px; --ui-gap: 12px; }
+.stage-frame, .artboard-preview { border-radius: 10px; overflow: hidden; }
 .mobile-navigation, .mobile-actionbar, .mobile-format-name, .action-caption { display: none; }
 .studio-panel, .video-options-panel { color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: 0 16px 48px #0006; border-radius: var(--ui-radius); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 .studio-panel[hidden] { display: none !important; }
@@ -98,11 +99,12 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
   .timeline-duration { font-size: 11px; }
   .video-options-panel { position: fixed; left: 12px; right: 12px; width: auto; bottom: calc(242px + env(safe-area-inset-bottom)); justify-content: space-around; padding: 12px; border: 1px solid var(--ui-border); border-radius: 24px; }
   .studio-panel-open .video-timeline { visibility: hidden; }
-  .experience-shell[data-format="informative"] .stage-host { overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
-  .experience-shell[data-format="informative"] #informativeArtboards { gap: 20px; padding: 6px; margin: auto 0; }
-  .informative-artboard { scroll-snap-align: center; }
+  .experience-shell[data-format="informative"] .stage-host { flex-direction: column; justify-content: flex-start !important; align-items: center !important; overflow-x: hidden; overflow-y: auto; scroll-snap-type: y proximity; scroll-padding-block: 12px; overscroll-behavior-y: contain; }
+  .experience-shell[data-format="informative"] #informativeArtboards { flex-direction: column; flex: 0 0 auto; align-items: center; gap: 24px; padding: 6px; margin: auto 0; }
+  .informative-artboard { flex: 0 0 auto; scroll-snap-align: start; }
+  .experience-shell[data-format="informative"] #storyStage, .artboard-preview { touch-action: pan-y; }
   .artboard-label { min-height: 44px; width: 100%; padding: 6px 0; font-size: 12px; text-align: left; }
-  #addInformativePage { min-width: 80px; flex-basis: 80px; min-height: 100px; height: 120px; margin-right: 12px; }
+  #addInformativePage { width: var(--artboard-width); min-width: 80px; flex: 0 0 76px; min-height: 76px; height: 76px; margin: 0; flex-direction: row; gap: 12px; scroll-snap-align: end; }
   .is-mobile-studio .experience-shell[data-format="feed"] #videoArtworkPreview { display: block; position: absolute; inset: 0; width: 1080px; height: 1350px; z-index: 8; pointer-events: none; }
   .is-mobile-studio .experience-shell[data-format="feed"] .feed-stage-content, .is-mobile-studio .experience-shell[data-format="feed"] .logo-layer, .is-mobile-studio .experience-shell[data-format="feed"] .circle-inset canvas { opacity: 0; }
   .keyboard-open .mobile-navigation, .keyboard-open .mobile-actionbar, .keyboard-open .video-timeline { display: none !important; }
@@ -148,5 +150,46 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .is-video-exporting .editor-status .status-line { display: none !important; }
 .is-video-exporting .editor-status progress { display: block; width: 100%; height: 4px; border: 0; border-radius: 4px; accent-color: var(--ui-accent); }
 .is-video-exporting .editor-status progress::-webkit-progress-bar { background: #ffffff20; border-radius: 4px; }
+
+/* Local experiment: the desktop dock, with fixed touch targets on mobile. */
+@media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
+  .mobile-navigation, .mobile-actionbar { display: none !important; }
+  .experience-shell .glass-dock {
+    display: flex !important; position: fixed; left: 50%; right: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    width: max-content; max-width: calc(100vw - 24px); padding: 8px 6px; gap: 2px;
+    border-radius: 26px; --dock-attachment-size: 44px;
+  }
+  .glass-dock .dock-formats { flex: 0 0 auto; gap: 2px; justify-content: flex-start; }
+  .glass-dock .dock-format-unit, .glass-dock .dock-format-unit.has-media-attachment { flex: 0 0 auto; }
+  .glass-dock .glass-tool, .glass-dock #dockEffects, .glass-dock .dock-export,
+  .glass-dock .dock-format-unit > .format-option, .glass-dock .dock-media-slot #dockImage {
+    flex: 0 0 44px; width: 44px; min-width: 44px; max-width: 44px;
+    height: 44px; min-height: 44px; border-radius: 16px; touch-action: manipulation;
+  }
+  .glass-dock .dock-media-slot #dockImage { border-radius: 50%; }
+  .glass-dock .dock-divider { flex: 0 0 1px; margin-inline: 6px; }
+  .glass-dock .glass-tool::after { display: none; }
+  .experience-shell .workspace, .experience-shell[data-format] .workspace { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .experience-shell.has-artwork-video .workspace { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
+  .experience-shell .stage-host { padding: 12px 16px; }
+  .video-timeline { bottom: calc(96px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); }
+  .studio-panel-open .experience-shell .workspace { padding-bottom: calc(var(--panel-reserve) + 96px + env(safe-area-inset-bottom)); }
+  .keyboard-open .experience-shell .glass-dock { display: none !important; }
+  .keyboard-open .experience-shell .workspace { padding-bottom: var(--panel-reserve) !important; }
+}
+@media (max-width: 370px) {
+  .experience-shell .glass-dock { padding: 6px; max-width: calc(100vw - 16px); }
+  .glass-dock .dock-formats { gap: 2px; }
+  .glass-dock .dock-format-unit { position: relative; }
+  .glass-dock .has-media-attachment .dock-media-slot {
+    position: absolute; bottom: calc(100% + 14px); left: 0; width: 44px; margin-left: 0;
+    border-radius: 50%; background: var(--ui-surface); box-shadow: 0 8px 24px #0005;
+  }
+  .experience-shell:has(.has-media-attachment) .workspace { padding-bottom: calc(154px + env(safe-area-inset-bottom)); }
+  .experience-shell.has-artwork-video:has(.has-media-attachment) .workspace { padding-bottom: calc(234px + env(safe-area-inset-bottom)); }
+  .experience-shell:has(.has-media-attachment) .video-timeline { bottom: calc(154px + env(safe-area-inset-bottom)); }
+  .studio-panel-open .experience-shell:has(.has-media-attachment) .workspace { padding-bottom: calc(var(--panel-reserve) + 96px + env(safe-area-inset-bottom)); }
+}
 .is-video-exporting .editor-status progress::-webkit-progress-value { background: var(--ui-accent); border-radius: 4px; }
 .is-video-exporting .editor-status progress::-moz-progress-bar { background: var(--ui-accent); border-radius: 4px; }

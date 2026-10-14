@@ -2,6 +2,10 @@
 
 ## Atualização — 14/10/2026
 
+- Dock mobile com o mesmo visual e ícones da versão desktop, mantendo alvos de toque de 44 px.
+- Páginas do Informativo com rolagem vertical no mobile e mais espaço entre exportação e divisória.
+- Cantos das prévias levemente arredondados; arquivos exportados preservam o formato original.
+
 - Rosa como cor padrão das tarjas e dos controles; removida a opção amarela.
 - Interface mobile própria, com navegação e ferramentas de contexto separadas.
 - Painéis de mídia, texto, efeitos e vídeo padronizados.

@@ -84,7 +84,7 @@ const StudioUI = (() => {
     document.querySelectorAll(".mobile-format").forEach(button => button.addEventListener("click", () => { closeOtherPanels(); api.format(button.dataset.format); sync(); }));
     function toggleEffects() { const wasOpen = !byId("effectsPopover").hidden; closeOtherPanels("effects"); byId("effectsPopover").hidden = wasOpen; sync(); }
     byId("mobileEffects").addEventListener("click", toggleEffects); byId("dockEffects").addEventListener("click", toggleEffects);
-    byId("closeEffects").addEventListener("click", () => { byId("effectsPopover").hidden = true; sync(); byId(mobileQuery.matches ? "mobileEffects" : "dockEffects").focus({ preventScroll: true }); });
+    byId("closeEffects").addEventListener("click", () => { byId("effectsPopover").hidden = true; sync(); byId("dockEffects").focus({ preventScroll: true }); });
     for (const id of ["effectBlur", "effectShade"]) byId(id).addEventListener("input", event => { api.effects(id, Number(event.target.value)); sync(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") closeOtherPanels(); });
     document.addEventListener("pointerdown", event => {
