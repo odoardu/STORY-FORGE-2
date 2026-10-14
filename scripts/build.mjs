@@ -1,10 +1,11 @@
+import './build-mask.mjs';
 import { mkdir, readdir, stat, copyFile, cp, rm, writeFile } from 'node:fs/promises';
 import { resolve, join, extname } from 'node:path';
 const root = process.cwd();
 const output = resolve(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(join(output, 'catalog'), { recursive: true });
-for (const file of ['index.html', 'editor-core.js', 'app.js', 'styles.css', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
+for (const file of ['index.html', 'editor-core.js', 'app.js', 'styles.css', 'studio-ui.css', 'studio-ui.js', 'artwork-effects.js', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
   await copyFile(join(root, file), join(output, file));
 }
 await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });

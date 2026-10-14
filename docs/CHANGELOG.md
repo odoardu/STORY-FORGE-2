@@ -1,5 +1,16 @@
 # Histórico de mudanças
 
+## Atualização — 14/10/2026
+
+- Rosa como cor padrão das tarjas e dos controles; removida a opção amarela.
+- Interface mobile própria, com navegação e ferramentas de contexto separadas.
+- Painéis de mídia, texto, efeitos e vídeo padronizados.
+- Blur compartilhado entre prévia e exportação, com compatibilidade entre navegadores.
+- Informativo aceita vídeo no upload existente, com linha do tempo, corte e áudio independentes por página.
+- Foto circular com recorte automático do objeto principal para posicionar a bolinha atrás dele.
+- Teste local carrega os arquivos atuais, sem manter versões antigas no cache do PWA.
+- Animação do título preserva o alinhamento central.
+
 ## v0.4.1 — 09/10/2026
 
 ### Correções

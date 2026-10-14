@@ -2,6 +2,17 @@
   "name": "lpz-storyforge",
   "private": true,
   "type": "module",
-  "scripts": { "build": "node scripts/build.mjs" },
-  "engines": { "node": ">=22" }
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@imgly/background-removal": "1.7.0",
+    "onnxruntime-web": "1.21.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }

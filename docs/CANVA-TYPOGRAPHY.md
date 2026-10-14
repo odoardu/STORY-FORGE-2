@@ -26,7 +26,7 @@ O painel Layout mantém apenas as cores e uma indicação de margens fixas. Os c
 
 Medição no Canva: os dois retângulos da primeira página têm 85,3255 px de altura, com Y relativo 84,9937 e 174,916 px dentro do grupo. As margens são uma aproximação da referência, pois os retângulos do Canva são formas independentes e a extensão visível varia com os acentos e desenhos das letras. O editor mantém a margem nominal fixa quando o texto muda.
 
-Verificado: amarelo e rosa conservam as mesmas dimensões; a prévia e o PNG usam o mesmo cálculo de tarja.
+Verificado: a tarja rosa conserva as dimensões padronizadas; a prévia e o PNG usam o mesmo cálculo de tarja.
 
 ## Imagem original e máscara
 
