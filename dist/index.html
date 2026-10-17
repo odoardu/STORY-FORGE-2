@@ -40,6 +40,7 @@
         </div>
 
 
+        <button id="openContentIdeas" class="ideas-open" type="button" aria-label="Abrir sugestões de pauta" hidden>Pautas</button>
         <span id="mobileFormatName" class="mobile-format-name">Feed</span>
         <div class="header-meta" aria-label="Formato do arquivo">
           <span id="formatSizeLabel">1080 x 1350</span>
@@ -384,10 +385,12 @@ DA SUA PUBLICAÇÃO</textarea>
     </section>
     <script src="./editor-core.js" defer></script>
     <script src="./artwork-effects.js" defer></script>
+    <script src="./studio-motion.js" defer></script>
     <script src="./studio-ui.js" defer></script>
     <script src="./editor-history.js" defer></script>
     <script src="./polaroid.js" defer></script>
     <script src="./app.js" defer></script>
+    <script src="./content-ideas.js" defer></script>
     <script src="./pwa.js" defer></script>
   <aside id="circlePopover" class="circle-popover" hidden role="dialog" aria-label="Ajustar foto circular">
     <button id="circleBehind" class="studio-action" type="button" aria-label="Colocar círculo atrás do objeto principal" aria-pressed="true" data-tooltip="Atrás do objeto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></button>
@@ -412,6 +415,13 @@ DA SUA PUBLICAÇÃO</textarea>
         <button type="submit" value="continue">Continuar assim</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="contentIdeas" class="ideas-dialog" aria-labelledby="contentIdeasTitle" aria-describedby="contentIdeasStatus">
+    <header class="ideas-heading"><div><small>LP ZERO BR</small><h2 id="contentIdeasTitle">Sugestões de pauta</h2></div><button id="closeContentIdeas" type="button" aria-label="Fechar sugestões">×</button></header>
+    <p id="contentIdeasStatus" class="ideas-status" role="status">Carregando pautas…</p>
+    <div class="ideas-toolbar"><div role="group" aria-label="Tipo de pauta"><button type="button" data-ideas-view="recent" aria-pressed="true">Pautas recentes</button><button type="button" data-ideas-view="dates" aria-pressed="false">Próximos 7 dias</button></div><button id="reloadContentIdeas" type="button" aria-label="Recarregar cópia local" title="Recarregar cópia local">↻</button></div>
+    <p class="ideas-review">Conteúdo importado do Trello. Confira as fontes antes de usar.</p>
+    <section id="contentIdeasList" aria-label="Lista de sugestões"></section>
   </dialog>
 </body>
 </html>

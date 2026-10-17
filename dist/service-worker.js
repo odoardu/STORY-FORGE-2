@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v24-polaroid-boards-shortcuts";
+const CACHE_NAME = "story-forge-shell-v25-glass-motion";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -6,6 +6,8 @@ const APP_SHELL = [
   "/styles.css",
   "/studio-ui.css",
   "/studio-ui.js",
+  "/studio-motion.js",
+  "/content-ideas.js",
   "/artwork-effects.js",
   "/editor-core.js",
   "/editor-history.js",
@@ -24,6 +26,7 @@ const APP_SHELL = [
   "/assets/textures/ECLUS%C3%83O%2038.png",
   "/assets/textures/LUZ%20INDIRETA%2049.png",
   "/assets/linkin-park/photos.json",
+  "/assets/linkin-park/152259918.jpg",
   "/assets/pwa/icon.svg",
   "/assets/pwa/icon-192.png",
   "/assets/pwa/icon-512.png",

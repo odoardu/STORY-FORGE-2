@@ -115,9 +115,11 @@ const PolaroidStudio = (() => {
     EditorHistory.record(before, snapshot(), restore, "Excluir Polaroid");
   }
   function render() {
+    StudioMotion.captureBoards();
     root.replaceChildren();
     pages.forEach((page, index) => {
       const board = document.createElement("article"); board.className = "polaroid-board" + (active === index ? " is-active" : "");
+      board.dataset.boardMotionKey = StudioMotion.key(page);
       const header = document.createElement("header"), title = document.createElement("span"); title.textContent = `Polaroid ${index + 1}`; header.append(title);
       const remove = document.createElement("button"); remove.type = "button"; remove.className = "polaroid-remove"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remover Polaroid ${index + 1}`); remove.disabled = pages.length === 1;
       remove.onclick = () => removePage(index); if (index > 0) header.append(remove);
@@ -131,6 +133,7 @@ const PolaroidStudio = (() => {
     add.onclick = addPage;
     root.append(add);
     if (state.format === "polaroid") updateStageScale();
+    StudioMotion.settleBoards();
   }
   input.onchange = async () => {
     const file = input.files[0], page = uploadPage; input.value = "";

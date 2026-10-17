@@ -398,6 +398,7 @@ for (const key of informativePageKeys) {
 }
 
 function renderInformativePageTabs() {
+  StudioMotion.captureBoards();
   const host = elements.frame.closest(".stage-host");
   const boards = document.getElementById("informativeArtboards");
   const add = document.getElementById("addInformativePage");
@@ -408,6 +409,7 @@ function renderInformativePageTabs() {
     state.informativePages.forEach((page, index) => {
       const board = document.createElement("section");
       board.className = `informative-artboard${index === activeIndex ? " is-active" : ""}`;
+      board.dataset.boardMotionKey = StudioMotion.key(page);
       const label = document.createElement("button");
       label.type = "button";
       label.className = "artboard-label";
@@ -444,6 +446,7 @@ function renderInformativePageTabs() {
   } else {
     boards.append(add);
   }
+  StudioMotion.settleBoards();
   add.disabled = state.informativePages.length >= MAX_INFORMATIVE_PAGES;
   add.title = add.disabled ? "Limite de 5 páginas atingido" : "Adicionar página informativa (máximo 5)";
 }
@@ -1265,6 +1268,7 @@ function applyFormat(format, options = {}) {
     return;
   }
 
+  const formatChanged = format !== state.format;
   saveLogoSettingsForCurrentFormat();
   state.format = format;
   PolaroidStudio.show(format === "polaroid");
@@ -1275,9 +1279,6 @@ function applyFormat(format, options = {}) {
   document.getElementById("workspaceImageButton").textContent = format === "informative" ? "Imagem do vetor" : "Imagem de fundo";
   closeMediaPopover();
   closeTextEditPopover();
-  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    elements.frame.animate([{ opacity: .45 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
-  }
   applyLogoSettingsForFormat(format);
 
   const spec = getCurrentFormatSpec();
@@ -1328,6 +1329,7 @@ function applyFormat(format, options = {}) {
   refreshVideoArtwork();
   syncInformativeVideoPlayback();
   if (format === "polaroid") PolaroidStudio.refresh();
+  if (formatChanged) StudioMotion.formatChanged();
   requestAnimationFrame(updateControlPanelFade);
 }
 
