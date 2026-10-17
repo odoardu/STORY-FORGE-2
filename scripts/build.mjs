@@ -9,6 +9,7 @@ for (const file of ['index.html', 'content-ideas.js', 'polaroid.js', 'editor-his
   await copyFile(join(root, file), join(output, file));
 }
 await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });
+await copyFile(join(root, 'media-loading-border.js'), join(output, 'media-loading-border.js'));
 async function catalog(directories, extensions) {
   const files = [];
   for (const directory of directories) {

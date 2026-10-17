@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v28-brand-highlights";
+const CACHE_NAME = "story-forge-shell-v29-media-border";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -7,6 +7,7 @@ const APP_SHELL = [
   "/studio-ui.css",
   "/studio-ui.js",
   "/studio-motion.js",
+  "/media-loading-border.js",
   "/content-ideas.js",
   "/catalog/content-ideas.json",
   "/artwork-effects.js",

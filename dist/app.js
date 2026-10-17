@@ -373,7 +373,7 @@ const state = {
   activeDockPanel: "media",
 };
 
-const MAX_INFORMATIVE_PAGES = 5;
+const MAX_INFORMATIVE_PAGES = 6;
 const informativePageKeys = ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoImageName", "infoImageObjectUrl", "infoImage", "infoVideo", "infoUploadToken", "infoVideoTrimStart", "infoVideoTrimEnd", "infoVideoIncludeAudio", "infoZoom", "infoPanX", "infoPanY"];
 const informativePageDefaults = Object.fromEntries(informativePageKeys.map(key => [key, state[key]]));
 function createInformativePage() {
@@ -388,6 +388,34 @@ function createInformativePage() {
 }
 state.informativePages = [createInformativePage()];
 state.activeInformativePage = 0;
+state.artboardFocused = false;
+
+function syncArtboardFocus() {
+  const count = state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  if (count < 2) state.artboardFocused = false;
+  elements.shell.classList.toggle("is-artboard-focused", state.artboardFocused);
+}
+function leaveArtboardFocus() {
+  StudioMotion.captureBoards();
+  state.artboardFocused = false;
+  closeTextEditPopover();
+  syncArtboardFocus();
+  if (state.format === "polaroid") PolaroidStudio.refresh();
+  else renderInformativePageTabs();
+  updateStageScale();
+  document.querySelector(".informative-artboard.is-active .artboard-expand, .polaroid-board.is-active .polaroid-photo")?.focus({ preventScroll: true });
+}
+function setArtboardActionIcon(button, back = false) {
+  button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${back ? "m12 6-6 6 6 6M6 12h12" : "m7 7 10 10M17 7 7 17"}"/></svg>`;
+}
+function createArtboardBackButton() {
+  const button = document.createElement("button");
+  button.type = "button"; button.className = "artboard-back";
+  button.setAttribute("aria-label", "Voltar à grade"); button.title = "Voltar à grade";
+  setArtboardActionIcon(button, true);
+  button.addEventListener("click", leaveArtboardFocus);
+  return button;
+}
 // Existing text, image and export controls always work on the selected page.
 for (const key of informativePageKeys) {
   Object.defineProperty(state, key, {
@@ -399,6 +427,8 @@ for (const key of informativePageKeys) {
 
 function renderInformativePageTabs() {
   StudioMotion.captureBoards();
+  syncArtboardFocus();
+  elements.frame.inert = state.format === "informative" && state.informativePages.length > 1 && !state.artboardFocused;
   const host = elements.frame.closest(".stage-host");
   const boards = document.getElementById("informativeArtboards");
   const add = document.getElementById("addInformativePage");
@@ -417,11 +447,13 @@ function renderInformativePageTabs() {
       label.setAttribute("aria-pressed", String(index === activeIndex));
       label.addEventListener("click", () => selectInformativePage(index));
       board.append(label);
+      board.setAttribute("aria-label", `Informativo ${index + 1}`);
+      if (state.artboardFocused && index === activeIndex) board.append(createArtboardBackButton());
       if (index > 0) {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "informative-remove";
-        remove.textContent = "×";
+        setArtboardActionIcon(remove);
         remove.setAttribute("aria-label", `Remover informativo ${index + 1}`);
         remove.addEventListener("click", () => removeInformativePage(index));
         board.append(remove);
@@ -432,6 +464,7 @@ function renderInformativePageTabs() {
         const preview = document.createElement("button");
         preview.type = "button";
         preview.className = "artboard-preview";
+        if (!state.artboardFocused) preview.tabIndex = -1;
         preview.setAttribute("aria-label", `Editar informativo ${index + 1}`);
         const snapshot = document.createElement("canvas"); snapshot.width = 1080; snapshot.height = 1350;
         try { state.activeInformativePage = index; drawInformativeFrame(snapshot.getContext("2d")); }
@@ -439,6 +472,17 @@ function renderInformativePageTabs() {
         preview.append(snapshot);
         preview.addEventListener("click", () => selectInformativePage(index));
         board.append(preview);
+      }
+      if (state.informativePages.length > 1 && !state.artboardFocused) {
+        const expand = document.createElement("button");
+        expand.type = "button"; expand.className = "artboard-expand";
+        expand.setAttribute("aria-label", `Ampliar informativo ${index + 1}`);
+        expand.addEventListener("click", () => {
+          StudioMotion.captureBoards();
+          state.artboardFocused = true; selectInformativePage(index);
+          boards.querySelector(".is-active .artboard-back")?.focus({ preventScroll: true });
+        });
+        board.append(expand);
       }
       boards.append(board);
     });
@@ -448,7 +492,8 @@ function renderInformativePageTabs() {
   }
   StudioMotion.settleBoards();
   add.disabled = state.informativePages.length >= MAX_INFORMATIVE_PAGES;
-  add.title = add.disabled ? "Limite de 5 páginas atingido" : "Adicionar página informativa (máximo 5)";
+  add.title = add.disabled ? "Limite de 6 páginas atingido" : "Adicionar página informativa (máximo 6)";
+  MediaLoadingBorder.sync();
 }
 
 function selectInformativePage(index) {
@@ -486,7 +531,15 @@ const feedEffectContext = feedEffectCanvas.getContext("2d", { willReadFrequently
 
 const activeMediaLoads = new Set();
 let mediaLoadingHideTimer;
-function beginMediaLoading(message = "Preparando mídia…") {
+function beginMediaLoading(message = "Preparando mídia…", target = {}) {
+  const format = target.format || state.format;
+  const page = target.page || (format === "informative" ? state.informativePages[state.activeInformativePage] : null);
+  const finishBorder = MediaLoadingBorder.begin(() => {
+    if (["feed", "stories"].includes(format)) return ["feed", "stories"].includes(state.format) ? elements.frame : null;
+    if (format !== state.format) return null;
+    if (page) return document.querySelector(`[data-board-motion-key="${StudioMotion.key(page)}"]`);
+    return elements.frame;
+  });
   const job = Symbol("media");
   const host = document.getElementById("mediaLoading");
   const label = document.getElementById("mediaLoadingLabel");
@@ -494,12 +547,15 @@ function beginMediaLoading(message = "Preparando mídia…") {
   clearTimeout(mediaLoadingHideTimer);
   activeMediaLoads.add(job);
   host.hidden = false;
+  host.classList.add("uses-border-loading");
   host.classList.remove("is-complete", "is-error");
   host.setAttribute("aria-busy", "true");
   bar.removeAttribute("aria-valuenow");
   label.textContent = message;
   return (success, message = null) => {
-    if (!activeMediaLoads.delete(job) || activeMediaLoads.size) return;
+    if (!activeMediaLoads.delete(job)) return;
+    finishBorder(success);
+    if (activeMediaLoads.size) return;
     host.setAttribute("aria-busy", "false");
     host.classList.add(success ? "is-complete" : "is-error");
     label.textContent = message || (success ? "Mídia pronta" : "Não foi possível abrir a mídia");
@@ -959,22 +1015,20 @@ function bindEvents() {
   document.querySelector(".informative-upload-action").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); elements.informativeImageInput.click(); }
   });
-  document.getElementById("closingImageInput").addEventListener("change", async event => {
-    const file = event.target.files[0];
+  document.getElementById("closingImageInput").addEventListener("change", event => {
+    void importClosingImageFile(event.target.files[0]); event.target.value = "";
+  });
+  document.addEventListener("paste", event => {
+    if (state.exportingVideo || document.querySelector("dialog[open]") || event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const item = [...(event.clipboardData?.items || [])].find(item => item.kind === "file" && item.type.startsWith("image/"));
+    const file = item?.getAsFile();
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    const finishLoading = beginMediaLoading();
-    let mediaReady = false;
-    try {
-      const image = await loadImage(url);
-      mediaReady = true;
-      state.closingImage = image;
-      closeMediaPopover();
-      updateClosingPreview();
-    updateStoriesPreview();
-      setStatus("Imagem do encerramento atualizada");
-    } catch { setStatus("Não foi possível abrir essa imagem"); }
-    finally { finishLoading(mediaReady); URL.revokeObjectURL(url); event.target.value = ""; }
+    event.preventDefault();
+    const upload = { target: { files: [file], value: "" } };
+    if (state.format === "polaroid") void PolaroidStudio.paste(file);
+    else if (state.format === "informative") void handleInformativeImageUpload(upload);
+    else if (state.format === "closing") void importClosingImageFile(file);
+    else void handleFeedImageUpload(upload);
   });
   document.getElementById("closingUseFeed").addEventListener("click", () => {
     state.closingImage = null;
@@ -1269,6 +1323,7 @@ function applyFormat(format, options = {}) {
   }
 
   const formatChanged = format !== state.format;
+  if (formatChanged) state.artboardFocused = false;
   saveLogoSettingsForCurrentFormat();
   state.format = format;
   PolaroidStudio.show(format === "polaroid");
@@ -1345,13 +1400,13 @@ function updateStageScale() {
   const isPortraitPost = spec.width === 1080 && spec.height === 1350;
   const availableWidth = Math.max(24, stageHost.offsetWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (isPortraitPost ? 32 : 0));
   const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (isPortraitPost ? 76 : 0));
-  const boardCount = state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  const boardCount = state.artboardFocused ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
   const boardGrid = ["informative", "polaroid"].includes(state.format);
   const columns = Math.min(boardCount, stageHost.offsetWidth < 600 ? 2 : 3);
   const rows = Math.ceil(boardCount / columns);
-  const gap = stageHost.offsetWidth < 600 ? 12 : 24;
+  const gap = stageHost.offsetWidth < 600 ? 12 : 28;
   const scale = boardGrid
-    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight - 36 - 48 * (rows - 1)) / rows / spec.height, .72)
+    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight + (state.artboardFocused ? 8 : -48) - 64 * (rows - 1)) / rows / spec.height, .72)
     : Math.min(availableWidth / spec.width, availableHeight / spec.height, .72);
   stageHost.style.setProperty("--board-columns", columns);
   stageHost.style.setProperty("--board-gap", `${gap}px`);
@@ -1374,13 +1429,14 @@ function updateStageScale() {
     frame.style.height = `${height}px`;
     frame.querySelector(".story-stage").style.transform = `scale(${scale})`;
   });
+  MediaLoadingBorder.sync();
 }
 
 async function handleVideoUpload(event) {
   const file = event.target.files[0];
   if (!file || state.exportingVideo) return;
   if (file.type && !file.type.startsWith("video/")) { setStatus("Selecione um arquivo de vídeo."); return; }
-  const finishLoading = beginMediaLoading();
+  const finishLoading = beginMediaLoading("Preparando vídeo…", { format: "feed" });
   let mediaReady = false;
   const token = ++state.videoLoadingToken;
   const url = URL.createObjectURL(file);
@@ -1596,13 +1652,43 @@ function bindTimelineVideo(video) {
   });
 }
 
+let imageResolutionDecision = Promise.resolve();
+function confirmImageResolution(image, targetWidth, targetHeight) {
+  const quality = EditorCore.imageResolution(image.naturalWidth, image.naturalHeight, targetWidth, targetHeight);
+  if (!quality.low) return Promise.resolve(true);
+  const decision = imageResolutionDecision.then(() => new Promise(resolve => {
+    const dialog = document.getElementById("imageResolutionWarning");
+    document.getElementById("imageResolutionDescription").textContent = `A imagem tem ${image.naturalWidth} × ${image.naturalHeight} px, abaixo do recomendado para esta área (${Math.round(targetWidth)} × ${Math.round(targetHeight)} px). Ao continuar, ela pode ficar pixelada.`;
+    dialog.returnValue = "correct";
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "continue"), { once: true });
+    dialog.showModal();
+  }));
+  imageResolutionDecision = decision.catch(() => false);
+  return decision;
+}
+
+async function importClosingImageFile(file) {
+  if (!file || state.exportingVideo) return;
+  const url = URL.createObjectURL(file), finish = beginMediaLoading();
+  let ready = false;
+  try {
+    const image = await loadImage(url); ready = true; finish(true, "Imagem carregada");
+    if (!await confirmImageResolution(image, 1080, 1350)) return;
+    state.closingImage = image;
+    closeMediaPopover(); updateClosingPreview(); updateStoriesPreview();
+    setStatus("Imagem do encerramento atualizada");
+  } catch { setStatus("Não foi possível abrir essa imagem"); }
+  finally { finish(ready); URL.revokeObjectURL(url); }
+}
+
 function handleFeedImageUpload(event) {
   const [file] = event.target.files;
   if (!file) return;
 
   const url = URL.createObjectURL(file);
-  applyFeedImage(url, file.name, formatFileSize(file.size), true).catch(() => setStatus("Não foi possível abrir essa imagem. Tente outro arquivo.")).finally(() => { event.target.value = ""; });
+  const operation = applyFeedImage(url, file.name, formatFileSize(file.size), true).catch(() => setStatus("Não foi possível abrir essa imagem. Tente outro arquivo.")).finally(() => { event.target.value = ""; });
   if (state.format !== "stories") applyFormat("feed");
+  return operation;
 }
 
 async function loadRandomFeedImage(options = {}) {
@@ -1637,11 +1723,18 @@ async function loadRandomFeedImage(options = {}) {
 }
 
 async function applyFeedImage(url, name, meta, isObjectUrl = false) {
-  const finishLoading = isObjectUrl ? beginMediaLoading() : null;
+  const uploadId = state.feedImageLoadId = (state.feedImageLoadId || 0) + 1;
+  const target = state.format === "stories" ? FORMATS.stories : FORMATS.feed;
+  const finishLoading = isObjectUrl ? beginMediaLoading("Abrindo imagem…", { format: "feed" }) : null;
   let mediaReady = false;
   try {
     const image = await loadImage(url);
     mediaReady = true;
+    if (isObjectUrl) {
+      finishLoading?.(true, "Imagem carregada");
+      if (!await confirmImageResolution(image, target.width, target.height)) { URL.revokeObjectURL(url); return; }
+    }
+    if (uploadId !== state.feedImageLoadId) { if (isObjectUrl) URL.revokeObjectURL(url); return; }
 
     if (state.feedImageObjectUrl && state.feedImageObjectUrl !== url) {
       URL.revokeObjectURL(state.feedImageObjectUrl);
@@ -2304,7 +2397,7 @@ function handleInformativeImageUpload(event) {
   const url = URL.createObjectURL(file);
   const video = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm)$/i.test(file.name);
   const operation = video ? applyInformativeVideo(url, file.name, page, token) : applyInformativeImage(url, file.name, formatFileSize(file.size), true, page, token);
-  operation.catch(() => { URL.revokeObjectURL(url); setStatus("Não foi possível carregar a mídia do informativo."); });
+  return operation.catch(() => { URL.revokeObjectURL(url); setStatus("Não foi possível carregar a mídia do informativo."); });
 }
 
 function hasInformativeVideo() {
@@ -2338,7 +2431,7 @@ function syncInformativeVideoPlayback() {
 }
 
 async function applyInformativeVideo(url, name, page, token) {
-  const finish = beginMediaLoading(), video = document.createElement("video");
+  const finish = beginMediaLoading("Preparando vídeo…", { format: "informative", page }), video = document.createElement("video");
   video.src = url; video.muted = true; video.loop = false; video.playsInline = true; video.preload = "auto";
   video.setAttribute("aria-hidden", "true"); video.tabIndex = -1;
   video.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
@@ -2366,7 +2459,7 @@ async function applyInformativeVideo(url, name, page, token) {
 }
 
 async function applyInformativeImage(url, name, meta, isObjectUrl = false, targetPage = null, token = null) {
-  const finishLoading = isObjectUrl ? beginMediaLoading() : null;
+  const finishLoading = isObjectUrl ? beginMediaLoading("Abrindo imagem…", { format: "informative", page: targetPage || state.informativePages[state.activeInformativePage] }) : null;
   let mediaReady = false;
   const page = targetPage || state.informativePages[state.activeInformativePage];
   const uploadToken = token ?? ++page.infoUploadToken;
@@ -2374,6 +2467,11 @@ async function applyInformativeImage(url, name, meta, isObjectUrl = false, targe
     const image = await loadImage(url);
     if (page.infoUploadToken !== uploadToken) { if (isObjectUrl) URL.revokeObjectURL(url); return; }
     mediaReady = true;
+    if (isObjectUrl) {
+      finishLoading?.(true, "Imagem carregada");
+      if (!await confirmImageResolution(image, INFORMATIVE.image.width, INFORMATIVE.image.height)) { URL.revokeObjectURL(url); return; }
+      if (page.infoUploadToken !== uploadToken || !state.informativePages.includes(page)) { URL.revokeObjectURL(url); return; }
+    }
     disposeInformativeVideo(page);
     if (page.infoImageObjectUrl && page.infoImageObjectUrl !== url) URL.revokeObjectURL(page.infoImageObjectUrl);
     page.infoImageUrl = url;
@@ -5038,6 +5136,7 @@ function restoreInformativeBoards(snapshot) {
 function addInformativePage() {
   if (state.exportingVideo || state.informativePages.length >= MAX_INFORMATIVE_PAGES) return;
   const before = informativeBoardSnapshot();
+  state.artboardFocused = false;
   state.informativePages.push(createInformativePage());
   selectInformativePage(state.informativePages.length - 1);
   EditorHistory.record(before, informativeBoardSnapshot(), restoreInformativeBoards, "Adicionar prancheta informativa");

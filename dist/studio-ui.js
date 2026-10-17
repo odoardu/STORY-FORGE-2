@@ -89,7 +89,7 @@ const StudioUI = (() => {
     for (const id of ["effectBlur", "effectShade"]) byId(id).addEventListener("input", event => { api.effects(id, Number(event.target.value)); sync(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") closeOtherPanels(); });
     document.addEventListener("pointerdown", event => {
-      if (event.target.closest("#fullHighlightWarning, .studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .video-options, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
+      if (event.target.closest("#fullHighlightWarning, #imageResolutionWarning, .studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .video-options, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
       closeOtherPanels();
     });
     panelObserver = new ResizeObserver(sync); panels().forEach(panel => panelObserver.observe(panel));

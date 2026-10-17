@@ -3,7 +3,7 @@ const StudioMotion = (() => {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const ease = "cubic-bezier(.22, 1, .36, 1)";
   const running = new Map(), identities = new WeakMap();
-  let serial = 0, queued = false, gridFrame = 0, previousBoards = new Map();
+  let serial = 0, queued = false, gridFrame = 0, boardSnapshotPending = false, previousBoards = new Map();
   function key(object) {
     if (!identities.has(object)) identities.set(object, String(++serial));
     return identities.get(object);
@@ -17,6 +17,9 @@ const StudioMotion = (() => {
     animation.onfinish = clean; animation.oncancel = clean;
   }
   function captureBoards() {
+    // Keep the first visual state until layout settles, even across nested renders.
+    if (boardSnapshotPending) return;
+    boardSnapshotPending = true;
     previousBoards = new Map();
     if (reduced.matches) return;
     document.querySelectorAll("[data-board-motion-key]").forEach(element => {
@@ -27,6 +30,7 @@ const StudioMotion = (() => {
   function settleBoards() {
     cancelAnimationFrame(gridFrame);
     gridFrame = requestAnimationFrame(() => {
+      boardSnapshotPending = false;
       if (reduced.matches) return;
       document.querySelectorAll("[data-board-motion-key]").forEach(element => {
         if (!element.getClientRects().length) return;

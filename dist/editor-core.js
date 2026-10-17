@@ -92,5 +92,10 @@ const EditorCore = (() => {
       ranges.some(range => range.start <= match.index && range.end >= match.index + match[0].length));
   }
 
-  return Object.freeze({ isFullyHighlighted, videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
+  function imageResolution(width, height, targetWidth, targetHeight) {
+    const scale = Math.max(targetWidth / width, targetHeight / height);
+    return { scale, low: !Number.isFinite(scale) || scale > 1.25 };
+  }
+
+  return Object.freeze({ imageResolution, isFullyHighlighted, videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
 })();

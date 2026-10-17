@@ -1,6 +1,7 @@
 "use strict";
 const PolaroidStudio = (() => {
-  const rotations = [-2.4, 1.8, -1.2, 2.8, -.6];
+  const rotations = [-2.4, 1.8, -1.2, 2.8, -.6, 1.1];
+  const maxPages = 6;
   const defaultShade = 48;
   const defaultBlur = 19;
   const photoScale = .85;
@@ -100,7 +101,8 @@ const PolaroidStudio = (() => {
     applyFormat("polaroid", { keepPanel: true }); render(); StudioUI.sync();
   }
   function addPage() {
-    if (pages.length >= 5) return;
+    if (pages.length >= maxPages) return;
+    state.artboardFocused = false;
     const before = snapshot();
     pages.push({ image: null, name: "", token: 0 }); active = pages.length - 1; render();
     EditorHistory.record(before, snapshot(), restore, "Adicionar Polaroid");
@@ -116,33 +118,50 @@ const PolaroidStudio = (() => {
   }
   function render() {
     StudioMotion.captureBoards();
+    syncArtboardFocus();
     root.replaceChildren();
     pages.forEach((page, index) => {
       const board = document.createElement("article"); board.className = "polaroid-board" + (active === index ? " is-active" : "");
       board.dataset.boardMotionKey = StudioMotion.key(page);
-      const header = document.createElement("header"), title = document.createElement("span"); title.textContent = `Polaroid ${index + 1}`; header.append(title);
-      const remove = document.createElement("button"); remove.type = "button"; remove.className = "polaroid-remove"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remover Polaroid ${index + 1}`); remove.disabled = pages.length === 1;
+      board.setAttribute("aria-label", `Polaroid ${index + 1}`);
+      const header = document.createElement("header");
+      if (state.artboardFocused && active === index) header.append(createArtboardBackButton());
+      const remove = document.createElement("button"); remove.type = "button"; remove.className = "polaroid-remove"; setArtboardActionIcon(remove); remove.setAttribute("aria-label", `Remover Polaroid ${index + 1}`); remove.disabled = pages.length === 1;
       remove.onclick = () => removePage(index); if (index > 0) header.append(remove);
       const photo = document.createElement("button"); photo.type = "button"; photo.className = "polaroid-photo";
-      photo.setAttribute("aria-label", `${page.image ? "Selecionar ou trocar foto da" : "Adicionar foto à"} Polaroid ${index + 1}`);
+      photo.setAttribute("aria-label", pages.length > 1 && !state.artboardFocused ? `Ampliar Polaroid ${index + 1}` : `${page.image ? "Selecionar ou trocar foto da" : "Adicionar foto à"} Polaroid ${index + 1}`);
       const canvas = document.createElement("canvas"); draw(canvas, page, index); photo.append(canvas);
-      photo.onclick = () => { const selected = active === index; active = index; render(); if (selected || !page.image) { uploadPage = page; input.click(); } };
+      photo.onclick = () => {
+        StudioMotion.captureBoards();
+        const expand = pages.length > 1 && !state.artboardFocused;
+        active = index;
+        if (expand) { state.artboardFocused = true; render(); root.querySelector(".is-active .artboard-back")?.focus({ preventScroll: true }); return; }
+        render(); uploadPage = page; input.click();
+      };
       board.append(header, photo); root.append(board);
     });
-    const add = document.createElement("button"); add.type = "button"; add.className = "polaroid-add"; add.textContent = "+"; add.setAttribute("aria-label", "Adicionar prancheta Polaroid"); add.disabled = pages.length >= 5; add.title = add.disabled ? "Limite de 5 pranchetas" : "Adicionar Polaroid (Ctrl+Shift+N)";
+    const add = document.createElement("button"); add.type = "button"; add.className = "polaroid-add"; add.textContent = "+"; add.setAttribute("aria-label", "Adicionar prancheta Polaroid"); add.disabled = pages.length >= maxPages; add.title = add.disabled ? "Limite de 6 pranchetas" : "Adicionar Polaroid (Ctrl+Shift+N)";
     add.onclick = addPage;
     root.append(add);
     if (state.format === "polaroid") updateStageScale();
     StudioMotion.settleBoards();
+    MediaLoadingBorder.sync();
   }
   input.onchange = async () => {
     const file = input.files[0], page = uploadPage; input.value = "";
+    await uploadFile(file, page);
+  };
+  async function uploadFile(file, page = pages[active]) {
     if (!file || !page) return;
-    const token = ++page.token, done = beginMediaLoading("Abrindo foto…");
+    const token = ++page.token, done = beginMediaLoading("Abrindo foto…", { format: "polaroid", page });
     const url = URL.createObjectURL(file);
     try {
       const image = new Image(); image.src = url; await image.decode();
       if (token !== page.token || !pages.includes(page)) { done(true); return; }
+      done(true, "Imagem carregada");
+      const landscape = image.naturalWidth > image.naturalHeight;
+      if (!await confirmImageResolution(image, (landscape ? 780 : 600) * photoScale, (landscape ? 500 : 750) * photoScale)) return;
+      if (token !== page.token || !pages.includes(page)) return;
       const before = { image: page.image, name: page.name };
       page.image = image; page.name = file.name; render(); done(true);
       EditorHistory.record(before, { image, name: file.name }, value => {
@@ -151,7 +170,7 @@ const PolaroidStudio = (() => {
       }, "Trocar foto da Polaroid");
     } catch { done(false, "Não foi possível abrir a foto. Tente JPG, PNG ou WebP."); }
     finally { URL.revokeObjectURL(url); }
-  };
+  }
   async function exportActive() {
     const page = pages[active];
     if (!page.image) { uploadPage = page; input.click(); return; }
@@ -174,6 +193,7 @@ const PolaroidStudio = (() => {
       EditorHistory.record(before, value, saved => { page[key] = saved; if (pages.includes(page)) { active = pages.indexOf(page); applyFormat("polaroid", { keepPanel: true }); render(); StudioUI.sync(); } }, "Ajustar efeito da Polaroid", page.historyKeys[key]);
     },
     add: addPage,
+    paste: uploadFile,
     removeActive: () => removePage(),
     selectRelative(delta) { active = Math.max(0, Math.min(pages.length - 1, active + delta)); render(); StudioUI.sync(); root.querySelectorAll(".polaroid-photo")[active]?.focus({ preventScroll: true }); },
     count: () => pages.length,

@@ -1,6 +1,31 @@
 /* Studio controls: one component system, separate desktop and touch layouts. */
 :root { --ui-surface: #242424f5; --ui-border: #ffffff24; --ui-text: #f2f2f0; --ui-muted: #c0c0bb; --ui-accent: var(--pink); --ui-radius: 24px; --ui-gap: 12px; }
 .stage-frame, .artboard-preview { border-radius: 10px; overflow: hidden; }
+.stage-frame { position: relative; }
+.media-border-loading {
+  position: absolute; inset: 0; z-index: 60; display: block; width: 100%; height: 100%;
+  overflow: visible; pointer-events: none; border-radius: 10px;
+}
+.media-border-loading rect { fill: none; stroke-width: 1.5; }
+.media-border-track { stroke: #e981be40; }
+.media-border-runner {
+  stroke: #e981be; stroke-linecap: round; stroke-dasharray: 24 76;
+  animation: media-border-orbit 1.8s linear infinite;
+}
+.is-media-loading { outline-color: transparent !important; }
+.is-media-loading > .stage-frame, .is-media-loading > .polaroid-photo { outline-color: transparent !important; }
+.media-border-loading.is-complete { animation: media-border-finish 600ms ease forwards; }
+.media-border-loading.is-complete .media-border-runner { animation: none; stroke-dasharray: 100 0; }
+@keyframes media-border-orbit { to { stroke-dashoffset: -100; } }
+@keyframes media-border-finish { 50% { opacity: 1; } to { opacity: 0; } }
+.media-loading.uses-border-loading:not(.is-error) {
+  width: 1px; height: 1px; min-width: 0; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); border: 0; box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-border-runner { animation: none; stroke-dasharray: 100 0; }
+  .media-border-loading.is-complete { animation: none; }
+}
 .mobile-navigation, .mobile-actionbar, .mobile-format-name, .action-caption { display: none; }
 .studio-panel, .video-options-panel { color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: 0 16px 48px #0006; border-radius: var(--ui-radius); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 .studio-panel[hidden] { display: none !important; }
@@ -278,9 +303,9 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .experience-shell[data-format="informative"] #informativeArtboards,
 .experience-shell[data-format="polaroid"] #polaroidArtboards:not([hidden]) {
   position: relative; display: grid; flex: 0 0 auto; min-width: 0; width: max-content;
-  max-width: 100%; margin: 0; padding: 36px 0 68px;
+  max-width: 100%; margin: 0; padding: 48px 0 68px;
   grid-template-columns: repeat(var(--board-columns, 1), var(--artboard-width));
-  column-gap: var(--board-gap, 24px); row-gap: 48px;
+  column-gap: var(--board-gap, 28px); row-gap: 64px;
   align-items: start; justify-content: center;
 }
 .experience-shell #addInformativePage, .experience-shell .polaroid-add {
@@ -300,6 +325,50 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 }
 .informative-remove:hover { color: #e981be; }
 .informative-remove:focus-visible { outline: 2px solid #e981be; outline-offset: 2px; }
+
+/* Artwork selection stays on the preview; the header contains actions only. */
+.experience-shell:is([data-format="feed"], [data-format="stories"]) #stageFrame,
+.experience-shell[data-format="informative"] .informative-artboard.is-active .stage-frame,
+.experience-shell[data-format="polaroid"] .polaroid-board.is-active .polaroid-photo {
+  outline: 1px solid #e981be80; outline-offset: 2px;
+}
+.informative-artboard .artboard-label { display: none; }
+.polaroid-board header { box-sizing: border-box; justify-content: flex-end; gap: 8px; padding-inline: 12px; margin-bottom: 14px; }
+.artboard-expand { position: absolute; inset: 0; z-index: 30; border: 0; border-radius: 10px; padding: 0; background: transparent; cursor: zoom-in; }
+.artboard-expand:focus-visible { outline: 2px solid var(--pink); outline-offset: 5px; }
+.artboard-back, .informative-remove, .polaroid-remove {
+  display: inline-grid; place-items: center; box-sizing: border-box;
+  width: 32px; height: 32px; min-width: 32px; min-height: 32px;
+  padding: 0; margin: 0; border: 1px solid #ffffff0d; border-radius: 50%;
+  background: #ffffff12; color: #ddd; cursor: pointer; line-height: 1;
+}
+.artboard-back svg, .informative-remove svg, .polaroid-remove svg {
+  display: block; width: 20px; height: 20px; fill: none;
+  stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.artboard-back:hover, .informative-remove:hover, .polaroid-remove:hover { background: #ffffff24; color: #fff; }
+.artboard-back:focus-visible, .informative-remove:focus-visible, .polaroid-remove:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.informative-artboard > .artboard-back { position: absolute; right: 12px; bottom: calc(100% + 14px); }
+.informative-artboard > .informative-remove { right: 12px; bottom: calc(100% + 14px); }
+.informative-artboard:has(.informative-remove) > .artboard-back { right: 52px; }
+.experience-shell:not(.is-artboard-focused) :is(.informative-remove, .polaroid-remove) {
+  width: 26px; height: 26px; min-width: 26px; min-height: 26px;
+  background: #ffffff0d; color: #c8c8cb;
+}
+.experience-shell:not(.is-artboard-focused) :is(.informative-remove, .polaroid-remove) svg { width: 16px; height: 16px; }
+.experience-shell:not(.is-artboard-focused) .polaroid-board header { height: 26px; }
+.polaroid-remove { position: relative; }
+@media (pointer: coarse) {
+  .experience-shell:not(.is-artboard-focused) :is(.informative-remove, .polaroid-remove)::after {
+    content: ""; position: absolute; inset: -9px; border-radius: 50%;
+  }
+}
+.is-artboard-focused .informative-artboard:not(.is-active),
+.is-artboard-focused .polaroid-board:not(.is-active),
+.is-artboard-focused #addInformativePage,
+.is-artboard-focused .polaroid-add { display: none !important; }
+.experience-shell.is-artboard-focused #informativeArtboards,
+.experience-shell.is-artboard-focused #polaroidArtboards:not([hidden]) { padding-bottom: 12px; }
 
 /* Identical add actions, with a stable target on both desktop and mobile. */
 .experience-shell #addInformativePage, .experience-shell .polaroid-add {
