@@ -278,7 +278,7 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .experience-shell[data-format="informative"] #informativeArtboards,
 .experience-shell[data-format="polaroid"] #polaroidArtboards:not([hidden]) {
   position: relative; display: grid; flex: 0 0 auto; min-width: 0; width: max-content;
-  max-width: 100%; margin: 0; padding: 36px 0 56px;
+  max-width: 100%; margin: 0; padding: 36px 0 68px;
   grid-template-columns: repeat(var(--board-columns, 1), var(--artboard-width));
   column-gap: var(--board-gap, 24px); row-gap: 48px;
   align-items: start; justify-content: center;

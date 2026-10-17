@@ -517,7 +517,7 @@ async function init() {
   state.background = elements.background;
   state.kickerImage = await loadImage("./assets/mundo-soldier-branca.png");
   state.informativeSymbols = await loadImage("./assets/informative-linkin-park-logos.png");
-  state.kickerMode = "image";
+  state.kickerMode = "text";
 
   if (document.fonts) {
     await Promise.all([
@@ -1351,7 +1351,7 @@ function updateStageScale() {
   const rows = Math.ceil(boardCount / columns);
   const gap = stageHost.offsetWidth < 600 ? 12 : 24;
   const scale = boardGrid
-    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight - 24 - 48 * (rows - 1)) / rows / spec.height, .72)
+    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight - 36 - 48 * (rows - 1)) / rows / spec.height, .72)
     : Math.min(availableWidth / spec.width, availableHeight / spec.height, .72);
   stageHost.style.setProperty("--board-columns", columns);
   stageHost.style.setProperty("--board-gap", `${gap}px`);
@@ -1727,6 +1727,11 @@ function updateText() {
 }
 
 function updateFeedText() {
+  // Text edits and history restores must also respect the partial-highlight rule.
+  if (EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
+    state.titleHighlights = [];
+    setStatus("Tarja removida: destaque apenas palavras ou trechos do título.");
+  }
   if (!elements.feedTitleLayer) return;
 
   elements.feedKickerPreview.textContent = normalizeLine(elements.feedKickerInput.value || "CHAPEU");
@@ -4998,15 +5003,15 @@ async function applyTitleHighlight(start, end) {
   if (EditorCore.isFullyHighlighted(text, next)) {
     const dialog = document.getElementById("fullHighlightWarning");
     if (dialog.open) return;
-    const proceed = await new Promise(resolve => {
+    await new Promise(resolve => {
       dialog.returnValue = "correct";
-      dialog.addEventListener("close", () => resolve(dialog.returnValue === "continue"), { once: true });
+      dialog.addEventListener("close", resolve, { once: true });
       dialog.showModal();
     });
     input.focus({ preventScroll: true });
     if (input.value !== text) return;
     input.setSelectionRange(start, end);
-    if (!proceed) return;
+    return;
   }
   const beforeHighlight = { ranges: state.titleHighlights, color: state.titleHighlightColor, text };
   state.titleHighlights = next;

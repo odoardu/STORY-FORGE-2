@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v27-live-ideas";
+const CACHE_NAME = "story-forge-shell-v28-brand-highlights";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
