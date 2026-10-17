@@ -19,8 +19,9 @@ export default async function handler(req, res) {
     return reply(200, data);
   } catch (error) {
     const syncStatus = error.message === "not-configured" ? "not-configured" : "unavailable";
-    // Log a fixed code only: upstream errors can contain credential-bearing URLs.
-    if (syncStatus === "unavailable") console.error("content-ideas: Trello connection failed");
+    // Only allow controlled codes into logs, never raw errors or credentials.
+    const reason = /^trello-\d{3}$/.test(error.message) ? error.message : "connection-failed";
+    if (syncStatus === "unavailable") console.error(`content-ideas: ${reason}`);
     return reply(200, { ...snapshot, mode: "snapshot", syncStatus });
   }
 }
