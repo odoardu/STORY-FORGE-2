@@ -82,3 +82,13 @@ test('video trim clamps bounds, prevents empty segments and preserves the change
   assert.deepEqual(plain(core.videoTrim(0.05, 0, 0.05)), { start: 0, end: 0.05 });
   assert.deepEqual(plain(core.videoTrim(Infinity, 1, 2)), { start: 0, end: 0 });
 });
+
+
+test('full-title warning ignores whitespace and detects accumulated highlights', () => {
+  assert.equal(core.isFullyHighlighted('  CONHEÇA\n A BANDA  ', [{start:2,end:9},{start:11,end:18}]), true);
+  assert.equal(core.isFullyHighlighted('LINKIN PARK', [{start:0,end:6}]), false);
+  assert.equal(core.isFullyHighlighted('LINKIN PARK', [{start:0,end:6},{start:7,end:11}]), true);
+  assert.equal(core.isFullyHighlighted('  \n ', [{start:0,end:4}]), false);
+  const cleared = core.toggleRange([{start:0,end:11}], 0, 11);
+  assert.equal(core.isFullyHighlighted('LINKIN PARK', cleared), false);
+});

@@ -86,5 +86,11 @@ const EditorCore = (() => {
     return { start, end };
   }
 
-  return Object.freeze({ videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
+  function isFullyHighlighted(text, ranges) {
+    const letters = Array.from(text.matchAll(/\S/gu));
+    return letters.length > 0 && letters.every(match =>
+      ranges.some(range => range.start <= match.index && range.end >= match.index + match[0].length));
+  }
+
+  return Object.freeze({ isFullyHighlighted, videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
 })();

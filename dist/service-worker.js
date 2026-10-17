@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v22-mobile-dock-rounded-preview";
+const CACHE_NAME = "story-forge-shell-v24-polaroid-boards-shortcuts";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -8,6 +8,8 @@ const APP_SHELL = [
   "/studio-ui.js",
   "/artwork-effects.js",
   "/editor-core.js",
+  "/editor-history.js",
+  "/polaroid.js",
   "/app.js",
   "/pwa.js",
   "/manifest.webmanifest",

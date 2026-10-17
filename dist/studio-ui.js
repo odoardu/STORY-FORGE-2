@@ -22,14 +22,15 @@ const StudioUI = (() => {
       const selected = button.dataset.format === s.format;
       button.classList.toggle("is-active", selected); button.setAttribute("aria-pressed", String(selected));
     });
-    const names = { feed: "Feed", stories: "Stories", informative: "Informativo", closing: "Encerramento" };
+    const names = { polaroid: "Polaroid", feed: "Feed", stories: "Stories", informative: "Informativo", closing: "Encerramento" };
     byId("mobileFormatName").textContent = names[s.format] || "Feed";
     byId("effectBlur").value = s.format === "closing" ? s.closingBlur : s.format === "informative" ? s.infoBackgroundBlur : s.maskBlur;
-    byId("effectShade").value = s.format === "closing" ? s.closingShade : s.blurGradientOpacity;
+    byId("effectShade").value = s.format === "closing" ? s.closingShade : s.format === "informative" ? s.infoShade : s.blurGradientOpacity;
+    if (s.format === "polaroid") { const effects = PolaroidStudio.getEffects(); byId("effectBlur").value = effects.blur; byId("effectShade").value = effects.shade; }
     byId("effectBlurValue").textContent = byId("effectBlur").value;
     byId("effectShadeValue").textContent = byId("effectShade").value + "%";
-    byId("effectBlurLabel").textContent = ["closing", "informative"].includes(s.format) ? "Desfoque do fundo" : "Desfoque inferior";
-    byId("effectShadeField").hidden = s.format === "informative";
+    byId("effectBlurLabel").textContent = ["closing", "informative", "polaroid"].includes(s.format) ? "Desfoque do fundo" : "Desfoque inferior";
+    byId("effectShadeField").hidden = false;
     byId("mobileMedia").setAttribute("aria-expanded", String(document.body.classList.contains("mobile-controls-open")));
     const effectsOpen = !byId("effectsPopover").hidden;
     for (const id of ["mobileEffects", "dockEffects"]) byId(id).setAttribute("aria-expanded", String(effectsOpen));
@@ -88,7 +89,7 @@ const StudioUI = (() => {
     for (const id of ["effectBlur", "effectShade"]) byId(id).addEventListener("input", event => { api.effects(id, Number(event.target.value)); sync(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") closeOtherPanels(); });
     document.addEventListener("pointerdown", event => {
-      if (event.target.closest(".studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .video-options, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
+      if (event.target.closest("#fullHighlightWarning, .studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .video-options, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
       closeOtherPanels();
     });
     panelObserver = new ResizeObserver(sync); panels().forEach(panel => panelObserver.observe(panel));

@@ -96,6 +96,7 @@ function getFeedTypography(role) {
 }
 
 const FORMATS = {
+  polaroid: { width: 1080, height: 1350, ratio: "4:5", name: "Polaroid", size: "1080 x 1350" },
   stories: { width: 1080, height: 1920, ratio: "9:16", name: "Stories vertical", size: "1080 x 1920" },
   closing: { width: 1080, height: 1350, ratio: "4:5", name: "Encerramento", size: "1080 x 1350" },
   story: {
@@ -294,7 +295,7 @@ const elements = {
 
 const state = {
   circle: { behind: true, mask: null, maskSource: null, maskToken: 0, maskBusy: false, maskTask: null, image: null, url: "", token: 0, x: .78, y: .28, size: 360, zoom: 1, panX: 0, panY: 0, framing: false },
-  closingBlur: 34, closingShade: 12, infoBackgroundBlur: 19,
+  closingBlur: 34, closingShade: 12, infoBackgroundBlur: 19, infoShade: 28,
   format: "feed",
   videoUrl: "",
   videoName: "",
@@ -414,6 +415,15 @@ function renderInformativePageTabs() {
       label.setAttribute("aria-pressed", String(index === activeIndex));
       label.addEventListener("click", () => selectInformativePage(index));
       board.append(label);
+      if (index > 0) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "informative-remove";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", `Remover informativo ${index + 1}`);
+        remove.addEventListener("click", () => removeInformativePage(index));
+        board.append(remove);
+      }
       if (index === activeIndex) {
         board.append(elements.frame);
       } else {
@@ -451,7 +461,7 @@ function selectInformativePage(index) {
   if (elements.informativeImageMain) elements.informativeImageMain.textContent = state.infoImageName || "Enviar imagem";
   if (elements.informativeImageSub) elements.informativeImageSub.textContent = state.infoImage ? "Imagem independente aplicada" : "Envie a imagem do bloco";
   applyFormat("informative", { keepPanel: true });
-  requestAnimationFrame(() => document.querySelector(".informative-artboard.is-active")?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+
 }
 
 const HIGHLIGHT_COLORS = {
@@ -535,6 +545,7 @@ async function init() {
   updateMediaTransform();
   updateLogoTransform();
   updateStoriesPreview();
+  if (state.format === "polaroid") PolaroidStudio.refresh();
   requestAnimationFrame(updateControlPanelFade);
 }
 
@@ -888,9 +899,19 @@ function bindEvents() {
     refresh: () => { updateMediaTransform(); updateStoriesPreview(); updateClosingPreview(); },
     format: format => { if (state.exportingVideo) return; format === "informative" ? selectInformativePage(state.activeInformativePage) : applyFormat(format); },
     effects: (id, value) => {
+      if (state.format === "polaroid") { PolaroidStudio.setEffect(id, value); StudioUI.sync(); return; }
+      const format = state.format;
+      const property = id === "effectBlur"
+        ? format === "closing" ? "closingBlur" : format === "informative" ? "infoBackgroundBlur" : "maskBlur"
+        : format === "closing" ? "closingShade" : format === "informative" ? "infoShade" : "blurGradientOpacity";
+      const before = state[property];
       if (id === "effectBlur") { if (state.format === "closing") state.closingBlur = value; else if (state.format === "informative") state.infoBackgroundBlur = value; else state.maskBlur = value; }
-      else if (state.format === "closing") state.closingShade = value; else state.blurGradientOpacity = value;
+      else if (state.format === "closing") state.closingShade = value; else if (state.format === "informative") state.infoShade = value; else state.blurGradientOpacity = value;
       updateFeedEffectStyles(); updateClosingPreview(); updateStoriesPreview(); updateInformativePreview();
+      EditorHistory.record(before, value, saved => {
+        state[property] = saved; applyFormat(format, { keepPanel: true });
+        updateFeedEffectStyles(); updateClosingPreview(); updateStoriesPreview(); updateInformativePreview(); StudioUI.sync();
+      }, "Ajustar efeito", `${format}:${property}`);
     },
   });
   document.getElementById("mobileSheetBackdrop").addEventListener("click", () => closeMediaPopover());
@@ -1032,12 +1053,8 @@ function bindEvents() {
       }
     });
   });
-  document.getElementById("addInformativePage").addEventListener("click", () => {
-    if (state.exportingVideo || state.informativePages.length >= MAX_INFORMATIVE_PAGES) return;
-    state.informativePages.push(createInformativePage());
-    selectInformativePage(state.informativePages.length - 1);
-    setStatus(`Página informativa ${state.informativePages.length} de ${MAX_INFORMATIVE_PAGES} adicionada`);
-  });
+  document.getElementById("addInformativePage").addEventListener("click", addInformativePage);
+  bindEditorShortcuts();
   renderInformativePageTabs();
 
   elements.videoInput.addEventListener("change", handleVideoUpload);
@@ -1113,13 +1130,7 @@ function bindEvents() {
     if (start === end) return;
     event.preventDefault();
     elements.titleInput.setSelectionRange(start, end);
-    state.titleHighlights = EditorCore.toggleRange(state.titleHighlights, start, end);
-    if (state.titleHighlightColor === "none") {
-      state.titleHighlightColor = "pink";
-      document.querySelectorAll(".color-chip").forEach(chip => chip.classList.toggle("is-active", chip.dataset.color === "pink"));
-    }
-    updateFeedText();
-    setStatus("Tarja atualizada no trecho selecionado");
+    void applyTitleHighlight(start, end);
   });
   elements.titleInput.addEventListener("input", () => {
     state.titleHighlights = EditorCore.remapRanges(state.previousTitleText, elements.titleInput.value, state.titleHighlights);
@@ -1256,6 +1267,7 @@ function applyFormat(format, options = {}) {
 
   saveLogoSettingsForCurrentFormat();
   state.format = format;
+  PolaroidStudio.show(format === "polaroid");
   StudioUI.closeOtherPanels();
   StudioUI.sync();
   document.getElementById("circlePopover").hidden = true;
@@ -1315,6 +1327,7 @@ function applyFormat(format, options = {}) {
   ensureCircleForeground();
   refreshVideoArtwork();
   syncInformativeVideoPlayback();
+  if (format === "polaroid") PolaroidStudio.refresh();
   requestAnimationFrame(updateControlPanelFade);
 }
 
@@ -1326,9 +1339,20 @@ function updateStageScale() {
   const stageHost = elements.frame.closest(".stage-host");
   const spec = getCurrentFormatSpec();
   const hostStyle = getComputedStyle(stageHost);
-  const availableWidth = Math.max(document.body.classList.contains("is-mobile-studio") ? 24 : 100, stageHost.clientWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (state.format === "informative" ? 16 : 0));
-  const availableHeight = Math.max(document.body.classList.contains("is-mobile-studio") ? 24 : 100, stageHost.clientHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (state.format === "informative" ? 35 : 0));
-  const scale = Math.min(availableWidth / spec.width, availableHeight / spec.height, state.format === "informative" && !document.body.classList.contains("is-mobile-studio") ? 0.44 : 0.72);
+  // Every 4:5 artwork shares the same space reservation, including board headers.
+  const isPortraitPost = spec.width === 1080 && spec.height === 1350;
+  const availableWidth = Math.max(24, stageHost.offsetWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (isPortraitPost ? 32 : 0));
+  const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (isPortraitPost ? 76 : 0));
+  const boardCount = state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  const boardGrid = ["informative", "polaroid"].includes(state.format);
+  const columns = Math.min(boardCount, stageHost.offsetWidth < 600 ? 2 : 3);
+  const rows = Math.ceil(boardCount / columns);
+  const gap = stageHost.offsetWidth < 600 ? 12 : 24;
+  const scale = boardGrid
+    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight - 24 - 48 * (rows - 1)) / rows / spec.height, .72)
+    : Math.min(availableWidth / spec.width, availableHeight / spec.height, .72);
+  stageHost.style.setProperty("--board-columns", columns);
+  stageHost.style.setProperty("--board-gap", `${gap}px`);
   const width = Math.ceil(spec.width * scale);
   const height = Math.ceil(spec.height * scale);
   stageHost.style.justifyContent = width > availableWidth ? "flex-start" : "center";
@@ -1340,6 +1364,9 @@ function updateStageScale() {
   elements.frame.style.height = `${height}px`;
   stageHost.style.setProperty("--artboard-width", `${width}px`);
   stageHost.style.setProperty("--artboard-height", `${height}px`);
+  stageHost.style.setProperty("--board-center-x", `${Math.max(0, (stageHost.clientWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - width) / 2)}px`);
+  stageHost.style.setProperty("--board-center-y", `${Math.max(0, (stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - height) / 2)}px`);
+
   document.querySelectorAll(".artboard-static").forEach(frame => {
     frame.style.width = `${width}px`;
     frame.style.height = `${height}px`;
@@ -3111,6 +3138,7 @@ function updatePlaybackIcons() {
 }
 
 async function exportPrimary() {
+  if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (hasArtworkVideo() || hasInformativeVideo()) { await exportStoryVideo(); return; }
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
@@ -3121,6 +3149,7 @@ async function exportPrimary() {
 }
 
 async function exportCurrentPng() {
+  if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
     return;
@@ -3160,39 +3189,46 @@ async function exportStoryVideo() {
   exportVideo.playsInline = true;
   exportVideo.preload = "auto";
   exportVideo.loop = false;
-  exportVideo.muted = false;
-  exportVideo.volume = 0;
+  exportVideo.muted = !includeAudio;
+  exportVideo.volume = 1;
+  exportVideo.setAttribute("aria-hidden", "true");
+  exportVideo.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
+  document.body.append(exportVideo);
 
   let audioContext = null;
   let stream = null;
   let recorder = null;
 
   try {
+    let audioDestination = null;
+    if (includeAudio) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error("Este navegador não conseguiu preparar o áudio. Desative Áudio para exportar sem som.");
+      // Resume while the export click still provides user activation (especially iOS).
+      audioContext = new AudioContextClass();
+      const source = audioContext.createMediaElementSource(exportVideo);
+      audioDestination = audioContext.createMediaStreamDestination();
+      source.connect(audioDestination);
+      await audioContext.resume();
+      if (audioContext.state !== "running") throw new Error("Não foi possível ativar o áudio. Toque em exportar novamente.");
+    }
     await waitForVideo(exportVideo);
     const trim = EditorCore.videoTrim(exportVideo.duration, getTimelineState().videoTrimStart, getTimelineState().videoTrimEnd);
     await seekVideo(exportVideo, trim.start);
     state.renderVideo = exportVideo;
     state.renderInformativePage = informative ? state.informativePages[state.activeInformativePage] : null;
+    if (informative) {
+      state.renderInformativeLayers = Object.fromEntries(["background", "foreground"].map(layer => {
+        const canvas = document.createElement("canvas");
+        canvas.width = INFORMATIVE.width; canvas.height = INFORMATIVE.height;
+        drawInformativeFrame(canvas.getContext("2d"), layer);
+        return [layer, canvas];
+      }));
+    }
     drawFrame(exportVideo);
     stream = elements.canvas.captureStream(30);
-
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass && includeAudio) {
-        audioContext = new AudioContextClass();
-        const source = audioContext.createMediaElementSource(exportVideo);
-        const destination = audioContext.createMediaStreamDestination();
-        source.connect(destination);
-        destination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
-        await audioContext.resume();
-      }
-    } catch (error) {
-      if (includeAudio) tryAddCapturedAudio(exportVideo, stream);
-    }
-
-    if (!stream.getAudioTracks().length && includeAudio) {
-      if (includeAudio) tryAddCapturedAudio(exportVideo, stream);
-    }
+    audioDestination?.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+    if (includeAudio && !stream.getAudioTracks().some(track => track.readyState === "live")) throw new Error("Não foi possível capturar o áudio deste vídeo. Tente exportar novamente.");
 
     const chunks = [];
     recorder = new MediaRecorder(stream, {
@@ -3207,6 +3243,8 @@ async function exportStoryVideo() {
       }
     });
 
+    let recorderError = null;
+    recorder.addEventListener("error", event => { recorderError = event.error || new Error("Falha ao gravar o vídeo."); });
     const stopped = new Promise((resolve) => {
       recorder.addEventListener("stop", resolve, { once: true });
     });
@@ -3214,25 +3252,29 @@ async function exportStoryVideo() {
     setStatus("Exportando trecho…");
     recorder.start(100);
     await exportVideo.play();
-    await renderUntilEnd(exportVideo, trim.end, trim.start);
+    await renderUntilEnd(exportVideo, trim.end, trim.start, () => recorderError);
 
     if (recorder.state !== "inactive") {
       recorder.stop();
     }
     await stopped;
+    if (recorderError) throw recorderError;
+    if (!chunks.length) throw new Error("A gravação ficou vazia. Tente exportar novamente.");
 
     const blob = new Blob(chunks, { type: state.exportMime });
     const saved = await downloadExport(blob, makeExportName().replace("-lpz-zero.", `-lpz-zero-${state.format}.`));
     setStatus(`${state.exportExt.toUpperCase()} — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
-    setStatus("Nao consegui renderizar este video");
+    const message = error.message || "Não foi possível exportar este vídeo.";
+    setStatus(message); beginMediaLoading()(false, message);
   } finally {
     exportVideo.pause();
     if (recorder && recorder.state !== "inactive") recorder.stop();
     stream?.getTracks().forEach(track => track.stop());
     state.renderVideo = null;
     state.renderInformativePage = null;
+    state.renderInformativeLayers = null;
     state.exportingVideo = false;
     document.body.classList.remove("is-video-exporting");
     refreshVideoArtwork();
@@ -3241,6 +3283,7 @@ async function exportStoryVideo() {
     if (audioContext) {
       audioContext.close().catch(() => {});
     }
+    exportVideo.removeAttribute("src"); exportVideo.load(); exportVideo.remove();
     elements.exportButton.disabled = false;
     elements.progress.value = 0;
   }
@@ -3295,33 +3338,43 @@ async function exportFeedPng() {
   }
 }
 
-function renderUntilEnd(video, duration, start = 0) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (!done) {
-        done = true;
-        drawFrame(video);
-        resolve();
-      }
-    };
-
-    video.addEventListener("ended", finish, { once: true });
-
-    const tick = () => {
+function renderUntilEnd(video, duration, start = 0, getError = () => null) {
+  return new Promise((resolve, reject) => {
+    let done = false, frame = null, lastDraw = -Infinity;
+    let lastTime = video.currentTime, lastProgress = performance.now();
+    const videoFrames = typeof video.requestVideoFrameCallback === "function";
+    const finish = (error = null) => {
       if (done) return;
-      drawFrame(video);
-      elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
-
-      if (video.ended || video.currentTime >= duration) {
-        finish();
-        return;
-      }
-
-      requestAnimationFrame(tick);
+      done = true; clearInterval(watchdog);
+      if (frame !== null) videoFrames ? video.cancelVideoFrameCallback(frame) : cancelAnimationFrame(frame);
+      video.removeEventListener("ended", ended);
+      document.removeEventListener("visibilitychange", visibility);
+      video.pause();
+      if (error) reject(error); else resolve();
     };
-
-    tick();
+    const ended = () => finish();
+    const visibility = () => { if (document.hidden) finish(new Error("A exportação foi interrompida. Mantenha esta aba aberta e tente novamente.")); };
+    const check = () => {
+      const error = getError();
+      if (error || video.error) return finish(error || new Error("O vídeo falhou durante a exportação."));
+      if (video.currentTime !== lastTime) { lastTime = video.currentTime; lastProgress = performance.now(); }
+      if (video.ended || video.currentTime >= duration) return finish();
+      if (performance.now() - lastProgress > 15000) finish(new Error("O vídeo parou de responder. Tente um trecho menor e exporte novamente."));
+    };
+    const tick = now => {
+      if (done) return;
+      try {
+        if (now - lastDraw >= 1000 / 30 - 2) { drawFrame(video); lastDraw = now; }
+        elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
+        check();
+        if (!done) frame = videoFrames ? video.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
+      } catch (error) { finish(error); }
+    };
+    const watchdog = setInterval(check, 100);
+    video.addEventListener("ended", ended, { once: true });
+    document.addEventListener("visibilitychange", visibility);
+    visibility();
+    if (!done) tick(performance.now());
   });
 }
 
@@ -4025,18 +4078,6 @@ function pickRecorderMime() {
   return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-function tryAddCapturedAudio(video, stream) {
-  const capture = video.captureStream || video.mozCaptureStream;
-  if (!capture) return;
-
-  try {
-    const captured = capture.call(video);
-    captured.getAudioTracks().forEach((track) => stream.addTrack(track));
-  } catch (error) {
-    console.warn("Audio capture unavailable", error);
-  }
-}
-
 function seekVideo(video, time) {
   if (Math.abs(video.currentTime - time) < 0.001) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -4346,6 +4387,9 @@ function bindDirectImageControls() {
 
 function bindTextEditPopover() {
   const popover = document.getElementById("textEditPopover");
+  const highlightWarning = document.getElementById("fullHighlightWarning");
+  highlightWarning.addEventListener("pointerdown", event => event.stopPropagation());
+  highlightWarning.addEventListener("keydown", event => event.stopPropagation());
   document.getElementById("closeTextEditPopover").addEventListener("click", () => closeTextEditPopover(true));
   document.addEventListener("pointerdown", (event) => {
     if (popover.hidden || popover.contains(event.target) || event.target.closest(".feed-title-layer, .feed-kicker, .feed-subtitle, .informative-title, .informative-body, [data-edit-text]")) return;
@@ -4387,9 +4431,7 @@ function bindTextEditPopover() {
     let { selectionStart: start, selectionEnd: end } = elements.titleInput;
     if (start === end && state.titleEditSelection?.text === elements.titleInput.value) ({ start, end } = state.titleEditSelection);
     if (start === end) { setStatus("Selecione um trecho do título primeiro."); return; }
-    state.titleHighlights = EditorCore.toggleRange(state.titleHighlights, start, end);
-    if (state.titleHighlightColor === "none") state.titleHighlightColor = "pink";
-    updateFeedText();
+    void applyTitleHighlight(start, end);
   });
   const boldButton = document.getElementById("mobileSubtitleBold");
   const rememberSubtitleSelection = () => {
@@ -4411,55 +4453,67 @@ function bindTextEditPopover() {
   });
 }
 
-function drawInformativeFrame(ctx) {
+function drawInformativeFrame(ctx, layer = null) {
   ctx.save();
-  ctx.fillStyle = "#07070a";
-  ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
-  if (state.feedImage) {
-    ArtworkEffects.drawCover(ctx, state.feedImage, 0, 0, INFORMATIVE.width, INFORMATIVE.height, state.infoBackgroundBlur, { zoom: state.zoom, panX: state.panX / 100 * INFORMATIVE.width, panY: state.panY / 100 * INFORMATIVE.height, contrast: 1.04, saturation: 1.04, brightness: .72 });
-    ctx.filter = "none";
-    ctx.fillStyle = "rgba(0,0,0,0.18)";
-    ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
-  } else if (state.background) {
-    ArtworkEffects.drawCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height, 12, { contrast: 1.08, brightness: .62 });
-    ctx.filter = "none";
-  }
-  const informativeMedia = getInformativeMedia();
-  if (informativeMedia) {
-    ctx.save();
-    ctx.beginPath();
-    const image = INFORMATIVE.image;
-    ctx.moveTo(image.x, image.y + image.height * 0.074);
-    ctx.lineTo(image.x, image.y + image.height);
-    ctx.lineTo(image.x + image.width * 0.874, image.y + image.height * 0.998);
-    ctx.lineTo(image.x + image.width, image.y + image.height * 0.794);
-    ctx.lineTo(image.x + image.width, image.y + image.height * 0.172);
-    ctx.lineTo(image.x + image.width * 0.894, image.y);
-    ctx.lineTo(image.x + image.width * 0.553, image.y);
-    ctx.lineTo(image.x + image.width * 0.461, image.y + image.height * 0.072);
-    ctx.closePath();
-    ctx.clip();
-    drawImageCoverTransformed(ctx, informativeMedia, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, (state.infoPanX / 100) * INFORMATIVE.image.width, (state.infoPanY / 100) * INFORMATIVE.image.height);
-    ctx.restore();
-  } else {
-    const box = INFORMATIVE.image;
-    ctx.fillStyle = "#111"; ctx.beginPath();
-    for (const [index, point] of [[0,[0,.074]],[1,[0,1]],[2,[.874,.998]],[3,[1,.794]],[4,[1,.172]],[5,[.894,0]],[6,[.553,0]],[7,[.461,.072]]]) {
-      ctx[index ? "lineTo" : "moveTo"](box.x + point[0] * box.width, box.y + point[1] * box.height);
+  const cached = !layer && state.renderInformativeLayers;
+  if (layer !== "foreground") {
+    if (cached) ctx.drawImage(cached.background, 0, 0);
+    else {
+      ctx.fillStyle = "#07070a";
+      ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+      if (state.feedImage) {
+        ArtworkEffects.drawCover(ctx, state.feedImage, 0, 0, INFORMATIVE.width, INFORMATIVE.height, state.infoBackgroundBlur, { zoom: state.zoom, panX: state.panX / 100 * INFORMATIVE.width, panY: state.panY / 100 * INFORMATIVE.height, contrast: 1.04, saturation: 1.04, brightness: .72 });
+        ctx.filter = "none";
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
+      } else if (state.background) {
+        ArtworkEffects.drawCover(ctx, state.background, 0, 0, INFORMATIVE.width, INFORMATIVE.height, 12, { contrast: 1.08, brightness: .62 });
+        ctx.filter = "none";
+      }
+      drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
     }
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#bbb";
-    ctx.font = `64px Gotham, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText("+", INFORMATIVE.image.x + INFORMATIVE.image.width / 2, INFORMATIVE.image.y + INFORMATIVE.image.height / 2);
+    if (layer === "background") { ctx.restore(); return; }
+    const informativeMedia = getInformativeMedia();
+    if (informativeMedia) {
+      ctx.save();
+      ctx.beginPath();
+      const image = INFORMATIVE.image;
+      ctx.moveTo(image.x, image.y + image.height * 0.074);
+      ctx.lineTo(image.x, image.y + image.height);
+      ctx.lineTo(image.x + image.width * 0.874, image.y + image.height * 0.998);
+      ctx.lineTo(image.x + image.width, image.y + image.height * 0.794);
+      ctx.lineTo(image.x + image.width, image.y + image.height * 0.172);
+      ctx.lineTo(image.x + image.width * 0.894, image.y);
+      ctx.lineTo(image.x + image.width * 0.553, image.y);
+      ctx.lineTo(image.x + image.width * 0.461, image.y + image.height * 0.072);
+      ctx.closePath();
+      ctx.clip();
+      drawImageCoverTransformed(ctx, informativeMedia, INFORMATIVE.image.x, INFORMATIVE.image.y, INFORMATIVE.image.width, INFORMATIVE.image.height, state.infoZoom, (state.infoPanX / 100) * INFORMATIVE.image.width, (state.infoPanY / 100) * INFORMATIVE.image.height);
+      ctx.restore();
+    } else {
+      const box = INFORMATIVE.image;
+      ctx.fillStyle = "#111"; ctx.beginPath();
+      for (const [index, point] of [[0,[0,.074]],[1,[0,1]],[2,[.874,.998]],[3,[1,.794]],[4,[1,.172]],[5,[.894,0]],[6,[.553,0]],[7,[.461,.072]]]) {
+        ctx[index ? "lineTo" : "moveTo"](box.x + point[0] * box.width, box.y + point[1] * box.height);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#bbb";
+      ctx.font = `64px Gotham, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText("+", INFORMATIVE.image.x + INFORMATIVE.image.width / 2, INFORMATIVE.image.y + INFORMATIVE.image.height / 2);
+    }
+    ctx.fillStyle = `rgba(0,0,0,${state.infoShade / 100})`;
+    ctx.fillRect(0, 0, INFORMATIVE.width, INFORMATIVE.height);
   }
-  drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
-  drawInformativeCopy(ctx);
-  if (state.informativeSymbols) {
-    const symbols = state.informativeSymbols;
-    ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  if (cached) ctx.drawImage(cached.foreground, 0, 0);
+  else {
+    drawInformativeCopy(ctx);
+    if (state.informativeSymbols) {
+      const symbols = state.informativeSymbols;
+      ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+    }
+    drawLogo(ctx);
   }
-  drawLogo(ctx);
   ctx.restore();
 }
 
@@ -4934,3 +4988,92 @@ function bindCircleInset() {
   });
 }
 
+
+async function applyTitleHighlight(start, end) {
+  const input = elements.titleInput;
+  const text = input.value;
+  const next = EditorCore.toggleRange(state.titleHighlights, start, end);
+  if (EditorCore.isFullyHighlighted(text, next)) {
+    const dialog = document.getElementById("fullHighlightWarning");
+    if (dialog.open) return;
+    const proceed = await new Promise(resolve => {
+      dialog.returnValue = "correct";
+      dialog.addEventListener("close", () => resolve(dialog.returnValue === "continue"), { once: true });
+      dialog.showModal();
+    });
+    input.focus({ preventScroll: true });
+    if (input.value !== text) return;
+    input.setSelectionRange(start, end);
+    if (!proceed) return;
+  }
+  const beforeHighlight = { ranges: state.titleHighlights, color: state.titleHighlightColor, text };
+  state.titleHighlights = next;
+  if (state.titleHighlightColor === "none") state.titleHighlightColor = "pink";
+  document.querySelectorAll(".color-chip").forEach(chip => {
+    const active = chip.dataset.color === state.titleHighlightColor;
+    chip.classList.toggle("is-active", active);
+    chip.setAttribute("aria-pressed", String(active));
+  });
+  updateFeedText();
+  EditorHistory.record(beforeHighlight, { ranges: next, color: state.titleHighlightColor, text }, snapshot => {
+    state.titleHighlights = EditorCore.remapRanges(snapshot.text, elements.titleInput.value, snapshot.ranges); state.titleHighlightColor = snapshot.color; updateFeedText();
+  }, "Alterar tarja");
+  setStatus("Tarja atualizada no trecho selecionado");
+}
+
+
+function informativeBoardSnapshot() { return { pages: [...state.informativePages], active: state.activeInformativePage }; }
+function restoreInformativeBoards(snapshot) {
+  state.informativePages.forEach(page => page.infoVideo?.pause());
+  state.informativePages = [...snapshot.pages];
+  selectInformativePage(snapshot.active);
+}
+function addInformativePage() {
+  if (state.exportingVideo || state.informativePages.length >= MAX_INFORMATIVE_PAGES) return;
+  const before = informativeBoardSnapshot();
+  state.informativePages.push(createInformativePage());
+  selectInformativePage(state.informativePages.length - 1);
+  EditorHistory.record(before, informativeBoardSnapshot(), restoreInformativeBoards, "Adicionar prancheta informativa");
+  setStatus(`Página informativa ${state.informativePages.length} de ${MAX_INFORMATIVE_PAGES} adicionada`);
+}
+function removeInformativePage(index = state.activeInformativePage) {
+  if (state.exportingVideo) return;
+  if (index === 0) { setStatus("A primeira prancheta é fixa."); return; }
+  if (state.informativePages.length <= 1) { setStatus("Mantenha pelo menos uma prancheta."); return; }
+  const before = informativeBoardSnapshot();
+  const selected = state.informativePages[state.activeInformativePage];
+  state.informativePages[index].infoVideo?.pause();
+  state.informativePages.splice(index, 1);
+  const next = state.informativePages.indexOf(selected);
+  selectInformativePage(next < 0 ? Math.min(index, state.informativePages.length - 1) : next);
+  EditorHistory.record(before, informativeBoardSnapshot(), restoreInformativeBoards, "Excluir prancheta informativa");
+}
+function bindEditorShortcuts() {
+  document.addEventListener("keydown", event => {
+    const target = event.target;
+    if (event.defaultPrevented || event.isComposing || target.closest('textarea, select, [contenteditable], dialog[open], input:not([type="range"]):not([type="checkbox"]):not([type="button"])')) return;
+    if (state.exportingVideo || elements.exportButton.disabled || document.querySelector("dialog[open]")) return;
+    const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
+    if (mod && (key === "z" || key === "y")) {
+      event.preventDefault();
+      const redo = key === "y" || event.shiftKey;
+      const label = redo ? EditorHistory.redo() : EditorHistory.undo();
+      setStatus(label ? `${redo ? "Refeito" : "Desfeito"}: ${label}` : "Nenhuma alteração para desfazer ou refazer.");
+    } else if (!mod && !event.altKey && event.key === "Delete") {
+      if (!["informative", "polaroid"].includes(state.format)) return;
+      event.preventDefault();
+      state.format === "informative" ? removeInformativePage() : PolaroidStudio.removeActive();
+    } else if (mod && event.shiftKey && key === "n") {
+      if (!["informative", "polaroid"].includes(state.format)) return;
+      event.preventDefault();
+      state.format === "informative" ? addInformativePage() : PolaroidStudio.add();
+    } else if (mod && event.key === "Enter") {
+      event.preventDefault(); void exportPrimary();
+    } else if (!mod && !event.altKey && ["ArrowLeft", "ArrowRight"].includes(event.key) && target.closest(".stage-host")) {
+      if (!["informative", "polaroid"].includes(state.format)) return;
+      event.preventDefault(); const delta = event.key === "ArrowLeft" ? -1 : 1;
+      if (state.format === "polaroid") PolaroidStudio.selectRelative(delta);
+      else selectInformativePage(Math.max(0, Math.min(state.informativePages.length - 1, state.activeInformativePage + delta)));
+    }
+  });
+}

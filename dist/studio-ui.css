@@ -193,3 +193,122 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 }
 .is-video-exporting .editor-status progress::-webkit-progress-value { background: var(--ui-accent); border-radius: 4px; }
 .is-video-exporting .editor-status progress::-moz-progress-bar { background: var(--ui-accent); border-radius: 4px; }
+
+/* Editorial guidance: native modal keeps focus contained on desktop and touch. */
+.highlight-warning {
+  width: min(380px, calc(100vw - 32px));
+  box-sizing: border-box;
+  margin: auto;
+  padding: 24px;
+  border: 1px solid #ffffff24;
+  border-radius: 24px;
+  background: #242424;
+  color: #f5f5f5;
+  box-shadow: 0 20px 70px #0008;
+}
+.highlight-warning::backdrop { background: #0009; }
+.highlight-warning h2 { margin: 0 0 12px; font: 600 19px/1.3 Arial, sans-serif; }
+.highlight-warning p { margin: 0 0 24px; color: #c8c8c8; font: 400 14px/1.5 Arial, sans-serif; }
+.highlight-warning-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.highlight-warning-actions button {
+  flex: 1 1 130px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #ffffff24;
+  border-radius: 12px;
+  background: #353535;
+  color: #f5f5f5;
+  font: 600 13px/1.4 Arial, sans-serif;
+  cursor: pointer;
+}
+.highlight-warning-actions button[value="correct"] { background: #e981be; color: #171217; border-color: transparent; }
+.highlight-warning-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+.experience-shell[data-format="polaroid"] #stageFrame,
+.experience-shell[data-format="polaroid"] #informativeArtboards { display: none !important; }
+#polaroidArtboards:not([hidden]) { display: flex; gap: 28px; align-items: center; margin: auto; padding: 16px; max-width: 100%; box-sizing: border-box; }
+.experience-shell[data-format="polaroid"] .stage-host { overflow: auto; justify-content: flex-start !important; }
+.polaroid-board { flex: 0 0 auto; width: var(--artboard-width); }
+.polaroid-board header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #aaa; font-size: 12px; }
+.polaroid-board.is-active header { color: #e981be; }
+.polaroid-board button { cursor: pointer; }
+.polaroid-photo { display: block; width: 100%; height: var(--artboard-height); padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: #080808; }
+.polaroid-board.is-active .polaroid-photo { outline: 2px solid #e981be; outline-offset: 3px; }
+.polaroid-photo canvas { display: block; width: 100%; height: 100%; }
+.polaroid-remove { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 22px; }
+.polaroid-add { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid #ffffff30; color: #eee; background: #242424; font-size: 30px; cursor: pointer; }
+.polaroid-add:disabled { opacity: .3; cursor: default; }
+@media (max-width: 800px) {
+  #polaroidArtboards:not([hidden]) { flex-direction: column; gap: 20px; padding: 12px 6px 110px; }
+  .polaroid-board { width: var(--artboard-width); }
+  .experience-shell[data-format="polaroid"] .stage-host { align-items: flex-start !important; }
+}
+
+/* Board captions and add controls must not shift the artwork's center. */
+.experience-shell:is([data-format="informative"], [data-format="polaroid"]) .stage-host {
+  display: block; scroll-padding: 0; scroll-snap-type: none;
+}
+.experience-shell[data-format="informative"] #informativeArtboards,
+.experience-shell[data-format="polaroid"] #polaroidArtboards:not([hidden]) {
+  box-sizing: border-box; width: max-content; max-width: none; min-width: 100%;
+  margin: 0; padding: var(--board-center-y) var(--board-center-x);
+  align-items: center; gap: 28px; flex-direction: row;
+}
+.informative-artboard, .polaroid-board {
+  position: relative; height: var(--artboard-height); flex: 0 0 var(--artboard-width);
+}
+.informative-artboard .artboard-label, .polaroid-board header {
+  position: absolute; bottom: 100%; left: 0; width: 100%; height: 44px;
+  margin: 0 0 4px; padding: 0; display: flex; align-items: center;
+}
+@media (max-width: 800px) {
+  .experience-shell[data-format="informative"] #informativeArtboards,
+  .experience-shell[data-format="polaroid"] #polaroidArtboards:not([hidden]) {
+    width: 100%; min-width: 0; flex-direction: column;
+    padding: var(--board-center-y) 0; gap: 64px;
+  }
+  .informative-artboard, .polaroid-board { flex: 0 0 auto; }
+}
+
+/* Fit all artboards in the workspace; the add control never occupies a grid cell. */
+.experience-shell:is([data-format="informative"], [data-format="polaroid"]) .stage-host {
+  display: flex; flex-direction: row; overflow: hidden;
+  align-items: center !important; justify-content: center !important;
+}
+.experience-shell[data-format="informative"] #informativeArtboards,
+.experience-shell[data-format="polaroid"] #polaroidArtboards:not([hidden]) {
+  position: relative; display: grid; flex: 0 0 auto; min-width: 0; width: max-content;
+  max-width: 100%; margin: 0; padding: 36px 0 56px;
+  grid-template-columns: repeat(var(--board-columns, 1), var(--artboard-width));
+  column-gap: var(--board-gap, 24px); row-gap: 48px;
+  align-items: start; justify-content: center;
+}
+.experience-shell #addInformativePage, .experience-shell .polaroid-add {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 44px; height: 44px; min-height: 44px; border-radius: 50%;
+  padding: 0; display: flex; align-items: center; justify-content: center;
+}
+#addInformativePage small { display: none; }
+#addInformativePage span { font-size: 28px; }
+.informative-artboard .artboard-label, .polaroid-board header { height: 32px; margin-bottom: 4px; }
+.polaroid-remove { min-width: 32px; min-height: 32px; }
+.informative-artboard .artboard-label { width: calc(100% - 36px); }
+.informative-remove {
+  position: absolute; right: 0; bottom: calc(100% + 4px);
+  width: 32px; height: 32px; padding: 0; border: 0;
+  background: transparent; color: #aaa; font-size: 22px; cursor: pointer;
+}
+.informative-remove:hover { color: #e981be; }
+.informative-remove:focus-visible { outline: 2px solid #e981be; outline-offset: 2px; }
+
+/* Identical add actions, with a stable target on both desktop and mobile. */
+.experience-shell #addInformativePage, .experience-shell .polaroid-add {
+  z-index: 2; box-sizing: border-box; min-width: 44px; max-width: 44px;
+  min-height: 44px; flex: none; flex-direction: row; gap: 0; margin: 0;
+  border: 1px solid #e981be66; background: #2e252b; color: #e981be;
+  font: 400 28px/1 Arial, sans-serif; cursor: pointer; touch-action: manipulation;
+}
+.experience-shell #addInformativePage span { display: block; font: inherit; pointer-events: none; }
+.experience-shell #addInformativePage:hover:not(:disabled), .experience-shell .polaroid-add:hover:not(:disabled) { background: #493140; }
+.experience-shell #addInformativePage:disabled, .experience-shell .polaroid-add:disabled { opacity: .35; cursor: default; }
+.experience-shell #addInformativePage:focus-visible, .experience-shell .polaroid-add:focus-visible { outline: 2px solid #e981be; outline-offset: 4px; }
