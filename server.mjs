@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
+import contentIdeas from "./api/content-ideas.js";
 
 const root = resolve(process.cwd());
 const preferredPort = Number(process.env.PORT || 4173);
@@ -199,16 +200,9 @@ async function randomFeedImage(req, res) {
 }
 
 const server = createServer(async (req, res) => {
-  // Local research preview. Private board data stays outside the repository/build.
+  // Use the same integration locally and on Vercel.
   if (req.method === "GET" && (req.url || "").split("?")[0] === "/api/content-ideas") {
-    try {
-      const snapshot = await readFile(resolve(root, "../local-content-data/ideas.json"), "utf8");
-      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      res.end(snapshot);
-    } catch {
-      res.writeHead(503, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      res.end(JSON.stringify({ error: "As pautas ainda não foram importadas para este teste local." }));
-    }
+    await contentIdeas(req, res);
     return;
   }
   if (req.method === "GET" && (req.url || "").startsWith("/api/logos")) {

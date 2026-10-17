@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v25-glass-motion";
+const CACHE_NAME = "story-forge-shell-v27-live-ideas";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -8,6 +8,7 @@ const APP_SHELL = [
   "/studio-ui.js",
   "/studio-motion.js",
   "/content-ideas.js",
+  "/catalog/content-ideas.json",
   "/artwork-effects.js",
   "/editor-core.js",
   "/editor-history.js",
@@ -65,14 +66,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate") {
+  if (request.mode === "navigate" || url.pathname === "/catalog/content-ideas.json") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", response.clone())));
+          if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request.mode === "navigate" ? "/index.html" : request, response.clone())));
           return response;
         })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/index.html")))
+        .catch(async () => (await caches.match(request)) || (request.mode === "navigate" ? await caches.match("/index.html") : new Response('{"cards":[]}', { headers: { "Content-Type": "application/json" } })))
     );
     return;
   }

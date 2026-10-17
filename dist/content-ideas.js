@@ -1,13 +1,12 @@
 "use strict";
-// This preview is intentionally local: no Trello credentials or private cards in the build.
+// The server reads Trello; credentials never reach the browser.
 (() => {
-  if (!["localhost", "127.0.0.1", "[::1]"].includes(location.hostname)) return;
   const dialog = document.getElementById("contentIdeas");
   const openButton = document.getElementById("openContentIdeas");
   const list = document.getElementById("contentIdeasList");
   const status = document.getElementById("contentIdeasStatus");
   const tabs = [...dialog.querySelectorAll("[data-ideas-view]")];
-  let snapshot = null, view = "recent", loading = false;
+  let snapshot = null, view = "recent", loading = false, lastLoad = 0;
   const day = value => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
   const dayNumber = value => Math.round(Date.parse(day(value) + "T12:00:00Z") / 86400000);
   const shortDate = value => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" }).format(new Date(value));
@@ -75,29 +74,50 @@
       empty.textContent = view === "dates" ? "Nenhuma data especial nos próximos sete dias nesta importação." : "Nenhuma pauta atualizada nos últimos sete dias nesta importação.";
       list.append(empty);
     }
-    status.textContent = `Cópia local do Trello · importada em ${shortDate(snapshot.importedAt)}. Atualização automática ainda não conectada.`;
+    const stamp = shortDate(snapshot.importedAt);
+    status.textContent = snapshot.mode === "live"
+      ? `Trello conectado · atualizado em ${stamp}.`
+      : `Cópia de ${stamp} · ${snapshot.syncStatus === "not-configured" ? "conexão aguardando autorização" : "sincronização indisponível"}.`;
     tabs.forEach(tab => { tab.setAttribute("aria-pressed", String(tab.dataset.ideasView === view)); });
   }
   async function load(autoOpen = false) {
     if (loading) return;
     loading = true; status.textContent = "Carregando pautas…";
     try {
-      const response = await fetch("/api/content-ideas", { cache: "no-store" });
+      const response = await fetch("/api/content-ideas", { cache: "no-store", signal: AbortSignal.timeout(15000) });
       const data = await response.json();
       if (!response.ok || !Array.isArray(data.cards)) throw new Error(data.error || "Não foi possível carregar as pautas.");
-      snapshot = data; render();
+      snapshot = data; lastLoad = Date.now(); render();
       if (autoOpen && !sessionStorage.getItem("storyforge-ideas-opened")) {
         dialog.showModal(); sessionStorage.setItem("storyforge-ideas-opened", "1");
       }
-    } catch (error) { status.textContent = error.message || "Não foi possível carregar as pautas."; }
+    } catch {
+      if (!snapshot) {
+        try {
+          const response = await fetch("/catalog/content-ideas.json", { cache: "no-store" });
+          const data = await response.json();
+          if (!response.ok || !Array.isArray(data.cards) || !data.importedAt) throw new Error();
+          snapshot = { ...data, mode: "snapshot", syncStatus: "unavailable" }; render();
+          if (autoOpen && !sessionStorage.getItem("storyforge-ideas-opened")) {
+            dialog.showModal(); sessionStorage.setItem("storyforge-ideas-opened", "1");
+          }
+        } catch { status.textContent = "Não foi possível carregar as pautas. Tente recarregar."; }
+      } else {
+        snapshot = { ...snapshot, mode: "snapshot", syncStatus: "unavailable" }; render();
+      }
+    }
     finally { loading = false; }
   }
   openButton.hidden = false;
-  openButton.addEventListener("click", () => { if (!dialog.open) dialog.showModal(); if (!snapshot) void load(); });
+  openButton.addEventListener("click", () => { if (!dialog.open) dialog.showModal(); void load(); });
   document.getElementById("closeContentIdeas").addEventListener("click", () => dialog.close());
   document.getElementById("reloadContentIdeas").addEventListener("click", () => void load());
   tabs.forEach(tab => tab.addEventListener("click", () => { view = tab.dataset.ideasView; render(); }));
   dialog.addEventListener("keydown", event => event.stopPropagation());
   dialog.addEventListener("pointerdown", event => event.stopPropagation());
+  const refresh = () => { if (!document.hidden && Date.now() - lastLoad >= 60000) void load(); };
+  document.addEventListener("visibilitychange", refresh);
+  window.addEventListener("focus", refresh);
+  setInterval(refresh, 5 * 60 * 1000);
   void load(true);
 })();

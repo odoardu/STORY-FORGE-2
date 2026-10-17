@@ -26,4 +26,5 @@ async function catalog(directories, extensions) {
 }
 await writeFile(join(output, 'catalog/logos.json'), JSON.stringify(await catalog(['logos'], ['.svg', '.png'])));
 await writeFile(join(output, 'catalog/textures.json'), JSON.stringify(await catalog(['textures', 'texture'], ['.png', '.jpg', '.jpeg', '.webp', '.svg'])));
+await copyFile(join(root, 'data/content-ideas.json'), join(output, 'catalog/content-ideas.json'));
 console.log('Site e catalogos gerados em dist.');

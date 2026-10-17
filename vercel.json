@@ -3,7 +3,10 @@
   "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/random-feed-image.js": { "maxDuration": 30 } },
+  "functions": {
+    "api/random-feed-image.js": { "maxDuration": 30 },
+    "api/content-ideas.js": { "maxDuration": 15 }
+  },
   "headers": [
     {
       "source": "/service-worker.js",
