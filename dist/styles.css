@@ -1447,7 +1447,7 @@ progress::-moz-progress-bar {
 
 .feed-kicker.is-image img {
   display: block;
-  width: 430px;
+  width: 320px;
   height: auto;
   margin: 0 auto;
   max-width: none;

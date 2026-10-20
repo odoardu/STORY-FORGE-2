@@ -571,7 +571,9 @@ async function init() {
 
   elements.background = await loadImage("./assets/black-texture.jpg");
   state.background = elements.background;
-  state.kickerImage = await loadImage("./assets/mundo-soldier-branca.png");
+  state.kickerImage = await loadImage("./assets/mundo-soldier-v2.svg");
+  state.kickerImages = [state.kickerImage, await loadImage("./assets/mundo-soldier-alternativa.svg")];
+  state.kickerLogoIndex = 0;
   state.informativeSymbols = await loadImage("./assets/informative-linkin-park-logos.png");
   state.kickerMode = "text";
 
@@ -1046,6 +1048,11 @@ function bindEvents() {
     state.previewClickTarget = null;
     const selection = target?.matches(".logo-layer") ? "logo" : target?.matches(".feed-subtitle") ? "subtitle" : target?.matches(".feed-kicker") ? "kicker" : target?.matches(".informative-title") ? "infoTitle" : target?.matches(".informative-body") ? "infoBody" : target ? "title" : "media";
     if (selection === "logo") return;
+    if (selection === "kicker" && state.kickerMode === "image") {
+      closeTextEditPopover();
+      selectKickerLogo(1 - state.kickerLogoIndex);
+      return;
+    }
     if (["title", "subtitle", "kicker", "infoTitle", "infoBody"].includes(selection)) {
       selectPreviewElement(selection);
       openTextEditPopover(selection, event);
@@ -1161,6 +1168,10 @@ function bindEvents() {
   document.getElementById("kickerModeInput")?.addEventListener("change", event => {
     state.kickerMode = event.target.value;
     updateFeedText();
+  });
+  document.getElementById("kickerLogoInput").addEventListener("change", event => selectKickerLogo(Number(event.target.value)));
+  elements.feedKickerPreview.addEventListener("contextmenu", event => {
+    event.preventDefault(); openTextEditPopover("kicker", event);
   });
   elements.feedSubtitleInput?.addEventListener("input", () => {
     cleanSubtitleMarks();
@@ -1819,6 +1830,16 @@ function updateText() {
   trimTitleStrips(layouts.length);
 }
 
+function selectKickerLogo(index, record = true) {
+  if (!state.kickerImages?.[index]) return;
+  const before = state.kickerLogoIndex;
+  state.kickerLogoIndex = index;
+  state.kickerImage = state.kickerImages[index];
+  document.getElementById("kickerLogoInput").value = String(index);
+  updateFeedText();
+  if (record && before !== index) EditorHistory.record(before, index, saved => selectKickerLogo(saved, false), "Trocar logo Mundo Soldier");
+}
+
 function updateFeedText() {
   // Text edits and history restores must also respect the partial-highlight rule.
   if (EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
@@ -1836,6 +1857,9 @@ function updateFeedText() {
   const imageKicker = state.kickerMode === "image" && state.kickerImage;
   elements.feedKickerPreview.classList.toggle("is-image", Boolean(imageKicker));
   document.getElementById("kickerTextField").hidden = Boolean(imageKicker);
+  document.getElementById("kickerLogoField").hidden = !imageKicker;
+  elements.feedKickerPreview.title = imageKicker ? "Clique para alternar as logos. Botão direito ou Enter para opções do chapéu." : "Editar chapéu";
+  elements.feedKickerPreview.setAttribute("aria-label", imageKicker ? `Logo Mundo Soldier ${state.kickerLogoIndex + 1}: clique para alternar; Enter para opções` : "Editar chapéu");
   if (imageKicker) {
     const image = document.createElement("img");
     image.src = state.kickerImage.src;
@@ -2288,7 +2312,7 @@ function getFeedKickerMetrics() {
   const isImage = state.kickerMode === "image" && state.kickerImage;
   return {
     isImage,
-    height: isImage ? 430 * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth : getFeedTypography("kicker").lineHeight,
+    height: isImage ? 320 * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth : getFeedTypography("kicker").lineHeight,
     gap: isImage ? FEED.copy.imageKickerGap : FEED.copy.textKickerGap,
   };
 }
@@ -3637,7 +3661,7 @@ function drawFeedCopy(ctx) {
   const titleLayouts = getFeedTitleLayouts();
   const kickerPosition = getFeedKickerPosition(titleLayouts);
   if (state.kickerMode === "image" && state.kickerImage) {
-    const width = 430;
+    const width = 320;
     const height = width * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth;
     ctx.drawImage(state.kickerImage, (FEED.width - width) / 2, kickerPosition - height, width, height);
   } else {

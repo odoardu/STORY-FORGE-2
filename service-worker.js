@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v29-media-border";
+const CACHE_NAME = "story-forge-shell-v31-mundo-soldier-options";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -22,7 +22,8 @@ const APP_SHELL = [
   "/assets/Gotham-Bold.otf",
   "/assets/black-texture.jpg",
   "/assets/black-texture-small.jpg",
-  "/assets/mundo-soldier-branca.png",
+  "/assets/mundo-soldier-v2.svg",
+  "/assets/mundo-soldier-alternativa.svg",
   "/assets/informative-linkin-park-logos.png",
   "/assets/logos/LOGO%201%20MONO.png",
   "/assets/textures/ECLUS%C3%83O%2038.png",
