@@ -1,4 +1,5 @@
 import './build-mask.mjs';
+import './build-video-export.mjs';
 import { mkdir, readdir, stat, copyFile, cp, rm, writeFile } from 'node:fs/promises';
 import { resolve, join, extname } from 'node:path';
 const root = process.cwd();

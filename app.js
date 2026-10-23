@@ -3329,6 +3329,23 @@ async function exportStoryVideo() {
   let recorder = null;
 
   try {
+    // Feed can render more slowly than real time without losing output frames.
+    const offline = state.format === "feed" && typeof VideoExport !== "undefined"
+      ? await VideoExport.prepare({ width: FEED.width, height: FEED.height, includeAudio, url: videoUrl }) : null;
+    if (offline) {
+      await waitForVideo(exportVideo);
+      const trim = EditorCore.videoTrim(exportVideo.duration, getTimelineState().videoTrimStart, getTimelineState().videoTrimEnd);
+      state.renderVideo = exportVideo;
+      state.exportMime = offline.mime; state.exportExt = offline.ext;
+      setStatus("Exportando vídeo quadro a quadro…");
+      const blob = await VideoExport.encode(offline, {
+        video: exportVideo, canvas: elements.canvas, start: trim.start, end: trim.end,
+        seek: seekVideo, draw: drawFrame, progress: value => { elements.progress.value = value; },
+      });
+      const saved = await downloadExport(blob, makeExportName().replace("-lpz-zero.", `-lpz-zero-${state.format}.`));
+      setStatus(`${state.exportExt.toUpperCase()} — download iniciado: ${saved.fileName}`);
+      return;
+    }
     let audioDestination = null;
     if (includeAudio) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -3490,10 +3507,12 @@ function renderUntilEnd(video, duration, start = 0, getError = () => null) {
       if (video.ended || video.currentTime >= duration) return finish();
       if (performance.now() - lastProgress > 15000) finish(new Error("O vídeo parou de responder. Tente um trecho menor e exporte novamente."));
     };
-    const tick = now => {
+    const tick = (now, metadata) => {
       if (done) return;
       try {
-        if (now - lastDraw >= 1000 / 30 - 2) { drawFrame(video); lastDraw = now; }
+        // Source timestamps avoid callback jitter changing the output cadence.
+        const frameIndex = Math.floor(((metadata?.mediaTime ?? video.currentTime) - start) * 30 + 1e-6);
+        if (frameIndex !== lastDraw) { drawFrame(video); lastDraw = frameIndex; }
         elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
         check();
         if (!done) frame = videoFrames ? video.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);

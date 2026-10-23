@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@imgly/background-removal": "1.7.0",
-    "onnxruntime-web": "1.21.0"
+    "mp4-muxer": "^5.2.2",
+    "onnxruntime-web": "1.21.0",
+    "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

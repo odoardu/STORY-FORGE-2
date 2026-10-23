@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v31-mundo-soldier-options";
+const CACHE_NAME = "story-forge-shell-v32-feed-video-frames";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
@@ -15,6 +15,7 @@ const APP_SHELL = [
   "/editor-history.js",
   "/polaroid.js",
   "/app.js",
+  "/assets/vendor/video-export.js",
   "/pwa.js",
   "/manifest.webmanifest",
   "/assets/TuskerGrotesk-4600Semibold.otf",
