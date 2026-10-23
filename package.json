@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@imgly/background-removal": "1.7.0",
+    "@mediabunny/aac-encoder": "1.62.1",
+    "mediabunny": "1.62.1",
     "onnxruntime-web": "1.21.0"
   },
   "devDependencies": {

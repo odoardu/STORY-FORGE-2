@@ -4,20 +4,17 @@ const StudioUI = (() => {
   const mobileQuery = matchMedia("(max-width: 800px), (max-width: 960px) and (pointer: coarse)");
   let api, panelObserver;
   const byId = id => document.getElementById(id);
-  const panels = () => [byId("mediaPopover"), byId("textEditPopover"), byId("circlePopover"), byId("effectsPopover"), byId("videoOptionsPanel")];
+  const panels = () => [byId("mediaPopover"), byId("textEditPopover"), byId("circlePopover"), byId("effectsPopover")];
   function closeOtherPanels(except) {
     if (except !== "media") api.closeMedia();
     if (except !== "text") api.closeText();
     if (except !== "circle") byId("circlePopover").hidden = true;
     if (except !== "effects") byId("effectsPopover").hidden = true;
-    if (except !== "video") byId("videoOptions").open = false;
     sync();
   }
   function sync() {
     if (!api) return;
     const s = api.getState();
-    const videoPanel = byId("videoOptionsPanel");
-    if (videoPanel.hidden !== !byId("videoOptions").open) videoPanel.hidden = !byId("videoOptions").open;
     document.querySelectorAll(".mobile-format").forEach(button => {
       const selected = button.dataset.format === s.format;
       button.classList.toggle("is-active", selected); button.setAttribute("aria-pressed", String(selected));
@@ -34,7 +31,7 @@ const StudioUI = (() => {
     byId("mobileMedia").setAttribute("aria-expanded", String(document.body.classList.contains("mobile-controls-open")));
     const effectsOpen = !byId("effectsPopover").hidden;
     for (const id of ["mobileEffects", "dockEffects"]) byId(id).setAttribute("aria-expanded", String(effectsOpen));
-    const openPanel = panels().find(panel => panel.id === "mediaPopover" ? document.body.classList.contains("mobile-controls-open") : panel.id === "videoOptionsPanel" ? byId("videoOptions").open : !panel.hidden);
+    const openPanel = panels().find(panel => panel.id === "mediaPopover" ? document.body.classList.contains("mobile-controls-open") : !panel.hidden);
     document.body.classList.toggle("studio-panel-open", Boolean(openPanel));
     document.documentElement.style.setProperty("--panel-reserve", openPanel ? `${Math.ceil(openPanel.getBoundingClientRect().height) + 14}px` : "0px");
     const busy = s.exportingVideo || api.exportBusy();
@@ -64,13 +61,6 @@ const StudioUI = (() => {
     api = callbacks;
     header(byId("mediaPopover"), "Mídia", byId("mobilePanelClose"));
     header(byId("circlePopover"), "Foto circular", byId("circleClose"));
-    const closeVideo = document.createElement("button"); closeVideo.type = "button"; closeVideo.className = "studio-action"; closeVideo.setAttribute("aria-label", "Fechar opções do vídeo"); closeVideo.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
-    closeVideo.addEventListener("click", () => { byId("videoOptions").open = false; sync(); });
-    document.body.append(byId("videoOptionsPanel"));
-    byId("videoOptionsPanel").hidden = true;
-    header(byId("videoOptionsPanel"), "Vídeo", closeVideo);
-    const videoNames = { videoFileInfo: "Arquivo", videoAudioControl: "Áudio", panelMuteButton: "Ouvir", resetVideoTrim: "Corte", removeVideo: "Imagem" };
-    Object.entries(videoNames).forEach(([id, text]) => { const caption = document.createElement("span"); caption.className = "action-caption"; caption.textContent = text; byId(id).append(caption); });
     byId("textEditPopover").classList.add("studio-panel");
     byId("textEditPopover").querySelector("header").classList.add("studio-panel-header");
     document.querySelectorAll(".media-upload-actions .studio-action, .closing-controls .studio-action, .circle-popover > .studio-action").forEach(action => {
@@ -89,12 +79,11 @@ const StudioUI = (() => {
     for (const id of ["effectBlur", "effectShade"]) byId(id).addEventListener("input", event => { api.effects(id, Number(event.target.value)); sync(); });
     document.addEventListener("keydown", event => { if (event.key === "Escape") closeOtherPanels(); });
     document.addEventListener("pointerdown", event => {
-      if (event.target.closest("#fullHighlightWarning, #imageResolutionWarning, .studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .video-options, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
+      if (event.target.closest("#fullHighlightWarning, #imageResolutionWarning, .studio-panel, .glass-dock, .mobile-navigation, .mobile-actionbar, .preview-audio-control, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
       closeOtherPanels();
     });
     panelObserver = new ResizeObserver(sync); panels().forEach(panel => panelObserver.observe(panel));
     const changes = new MutationObserver(sync); panels().forEach(panel => changes.observe(panel, { attributes: true, attributeFilter: ["hidden"] }));
-    changes.observe(byId("videoOptions"), { attributes: true, attributeFilter: ["open"] });
     changes.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     new MutationObserver(sync).observe(byId("exportButton"), { attributes: true, attributeFilter: ["disabled"] });
     window.visualViewport?.addEventListener("resize", syncViewport); window.visualViewport?.addEventListener("scroll", syncViewport);

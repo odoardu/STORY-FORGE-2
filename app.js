@@ -315,8 +315,7 @@ const state = {
   infoImage: null,
   infoVideo: null,
   infoUploadToken: 0,
-  infoVideoTrimStart: 0, infoVideoTrimEnd: 0, infoVideoIncludeAudio: true,
-  videoIncludeAudio: true,
+  infoVideoTrimStart: 0, infoVideoTrimEnd: 0,
   infoZoom: 1,
   infoPanX: 0,
   infoPanY: 0,
@@ -374,7 +373,7 @@ const state = {
 };
 
 const MAX_INFORMATIVE_PAGES = 6;
-const informativePageKeys = ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoImageName", "infoImageObjectUrl", "infoImage", "infoVideo", "infoUploadToken", "infoVideoTrimStart", "infoVideoTrimEnd", "infoVideoIncludeAudio", "infoZoom", "infoPanX", "infoPanY"];
+const informativePageKeys = ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoImageName", "infoImageObjectUrl", "infoImage", "infoVideo", "infoUploadToken", "infoVideoTrimStart", "infoVideoTrimEnd", "infoZoom", "infoPanX", "infoPanY"];
 const informativePageDefaults = Object.fromEntries(informativePageKeys.map(key => [key, state[key]]));
 function createInformativePage() {
   const page = { ...informativePageDefaults, infoBodyBold: [] };
@@ -382,7 +381,6 @@ function createInformativePage() {
     videoTrimStart: { get: () => page.infoVideoTrimStart, set: value => { page.infoVideoTrimStart = value; } },
     videoTrimEnd: { get: () => page.infoVideoTrimEnd, set: value => { page.infoVideoTrimEnd = value; } },
     videoDuration: { get: () => page.infoVideo?.duration || 0 },
-    videoIncludeAudio: { get: () => page.infoVideoIncludeAudio, set: value => { page.infoVideoIncludeAudio = value; } },
   });
   return page;
 }
@@ -997,7 +995,7 @@ function bindEvents() {
     updateInformativeText();
   });
   document.addEventListener("pointerdown", event => {
-    if (event.target.closest(".glass-dock, .mobile-navigation, .mobile-actionbar, .studio-panel, .control-panel-shell, .video-options")) return;
+    if (event.target.closest(".glass-dock, .mobile-navigation, .mobile-actionbar, .studio-panel, .control-panel-shell, .preview-audio-control")) return;
     if (state.dockAttachmentFormat) {
       state.dockAttachmentFormat = null;
       closeMediaPopover();
@@ -1315,8 +1313,10 @@ async function togglePreviewPlayback() {
 }
 
 function togglePreviewMute() {
-  const video = getTimelineVideo(); if (!video) return;
-  video.muted = !video.muted; updatePlaybackIcons();
+  const video = getTimelineVideo(); if (!video || state.exportingVideo) return;
+  video.muted = !video.muted;
+  if (!video.muted && video.paused) togglePreviewPlayback().catch(() => setStatus("Toque em reproduzir para ouvir o vídeo."));
+  updatePlaybackIcons();
 }
 
 function applyFormat(format, options = {}) {
@@ -1410,7 +1410,7 @@ function updateStageScale() {
   // Every 4:5 artwork shares the same space reservation, including board headers.
   const isPortraitPost = spec.width === 1080 && spec.height === 1350;
   const availableWidth = Math.max(24, stageHost.offsetWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (isPortraitPost ? 32 : 0));
-  const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (isPortraitPost ? 76 : 0));
+  const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (isPortraitPost || hasTimelineVideo() ? 76 : 0));
   const boardCount = state.artboardFocused ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
   const boardGrid = ["informative", "polaroid"].includes(state.format);
   const columns = Math.min(boardCount, stageHost.offsetWidth < 600 ? 2 : 3);
@@ -1440,7 +1440,17 @@ function updateStageScale() {
     frame.style.height = `${height}px`;
     frame.querySelector(".story-stage").style.transform = `scale(${scale})`;
   });
+  positionPreviewAudioControl();
   MediaLoadingBorder.sync();
+}
+
+function positionPreviewAudioControl() {
+  const button = elements.panelMuteButton;
+  if (!button || button.hidden) return;
+  const actions = Array.from(elements.frame.parentElement.children).filter(node => node.matches(".artboard-back, .informative-remove"));
+  const occupied = actions.length * 40;
+  button.style.left = `${elements.frame.offsetLeft + elements.frame.offsetWidth - 44 - occupied}px`;
+  button.style.top = `${elements.frame.offsetTop - 46}px`;
 }
 
 async function handleVideoUpload(event) {
@@ -1472,14 +1482,11 @@ async function handleVideoUpload(event) {
     state.zoom = 1;
     state.panX = state.panY = 0;
     elements.video.src = url;
-    elements.video.muted = true;
+    elements.video.muted = false;
     elements.video.loop = false;
     await waitForVideo(elements.video);
     elements.fileMain.textContent = file.name;
     elements.fileSub.textContent = `${formatFileSize(file.size)} · ${candidate.videoWidth} × ${candidate.videoHeight}`;
-    const fileInfo = document.getElementById("videoFileInfo");
-    fileInfo.dataset.tooltip = `${file.name} · ${elements.fileSub.textContent}`;
-    fileInfo.setAttribute("aria-label", fileInfo.dataset.tooltip);
     if (!["feed", "stories"].includes(state.format)) applyFormat("stories");
     syncVideoControls();
     closeMediaPopover();
@@ -1488,6 +1495,7 @@ async function handleVideoUpload(event) {
     buildVideoFilmstrip(url).catch(() => {});
     mediaReady = true;
     setStatus("Vídeo pronto. Ajuste o trecho e exporte.");
+    elements.video.play().catch(() => setStatus("Toque em reproduzir para ouvir o vídeo."));
   } catch {
     if (state.videoUrl !== url) URL.revokeObjectURL(url);
     setStatus("Não foi possível abrir esse vídeo. Tente MP4 (H.264) ou WebM.");
@@ -1504,7 +1512,8 @@ function hasArtworkVideo() {
 }
 
 function getArtworkMedia() {
-  const video = state.renderVideo || elements.video;
+  if (state.renderVideo) return state.renderVideo;
+  const video = elements.video;
   return state.mediaKind === "video" && video.readyState >= 2 ? video : state.feedImage;
 }
 
@@ -1513,7 +1522,9 @@ function syncVideoControls() {
   const timeline = getTimelineState();
   const visibilityChanged = elements.shell.classList.contains("has-artwork-video") !== active;
   document.getElementById("videoTimeline").hidden = !active;
-  if (!active) document.getElementById("videoOptions").open = false;
+  elements.panelMuteButton.hidden = !active;
+  elements.frame.parentElement.append(elements.panelMuteButton);
+  positionPreviewAudioControl();
   elements.shell.classList.toggle("has-artwork-video", active);
   document.body.classList.toggle("has-artwork-video", active);
   for (const id of ["videoTrimStart", "videoTrimEnd"]) document.getElementById(id).max = timeline.videoDuration;
@@ -1534,9 +1545,7 @@ function syncVideoControls() {
     const video = getTimelineVideo(), name = hasInformativeVideo() ? state.infoImageName : state.videoName;
     elements.trackTitle.textContent = name; elements.fileMain.textContent = name;
     elements.fileSub.textContent = `${video.videoWidth} × ${video.videoHeight}`;
-    const info = document.getElementById("videoFileInfo"); info.dataset.tooltip = `${name} · ${elements.fileSub.textContent}`; info.setAttribute("aria-label", info.dataset.tooltip);
   }
-  document.getElementById("videoIncludeAudio").checked = timeline.videoIncludeAudio;
   updatePlaybackIcons();
   syncDockAffordances();
   if (visibilityChanged) updateStageScale();
@@ -1574,22 +1583,14 @@ function refreshVideoArtwork() {
 }
 
 function bindVideoControls() {
-  document.getElementById("videoOptions").addEventListener("toggle", event => {
-    if (event.target.open) StudioUI.closeOtherPanels("video");
-  });
   document.addEventListener("keydown", event => {
     if (event.key !== "Escape") return;
     const mediaOpen = document.body.classList.contains("mobile-controls-open");
     state.dockAttachmentFormat = null;
     closeMediaPopover(mediaOpen);
-    document.getElementById("videoOptions").open = false;
     document.body.classList.remove("mobile-dock-expanded");
     document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
     syncDockAffordances();
-  });
-  document.getElementById("videoIncludeAudio").addEventListener("change", event => {
-    getTimelineState().videoIncludeAudio = event.target.checked;
-    document.getElementById("videoAudioControl").dataset.tooltip = event.target.checked ? "Exportar com áudio" : "Exportar sem áudio";
   });
   bindTimelineVideo(elements.video);
   for (const id of ["videoTrimStart", "videoTrimEnd"]) for (const eventName of ["input", "change"]) document.getElementById(id).addEventListener(eventName, event => {
@@ -1610,32 +1611,7 @@ function bindVideoControls() {
     video.pause();
     video.currentTime = clamp(Number(event.target.value), timeline.videoTrimStart, timeline.videoTrimEnd);
   });
-  document.getElementById("resetVideoTrim").addEventListener("click", () => {
-    const timeline = getTimelineState(), video = getTimelineVideo(); if (!video) return;
-    timeline.videoTrimStart = 0;
-    timeline.videoTrimEnd = timeline.videoDuration;
-    video.currentTime = 0;
-    syncVideoControls();
-  });
-  document.getElementById("removeVideo").addEventListener("click", () => {
-    if (state.format === "informative") {
-      const page = getTimelineState(); ++page.infoUploadToken; disposeInformativeVideo(page);
-      if (page.infoImageObjectUrl) URL.revokeObjectURL(page.infoImageObjectUrl);
-      page.infoImageUrl = page.infoImageObjectUrl = page.infoImageName = "";
-      syncVideoControls(); updateInformativePreview(); return;
-    }
-    ++state.videoLoadingToken;
-    elements.video.pause();
-    state.mediaKind = "image";
-    syncVideoControls();
-    updateMediaTransform();
-    updateStoriesPreview();
-    setStatus("Imagem de fundo restaurada.");
-  });
   // Repaint paused video when artwork controls change.
-  document.addEventListener("pointerdown", event => {
-    if (!event.target.closest(".video-options, #videoOptionsPanel")) document.getElementById("videoOptions").open = false;
-  });
   document.addEventListener("input", () => requestAnimationFrame(refreshVideoArtwork));
   document.addEventListener("click", () => requestAnimationFrame(refreshVideoArtwork));
 }
@@ -2442,21 +2418,20 @@ function disposeInformativeVideo(page) {
 function syncInformativeVideoPlayback() {
   const active = state.format === "informative" && !state.exportingVideo ? state.infoVideo : null;
   for (const page of state.informativePages) if (page.infoVideo && page.infoVideo !== active) page.infoVideo.pause();
+  if (!hasArtworkVideo()) elements.video.pause();
   if (!active) return;
   elements.video.pause();
   const timeline = getTimelineState();
   if (active.currentTime < timeline.videoTrimStart || active.currentTime >= timeline.videoTrimEnd) active.currentTime = timeline.videoTrimStart;
   elements.fileMain.textContent = state.infoImageName;
   elements.fileSub.textContent = `${active.videoWidth} × ${active.videoHeight}`;
-  document.getElementById("videoFileInfo").dataset.tooltip = `${state.infoImageName} · ${elements.fileSub.textContent}`;
-  document.getElementById("videoFileInfo").setAttribute("aria-label", document.getElementById("videoFileInfo").dataset.tooltip);
   buildVideoFilmstrip(active.src).catch(() => {});
   active.play().then(() => { if (active !== state.infoVideo || state.format !== "informative" || state.exportingVideo) active.pause(); }).catch(() => setStatus("Não foi possível reproduzir a prévia deste vídeo."));
 }
 
 async function applyInformativeVideo(url, name, page, token) {
   const finish = beginMediaLoading("Preparando vídeo…", { format: "informative", page }), video = document.createElement("video");
-  video.src = url; video.muted = true; video.loop = false; video.playsInline = true; video.preload = "auto";
+  video.src = url; video.muted = false; video.loop = false; video.playsInline = true; video.preload = "auto";
   video.setAttribute("aria-hidden", "true"); video.tabIndex = -1;
   video.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
   document.body.append(video);
@@ -2467,7 +2442,7 @@ async function applyInformativeVideo(url, name, page, token) {
     if (page.infoUploadToken !== token) return;
     disposeInformativeVideo(page);
     if (page.infoImageObjectUrl) URL.revokeObjectURL(page.infoImageObjectUrl);
-    Object.assign(page, { infoVideo: video, infoImage: null, infoImageUrl: url, infoImageObjectUrl: url, infoImageName: name, infoVideoTrimStart: 0, infoVideoTrimEnd: video.duration, infoVideoIncludeAudio: true, infoZoom: 1, infoPanX: 0, infoPanY: 0 });
+    Object.assign(page, { infoVideo: video, infoImage: null, infoImageUrl: url, infoImageObjectUrl: url, infoImageName: name, infoVideoTrimStart: 0, infoVideoTrimEnd: video.duration, infoZoom: 1, infoPanX: 0, infoPanY: 0 });
     bindTimelineVideo(video);
     ready = committed = true;
     if (page === state.informativePages[state.activeInformativePage] && state.format === "informative") {
@@ -3288,131 +3263,58 @@ async function exportCurrentPng() {
 }
 
 async function exportStoryVideo() {
+  if (state.exportingVideo) return;
   const informative = hasInformativeVideo();
   const previewVideo = informative ? state.infoVideo : elements.video;
   const videoUrl = informative ? state.infoImageUrl : state.videoUrl;
-  const includeAudio = getTimelineState().videoIncludeAudio;
-  if (!videoUrl) {
-    setStatus("Selecione um video primeiro");
-    return;
-  }
-
-  if (!window.MediaRecorder || !elements.canvas.captureStream) {
-    const message = "Este navegador não exporta vídeo. Tente Safari atualizado, Chrome ou Edge.";
-    setStatus(message); beginMediaLoading()(false, message); return;
-  }
-  state.exportMime = pickRecorderMime();
-  if (!state.exportMime) { const message = "Nenhum formato de vídeo disponível neste navegador."; setStatus(message); beginMediaLoading()(false, message); return; }
-  state.exportExt = state.exportMime.includes("mp4") ? "mp4" : "webm";
-  document.getElementById("videoOptions").open = false;
-  state.exportingVideo = true;
+  const timeline = getTimelineState();
+  if (!videoUrl) { setStatus("Selecione um vídeo primeiro"); return; }
+  const trim = EditorCore.videoTrim(previewVideo.duration, timeline.videoTrimStart, timeline.videoTrimEnd);
   const previewWasPlaying = !previewVideo.paused;
+  state.exportingVideo = true;
   previewVideo.pause();
   document.body.classList.add("is-video-exporting");
   elements.exportButton.disabled = true;
   elements.progress.value = 0;
   setStatus("Preparando vídeo…");
-
-  const exportVideo = document.createElement("video");
-  exportVideo.src = videoUrl;
-  exportVideo.playsInline = true;
-  exportVideo.preload = "auto";
-  exportVideo.loop = false;
-  exportVideo.muted = !includeAudio;
-  exportVideo.volume = 1;
-  exportVideo.setAttribute("aria-hidden", "true");
-  exportVideo.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";
-  document.body.append(exportVideo);
-
-  let audioContext = null;
-  let stream = null;
-  let recorder = null;
-
   try {
-    let audioDestination = null;
-    if (includeAudio) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) throw new Error("Este navegador não conseguiu preparar o áudio. Desative Áudio para exportar sem som.");
-      // Resume while the export click still provides user activation (especially iOS).
-      audioContext = new AudioContextClass();
-      const source = audioContext.createMediaElementSource(exportVideo);
-      audioDestination = audioContext.createMediaStreamDestination();
-      source.connect(audioDestination);
-      await audioContext.resume();
-      if (audioContext.state !== "running") throw new Error("Não foi possível ativar o áudio. Toque em exportar novamente.");
-    }
-    await waitForVideo(exportVideo);
-    const trim = EditorCore.videoTrim(exportVideo.duration, getTimelineState().videoTrimStart, getTimelineState().videoTrimEnd);
-    await seekVideo(exportVideo, trim.start);
-    state.renderVideo = exportVideo;
+    await document.fonts.ready;
+    const { exportVideoFrames } = await import("./assets/vendor/video-export.js");
+    const response = await fetch(videoUrl);
+    if (!response.ok) throw new Error("Não foi possível ler o vídeo selecionado. Selecione o arquivo novamente.");
+    const spec = getCurrentFormatSpec();
     state.renderInformativePage = informative ? state.informativePages[state.activeInformativePage] : null;
-    if (informative) {
-      state.renderInformativeLayers = Object.fromEntries(["background", "foreground"].map(layer => {
-        const canvas = document.createElement("canvas");
-        canvas.width = INFORMATIVE.width; canvas.height = INFORMATIVE.height;
-        drawInformativeFrame(canvas.getContext("2d"), layer);
-        return [layer, canvas];
-      }));
-    }
-    drawFrame(exportVideo);
-    stream = elements.canvas.captureStream(30);
-    audioDestination?.stream.getAudioTracks().forEach(track => stream.addTrack(track));
-    if (includeAudio && !stream.getAudioTracks().some(track => track.readyState === "live")) throw new Error("Não foi possível capturar o áudio deste vídeo. Tente exportar novamente.");
-
-    const chunks = [];
-    recorder = new MediaRecorder(stream, {
-      mimeType: state.exportMime,
-      videoBitsPerSecond: 9_000_000,
-      audioBitsPerSecond: 192_000,
+    const blob = await exportVideoFrames({
+      blob: await response.blob(), width: spec.width, height: spec.height,
+      start: trim.start, end: trim.end,
+      render(source) {
+        state.renderVideo = source;
+        if (state.format === "stories") drawStoriesFrame(renderContext);
+        else if (informative) drawInformativeFrame(renderContext);
+        else drawFeedFrame(renderContext);
+        return elements.canvas;
+      },
+      onProgress(value) {
+        elements.progress.value = Math.min(.99, value);
+        setStatus(`Exportando vídeo… ${Math.round(value * 100)}%`);
+      },
     });
-
-    recorder.addEventListener("dataavailable", (event) => {
-      if (event.data && event.data.size) {
-        chunks.push(event.data);
-      }
-    });
-
-    let recorderError = null;
-    recorder.addEventListener("error", event => { recorderError = event.error || new Error("Falha ao gravar o vídeo."); });
-    const stopped = new Promise((resolve) => {
-      recorder.addEventListener("stop", resolve, { once: true });
-    });
-
-    setStatus("Exportando trecho…");
-    recorder.start(100);
-    await exportVideo.play();
-    await renderUntilEnd(exportVideo, trim.end, trim.start, () => recorderError);
-
-    if (recorder.state !== "inactive") {
-      recorder.stop();
-    }
-    await stopped;
-    if (recorderError) throw recorderError;
-    if (!chunks.length) throw new Error("A gravação ficou vazia. Tente exportar novamente.");
-
-    const blob = new Blob(chunks, { type: state.exportMime });
+    state.exportMime = "video/mp4";
+    state.exportExt = "mp4";
     const saved = await downloadExport(blob, makeExportName().replace("-lpz-zero.", `-lpz-zero-${state.format}.`));
-    setStatus(`${state.exportExt.toUpperCase()} — download iniciado: ${saved.fileName}`);
+    setStatus(`MP4 — download iniciado: ${saved.fileName}`);
   } catch (error) {
     console.error(error);
     const message = error.message || "Não foi possível exportar este vídeo.";
     setStatus(message); beginMediaLoading()(false, message);
   } finally {
-    exportVideo.pause();
-    if (recorder && recorder.state !== "inactive") recorder.stop();
-    stream?.getTracks().forEach(track => track.stop());
     state.renderVideo = null;
     state.renderInformativePage = null;
-    state.renderInformativeLayers = null;
     state.exportingVideo = false;
     document.body.classList.remove("is-video-exporting");
     refreshVideoArtwork();
     if (informative && previewWasPlaying) syncInformativeVideoPlayback();
-    else if (!informative && previewWasPlaying) previewVideo.play().catch(() => {});
-    if (audioContext) {
-      audioContext.close().catch(() => {});
-    }
-    exportVideo.removeAttribute("src"); exportVideo.load(); exportVideo.remove();
+    else if (previewWasPlaying) previewVideo.play().catch(() => {});
     elements.exportButton.disabled = false;
     elements.progress.value = 0;
   }
@@ -3467,45 +3369,6 @@ async function exportFeedPng() {
   }
 }
 
-function renderUntilEnd(video, duration, start = 0, getError = () => null) {
-  return new Promise((resolve, reject) => {
-    let done = false, frame = null, lastDraw = -Infinity;
-    let lastTime = video.currentTime, lastProgress = performance.now();
-    const videoFrames = typeof video.requestVideoFrameCallback === "function";
-    const finish = (error = null) => {
-      if (done) return;
-      done = true; clearInterval(watchdog);
-      if (frame !== null) videoFrames ? video.cancelVideoFrameCallback(frame) : cancelAnimationFrame(frame);
-      video.removeEventListener("ended", ended);
-      document.removeEventListener("visibilitychange", visibility);
-      video.pause();
-      if (error) reject(error); else resolve();
-    };
-    const ended = () => finish();
-    const visibility = () => { if (document.hidden) finish(new Error("A exportação foi interrompida. Mantenha esta aba aberta e tente novamente.")); };
-    const check = () => {
-      const error = getError();
-      if (error || video.error) return finish(error || new Error("O vídeo falhou durante a exportação."));
-      if (video.currentTime !== lastTime) { lastTime = video.currentTime; lastProgress = performance.now(); }
-      if (video.ended || video.currentTime >= duration) return finish();
-      if (performance.now() - lastProgress > 15000) finish(new Error("O vídeo parou de responder. Tente um trecho menor e exporte novamente."));
-    };
-    const tick = now => {
-      if (done) return;
-      try {
-        if (now - lastDraw >= 1000 / 30 - 2) { drawFrame(video); lastDraw = now; }
-        elements.progress.value = Math.min(1, (video.currentTime - start) / (duration - start));
-        check();
-        if (!done) frame = videoFrames ? video.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
-      } catch (error) { finish(error); }
-    };
-    const watchdog = setInterval(check, 100);
-    video.addEventListener("ended", ended, { once: true });
-    document.addEventListener("visibilitychange", visibility);
-    visibility();
-    if (!done) tick(performance.now());
-  });
-}
 
 function drawFrame(video) {
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
@@ -4194,19 +4057,6 @@ function getSubtitleJustifySpace(ctx, tokens, maxWidth) {
   return Math.max(0, (maxWidth - currentWidth) / spaceCount);
 }
 
-function pickRecorderMime() {
-  const types = [
-    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
-    "video/mp4;codecs=h264,aac",
-    "video/mp4",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ];
-
-  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-}
-
 function seekVideo(video, time) {
   if (Math.abs(video.currentTime - time) < 0.001) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -4720,7 +4570,6 @@ function toggleMediaPopover() {
   StudioUI.closeOtherPanels("media");
   const wasOpen = document.body.classList.contains("mobile-controls-open");
   closeTextEditPopover();
-  document.getElementById("videoOptions").open = false;
   document.body.classList.remove("mobile-dock-expanded");
   document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
   document.body.classList.toggle("mobile-controls-open", !wasOpen);
@@ -4743,7 +4592,6 @@ function toggleMediaPopover() {
 function openTextEditPopover(selection, event) {
   StudioUI.closeOtherPanels("text");
   closeMediaPopover();
-  document.getElementById("videoOptions").open = false;
   const popover = document.getElementById("textEditPopover");
   const fieldIds = { title: "titleInput", kicker: "feedKickerInput", subtitle: "feedSubtitleInput", infoTitle: "infoTitleInput", infoBody: "infoBodyInput" };
   state.lastTextSelection = selection;

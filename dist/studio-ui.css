@@ -27,15 +27,15 @@
   .media-border-loading.is-complete { animation: none; }
 }
 .mobile-navigation, .mobile-actionbar, .mobile-format-name, .action-caption { display: none; }
-.studio-panel, .video-options-panel { color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: 0 16px 48px #0006; border-radius: var(--ui-radius); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.studio-panel { color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: 0 16px 48px #0006; border-radius: var(--ui-radius); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 .studio-panel[hidden] { display: none !important; }
 .studio-panel-header { display: flex !important; align-items: center; justify-content: space-between; width: 100%; gap: 16px; margin: 0 0 12px !important; padding: 0 !important; border: 0 !important; }
 .studio-panel-header > strong { font: 500 14px/1.4 Gotham, sans-serif; color: var(--ui-text); }
 .studio-panel-header button { display: grid; place-items: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin: 0; border-radius: 50%; background: #ffffff0c; border: 0; padding: 0; }
 .studio-panel-header button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
-.studio-action, .video-option { border-radius: 50%; min-width: 44px; width: 44px; min-height: 44px; height: 44px; color: var(--ui-muted); touch-action: manipulation; }
-.studio-action svg, .video-option svg, .mobile-navigation svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.studio-action[aria-pressed="true"], .video-option[aria-pressed="true"], .video-option:has(input:checked) { color: var(--ui-accent); background: #e981be1a; }
+.studio-action { border-radius: 50%; min-width: 44px; width: 44px; min-height: 44px; height: 44px; color: var(--ui-muted); touch-action: manipulation; }
+.studio-action svg, .mobile-navigation svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.studio-action[aria-pressed="true"] { color: var(--ui-accent); background: #e981be1a; }
 .studio-panel input[type="range"] { appearance: none; -webkit-appearance: none; width: 100%; height: 44px; min-height: 44px; margin: 0; padding: 0; background: transparent; border: 0; box-shadow: none; touch-action: pan-y; }
 .studio-panel input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: #ffffff30; }
 .studio-panel input[type="range"]::-moz-range-track { height: 4px; border-radius: 4px; background: #ffffff30; }
@@ -69,8 +69,6 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .experience-shell[data-format="informative"] #storyStage > .feed-stage-content, .experience-shell[data-format="informative"] #storyStage > .logo-layer { opacity: 0; }
 .glass-dock { border-color: var(--ui-border); }
 .glass-dock #dockEffects { flex: 0 0 46px; }
-.video-options-panel { gap: 8px; padding: 12px; }
-.video-options-panel .video-option { flex: 0 0 44px; }
 .studio-panel button:focus-visible, .mobile-navigation button:focus-visible, .mobile-actionbar button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 .studio-panel ::selection { color: #111; background: #e981beb3; }
 @media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
@@ -120,9 +118,8 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
   .circle-popover .circle-size-field { display: block; margin-top: 8px; }
   .circle-size-field > span { display: block; margin-bottom: 4px; }
   .video-timeline { bottom: calc(158px + env(safe-area-inset-bottom)); width: calc(100vw - 24px); padding: 8px; gap: 4px; border: 1px solid var(--ui-border); border-radius: 22px; background: var(--ui-surface); box-shadow: 0 10px 32px #0005; }
-  .video-timeline .timeline-button, .video-timeline .video-options { width: 44px; height: 44px; min-height: 44px; flex: 0 0 44px; }
+  .video-timeline .timeline-button { width: 44px; height: 44px; min-height: 44px; flex: 0 0 44px; }
   .timeline-duration { font-size: 11px; }
-  .video-options-panel { position: fixed; left: 12px; right: 12px; width: auto; bottom: calc(242px + env(safe-area-inset-bottom)); justify-content: space-around; padding: 12px; border: 1px solid var(--ui-border); border-radius: 24px; }
   .studio-panel-open .video-timeline { visibility: hidden; }
   .experience-shell[data-format="informative"] .stage-host { flex-direction: column; justify-content: flex-start !important; align-items: center !important; overflow-x: hidden; overflow-y: auto; scroll-snap-type: y proximity; scroll-padding-block: 12px; overscroll-behavior-y: contain; }
   .experience-shell[data-format="informative"] #informativeArtboards { flex-direction: column; flex: 0 0 auto; align-items: center; gap: 24px; padding: 6px; margin: auto 0; }
@@ -136,7 +133,7 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
   .keyboard-open .experience-shell .workspace { padding-bottom: var(--panel-reserve) !important; }
   .keyboard-open .studio-panel { bottom: calc(var(--keyboard-inset, 0px) + 8px) !important; max-height: calc(var(--viewport-height, 100dvh) - 64px) !important; }
   .media-loading { top: calc(54px + env(safe-area-inset-top)); right: 12px; font-size: 12px; }
-  .studio-panel .studio-action::after, .video-option::after { display: none !important; }
+  .studio-panel .studio-action::after { display: none !important; }
 }
 @media (max-width: 960px) and (max-height: 500px) and (pointer: coarse) {
   .experience-shell { grid-template-rows: 36px minmax(0,1fr); }
@@ -154,20 +151,6 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .studio-panel label:focus-within { outline: none; }
 .studio-panel .studio-action:has(input:focus-visible) { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 .studio-panel button:active, .mobile-navigation button:active, .mobile-actionbar button:active { filter: brightness(1.18); }
-
-.video-options-panel.studio-panel { display: grid; grid-template-columns: repeat(5, 44px); gap: 8px; padding: 16px; width: max-content; }
-.video-options-panel .studio-panel-header { grid-column: 1/-1; }
-@media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
-  .video-options-panel.studio-panel:not([hidden]) { display: grid; grid-template-columns: repeat(5, minmax(44px,1fr)); visibility: visible; }
-  .video-options-panel .video-option { width: 100%; height: 68px; min-height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: transparent; border-radius: 14px; }
-  .video-options-panel .video-option input { width: 100%; height: 100%; }
-  .video-options-panel .video-option:has(input:checked), .video-options-panel .video-option[aria-pressed="true"] { background: #e981be1a; }
-}
-
-/* Video controls escape the filmstrip's compositing and clipping container. */
-@media (min-width: 801px) and (pointer: fine) {
-  .video-options-panel.studio-panel { position: fixed; left: 50%; right: auto; bottom: var(--studio-overlay-bottom); transform: translateX(-50%); z-index: 920; }
-}
 
 .is-video-exporting .studio-panel, .is-video-exporting .mobile-actionbar { pointer-events: none; }
 .is-video-exporting .editor-status { display: grid !important; position: fixed; top: calc(56px + env(safe-area-inset-top)); right: 12px; width: 184px; padding: 12px; gap: 8px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 14px; z-index: 1000; }
@@ -336,18 +319,18 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .polaroid-board header { box-sizing: border-box; justify-content: flex-end; gap: 8px; padding-inline: 12px; margin-bottom: 14px; }
 .artboard-expand { position: absolute; inset: 0; z-index: 30; border: 0; border-radius: 10px; padding: 0; background: transparent; cursor: zoom-in; }
 .artboard-expand:focus-visible { outline: 2px solid var(--pink); outline-offset: 5px; }
-.artboard-back, .informative-remove, .polaroid-remove {
+.artboard-back, .informative-remove, .polaroid-remove, .preview-audio-control {
   display: inline-grid; place-items: center; box-sizing: border-box;
   width: 32px; height: 32px; min-width: 32px; min-height: 32px;
   padding: 0; margin: 0; border: 1px solid #ffffff0d; border-radius: 50%;
   background: #ffffff12; color: #ddd; cursor: pointer; line-height: 1;
 }
-.artboard-back svg, .informative-remove svg, .polaroid-remove svg {
+.artboard-back svg, .informative-remove svg, .polaroid-remove svg, .preview-audio-control svg {
   display: block; width: 20px; height: 20px; fill: none;
   stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
-.artboard-back:hover, .informative-remove:hover, .polaroid-remove:hover { background: #ffffff24; color: #fff; }
-.artboard-back:focus-visible, .informative-remove:focus-visible, .polaroid-remove:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.artboard-back:hover, .informative-remove:hover, .polaroid-remove:hover, .preview-audio-control:hover { background: #ffffff24; color: #fff; }
+.artboard-back:focus-visible, .informative-remove:focus-visible, .polaroid-remove:focus-visible, .preview-audio-control:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
 .informative-artboard > .artboard-back { position: absolute; right: 12px; bottom: calc(100% + 14px); }
 .informative-artboard > .informative-remove { right: 12px; bottom: calc(100% + 14px); }
 .informative-artboard:has(.informative-remove) > .artboard-back { right: 52px; }
@@ -464,24 +447,24 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .experience-shell[data-format="informative"] .glass-dock .format-option[data-format="informative"].is-active {
   background: transparent; box-shadow: none;
 }
-.glass-tool, .studio-action, .video-option, .ideas-dialog button, .ideas-open,
+.glass-tool, .studio-action, .ideas-dialog button, .ideas-open,
 .highlight-warning button, #addInformativePage, .polaroid-add, .polaroid-remove, .informative-remove {
   transition: scale var(--motion-fast) var(--motion-ease), translate var(--motion-control) var(--motion-ease), background-color var(--motion-control), color var(--motion-control), border-color var(--motion-control);
 }
 .glass-tool:hover, .glass-tool:active { transform: none; }
 @media (hover: hover) and (pointer: fine) {
-  .glass-tool:not(:disabled):hover, .studio-action:not(:disabled):hover, .video-option:not(:disabled):hover { translate: 0 -2px; }
+  .glass-tool:not(:disabled):hover, .studio-action:not(:disabled):hover { translate: 0 -2px; }
   .polaroid-add:not(:disabled):hover, #addInformativePage:not(:disabled):hover { scale: 1.06; }
 }
-.glass-tool:not(:disabled):active, .studio-action:not(:disabled):active, .video-option:not(:disabled):active,
+.glass-tool:not(:disabled):active, .studio-action:not(:disabled):active,
 .ideas-dialog button:not(:disabled):active, .highlight-warning button:active,
 .ideas-open:active, #addInformativePage:not(:disabled):active, .polaroid-add:not(:disabled):active { scale: .94; translate: 0 0; }
 .dock-media-slot { transition: width 380ms var(--motion-ease), margin-left 380ms var(--motion-ease), opacity 200ms ease, transform 380ms var(--motion-ease); }
 .studio-panel { animation: none !important; transform-origin: bottom center; }
-.studio-panel, .video-options-panel {
+.studio-panel {
   transition: opacity 200ms ease, translate 240ms var(--motion-ease), scale 240ms var(--motion-ease), display 240ms allow-discrete;
 }
-.studio-panel[hidden], .video-options-panel[hidden], body:not(.mobile-controls-open) #mediaPopover {
+.studio-panel[hidden], body:not(.mobile-controls-open) #mediaPopover {
   opacity: 0; translate: 0 10px; scale: .985; pointer-events: none;
 }
 .ideas-dialog, .highlight-warning {
@@ -500,10 +483,19 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 }
 .polaroid-photo, .artboard-preview { transition: outline-color 240ms ease, box-shadow 240ms ease; }
 @media (prefers-reduced-motion: reduce) {
-  .glass-dock .dock-formats::before, .glass-tool, .studio-action, .video-option,
+  .glass-dock .dock-formats::before, .glass-tool, .studio-action,
   .ideas-dialog, .ideas-dialog::backdrop, .ideas-dialog button, .highlight-warning, .highlight-warning::backdrop,
   .highlight-warning button, .ideas-open, #addInformativePage, .polaroid-add, .polaroid-remove,
-  .informative-remove, .dock-media-slot, .studio-panel, .video-options-panel, .polaroid-photo, .artboard-preview {
+  .informative-remove, .dock-media-slot, .studio-panel, .polaroid-photo, .artboard-preview {
     transition: none !important; animation: none !important;
   }
 }
+
+/* Preview sound is independent of the audio retained in the exported file. */
+.preview-audio-control { position: absolute; z-index: 40; touch-action: manipulation; }
+.preview-audio-control[hidden] { display: none; }
+.preview-audio-control::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
+.preview-audio-control::after { content: attr(data-tooltip); position: absolute; bottom: calc(100% + 10px); right: 0; width: max-content; padding: 8px 10px; border-radius: 8px; background: var(--ui-surface); color: var(--ui-text); font: 12px/1.4 Gotham, sans-serif; opacity: 0; pointer-events: none; }
+@media (hover: hover) { .preview-audio-control:hover::after { opacity: 1; } }
+.preview-audio-control:focus-visible::after { opacity: 1; }
+.is-video-exporting .preview-audio-control { pointer-events: none; }
