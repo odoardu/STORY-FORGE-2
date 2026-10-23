@@ -11,6 +11,7 @@ const path = require('node:path');
     const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--no-zygote', '--disable-dev-shm-usage'] });
     try {
       const page = await browser.newPage({ acceptDownloads: true });
+      if (process.env.STORYFORGE_NO_AUDIO_ENCODER) await page.addInitScript(() => { window.AudioEncoder = undefined; window.AudioData = undefined; });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.goto(process.env.STORYFORGE_URL || 'http://127.0.0.1:4173');
       await page.locator('#videoInput').setInputFiles(source);

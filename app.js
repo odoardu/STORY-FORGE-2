@@ -1562,15 +1562,28 @@ async function buildVideoFilmstrip(url) {
   } finally { probe.removeAttribute("src"); probe.load(); }
 }
 
+// Draw only the pixels visible in the editor. Export always uses the full artboard.
+function drawFeedPreview() {
+  const canvas = document.getElementById("videoArtworkPreview");
+  const logicalWidth = FEED.width, logicalHeight = FEED.height;
+  const visibleWidth = canvas.getBoundingClientRect().width || 375;
+  const width = Math.min(logicalWidth, Math.max(360, Math.ceil(visibleWidth * Math.min(devicePixelRatio || 1, 1.5))));
+  const height = Math.round(width * logicalHeight / logicalWidth);
+  ensureCanvasSize(canvas, width, height);
+  const ctx = canvas.getContext("2d");
+  ctx.save(); ctx.scale(width / logicalWidth, height / logicalHeight);
+  try { drawFeedFrame(ctx); } finally { ctx.restore(); }
+}
+
 function refreshVideoArtwork() {
   if (state.format === "informative") { updateInformativePreview(); return; }
   if (state.format === "feed" && (state.circle.image || document.body.classList.contains("is-mobile-studio")) && state.mediaKind === "image") {
-    drawFeedFrame(document.getElementById("videoArtworkPreview").getContext("2d"));
+    drawFeedPreview();
     return;
   }
   if (!hasArtworkVideo() || state.exportingVideo || elements.video.readyState < 2) return;
   if (state.format === "stories") updateStoriesPreview();
-  else drawFeedFrame(document.getElementById("videoArtworkPreview").getContext("2d"));
+  else drawFeedPreview();
 }
 
 function bindVideoControls() {
@@ -1641,16 +1654,24 @@ function bindVideoControls() {
 }
 
 function bindTimelineVideo(video) {
-  let frame = 0, lastPaint = 0;
+  let frame = null, lastPreviewFrame = -1;
+  const videoFrames = typeof video.requestVideoFrameCallback === "function";
   const current = () => video === getTimelineVideo() && hasTimelineVideo();
-  const animate = timestamp => {
-    frame = 0;
-    if (!current() || video.paused || state.exportingVideo) return;
-    if (timestamp - lastPaint >= 1000 / 30) { refreshVideoArtwork(); lastPaint = timestamp; }
-    frame = requestAnimationFrame(animate);
+  const schedule = () => {
+    if (frame === null && current() && !video.paused && !state.exportingVideo)
+      frame = videoFrames ? video.requestVideoFrameCallback(animate) : requestAnimationFrame(animate);
   };
-  video.addEventListener("play", () => { if (current() && !frame) frame = requestAnimationFrame(animate); updatePlaybackIcons(); });
-  for (const name of ["pause", "seeked", "loadeddata"]) video.addEventListener(name, () => { if (current()) { refreshVideoArtwork(); updatePlaybackIcons(); } });
+  const animate = (now, metadata) => {
+    frame = null;
+    if (!current() || video.paused || state.exportingVideo) return;
+    const index = Math.floor((metadata?.mediaTime ?? video.currentTime) * 30 + 1e-6);
+    if (index !== lastPreviewFrame) { refreshVideoArtwork(); lastPreviewFrame = index; }
+    schedule();
+  };
+  video.addEventListener("play", () => { schedule(); updatePlaybackIcons(); });
+  for (const name of ["pause", "seeked", "loadeddata"]) video.addEventListener(name, () => {
+    if (current()) { refreshVideoArtwork(); updatePlaybackIcons(); }
+  });
   video.addEventListener("timeupdate", () => {
     if (!current()) return;
     const timeline = getTimelineState();
@@ -4862,7 +4883,7 @@ function updateInformativePreview() {
 function updateStoriesPreview() {
   updateInformativePreview();
   if (state.format === "feed" && (state.circle.image || document.body.classList.contains("is-mobile-studio")) && state.mediaKind === "image") {
-    drawFeedFrame(document.getElementById("videoArtworkPreview").getContext("2d"));
+    drawFeedPreview();
     return;
   }
   if (state.format !== "stories") return;

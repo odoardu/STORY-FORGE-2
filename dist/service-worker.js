@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v32-feed-video-frames";
+const CACHE_NAME = "story-forge-shell-v33-feed-preview-aac";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
