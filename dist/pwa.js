@@ -17,7 +17,7 @@ if ("serviceWorker" in navigator) {
       if (controlled && ownRegistrations.length) location.reload();
       return;
     }
-    navigator.serviceWorker.register("/service-worker.js", { scope: "/", updateViaCache: "none" }).then(registration => registration.update()).catch((error) => {
+    navigator.serviceWorker.register("/service-worker.js", { scope: "/", updateViaCache: "none" }).catch((error) => {
       console.error("Não foi possível preparar o modo instalado do Story Forge.", error);
     });
   });
