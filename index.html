@@ -12,11 +12,11 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/assets/pwa/icon-20261027.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon-20261027.png" />
-    <link rel="stylesheet" href="./export-review.css?v=20261027-workbench-pwa" />
-    <link rel="stylesheet" href="./styles.css?v=20261027-workbench-pwa" />
-    <link rel="stylesheet" href="./studio-ui.css?v=20261027-workbench-pwa" />
-    <link rel="stylesheet" href="./studio-refinement.css?v=20261027-workbench-pwa" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261027-mobile-fix" />
+    <link rel="stylesheet" href="./export-review.css?v=20261027-mobile-fix" />
+    <link rel="stylesheet" href="./styles.css?v=20261027-mobile-fix" />
+    <link rel="stylesheet" href="./studio-ui.css?v=20261027-mobile-fix" />
+    <link rel="stylesheet" href="./studio-refinement.css?v=20261027-mobile-fix" />
   </head>
   <body class="studio-workbench workbench-loading">
     <div class="ambient-scene" aria-hidden="true"></div>
@@ -370,17 +370,17 @@ DA SUA PUBLICAÇÃO</textarea>
       <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" aria-label="Título do informativo" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
       <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" aria-label="Texto do informativo" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label><button class="studio-action text-selection-action" id="mobileInfoBold" type="button" aria-label="Negrito na seleção" data-tooltip="Negrito na seleção"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4h6a4 4 0 0 1 0 8H7m6 0a4 4 0 0 1 0 8H7"/></svg></button></div>
     </section>
-    <script src="./editor-core.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./artwork-effects.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./studio-motion.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./media-loading-border.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./workbench-preview-ui.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./editor-history.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./polaroid.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./export-review.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./app.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./content-ideas.js?v=20261027-workbench-pwa" defer></script>
-    <script src="./pwa.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./editor-core.js?v=20261027-mobile-fix" defer></script>
+    <script src="./artwork-effects.js?v=20261027-mobile-fix" defer></script>
+    <script src="./studio-motion.js?v=20261027-mobile-fix" defer></script>
+    <script src="./media-loading-border.js?v=20261027-mobile-fix" defer></script>
+    <script src="./workbench-preview-ui.js?v=20261027-mobile-fix" defer></script>
+    <script src="./editor-history.js?v=20261027-mobile-fix" defer></script>
+    <script src="./polaroid.js?v=20261027-mobile-fix" defer></script>
+    <script src="./export-review.js?v=20261027-mobile-fix" defer></script>
+    <script src="./app.js?v=20261027-mobile-fix" defer></script>
+    <script src="./content-ideas.js?v=20261027-mobile-fix" defer></script>
+    <script src="./pwa.js?v=20261027-mobile-fix" defer></script>
   <aside id="circlePopover" class="circle-popover" hidden role="dialog" aria-label="Ajustar foto circular">
     <button id="circleBehind" class="studio-action" type="button" aria-label="Colocar círculo atrás do objeto principal" aria-pressed="true" data-tooltip="Atrás do objeto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></button>
     <button id="circleFrameMode" class="studio-action" type="button" aria-label="Enquadrar foto ao arrastar" aria-pressed="false" data-tooltip="Enquadrar foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><circle cx="12" cy="12" r="4"/></svg></button>

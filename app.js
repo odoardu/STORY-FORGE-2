@@ -3361,7 +3361,7 @@ async function exportStoryVideo() {
   setStatus("Preparando vídeo…");
   try {
     await document.fonts.ready;
-    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261027-workbench-pwa");
+    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261027-mobile-fix");
     const response = await fetch(videoUrl);
     if (!response.ok) throw new Error("Não foi possível ler o vídeo selecionado. Selecione o arquivo novamente.");
     const spec = getCurrentFormatSpec();

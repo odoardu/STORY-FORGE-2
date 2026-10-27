@@ -149,7 +149,7 @@ body.studio-workbench .experience-shell[data-format] #mediaPopover[hidden] {
 /* Touch: stable canvas space, shared footer row for media or trimming, compact sheets. */
 @media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
   :root { --studio-control: 44px; }
-  .studio-workbench .experience-shell { grid-template-rows: calc(56px + env(safe-area-inset-top)) minmax(0,1fr); }
+  .studio-workbench .experience-shell { top: var(--editor-viewport-top,0px); height: var(--editor-viewport-height,100dvh); grid-template-rows: calc(56px + env(safe-area-inset-top)) minmax(0,1fr); }
   .studio-workbench .experience-shell .app-header { padding: env(safe-area-inset-top) 16px 0; gap: 8px; }
   .studio-workbench .experience-shell .workspace,
   .studio-workbench.studio-panel-open .experience-shell .workspace,
@@ -182,8 +182,8 @@ body.studio-workbench .experience-shell[data-format] #mediaPopover[hidden] {
   .studio-workbench.keyboard-open .experience-shell .glass-dock { display: none !important; }
   .studio-workbench.keyboard-open :is(.art-tools,.video-timeline) { visibility: hidden; }
   .studio-workbench.keyboard-open .text-edit-popover.studio-panel {
-    bottom: auto !important; top: calc(var(--viewport-top,0px) + 8px) !important;
-    max-height: calc(var(--viewport-height,100dvh) - 16px); margin: 0;
+    bottom: calc(var(--keyboard-inset,0px) + 8px) !important; top: auto !important;
+    max-height: min(260px,calc(var(--viewport-height,100dvh) - 72px)) !important; margin: 0;
   }
   .studio-workbench .export-review { width: calc(100vw - 24px); max-height: calc(100dvh - 48px); padding: 20px; border-radius: 24px; }
 }
@@ -234,22 +234,23 @@ body.studio-workbench .experience-shell[data-format] #mediaPopover[hidden] {
 @media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
   .studio-workbench .experience-shell:is([data-format="informative"],[data-format="polaroid"]):not(.is-artboard-focused):has(.informative-artboard:nth-child(2),.polaroid-board:nth-child(2)) .workspace { padding-bottom: 0 !important; }
   .studio-workbench .experience-shell:not(.is-artboard-focused):has(.mobile-board-flow):has(.informative-artboard:nth-child(2),.polaroid-board:nth-child(2)) .mobile-board-haze {
+    --haze-direction: to bottom;
     display: block; position: fixed; z-index: 820; left: 0; right: 0; bottom: 0;
     height: calc(240px + env(safe-area-inset-bottom));
-    background: linear-gradient(to bottom,transparent 15%,#080e121a);
+    background: linear-gradient(var(--haze-direction),transparent 15%,#080e121a);
   }
   .mobile-board-haze > span { position: absolute; inset: 0; pointer-events: none; }
   .mobile-board-haze > span:nth-child(1) {
     backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
-    mask-image: linear-gradient(to bottom,transparent 0%,#000 40%); -webkit-mask-image: linear-gradient(to bottom,transparent 0%,#000 40%);
+    mask-image: linear-gradient(var(--haze-direction),transparent 0%,#000 40%); -webkit-mask-image: linear-gradient(var(--haze-direction),transparent 0%,#000 40%);
   }
   .mobile-board-haze > span:nth-child(2) {
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    mask-image: linear-gradient(to bottom,transparent 25%,#000 80%); -webkit-mask-image: linear-gradient(to bottom,transparent 25%,#000 80%);
+    mask-image: linear-gradient(var(--haze-direction),transparent 25%,#000 80%); -webkit-mask-image: linear-gradient(var(--haze-direction),transparent 25%,#000 80%);
   }
   .mobile-board-haze > span:nth-child(3) {
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    mask-image: linear-gradient(to bottom,transparent 55%,#000 100%); -webkit-mask-image: linear-gradient(to bottom,transparent 55%,#000 100%);
+    mask-image: linear-gradient(var(--haze-direction),transparent 55%,#000 100%); -webkit-mask-image: linear-gradient(var(--haze-direction),transparent 55%,#000 100%);
   }
   .studio-workbench .experience-shell:not(.is-artboard-focused):has(.mobile-board-flow) .video-timeline { visibility: hidden; }
   .studio-workbench .experience-shell[data-format="informative"]:not(.is-artboard-focused) .mobile-board-flow #informativeArtboards,
@@ -263,14 +264,22 @@ body.studio-workbench {
   min-height: 100vh; min-height: 100lvh;
 }
 .studio-workbench > .ambient-scene {
-  display: block; position: fixed; inset: -32px; z-index: -1; pointer-events: none;
+  display: block; position: fixed; inset: -32px; z-index: 0; pointer-events: none;
   min-height: calc(100vh + 64px); min-height: calc(100lvh + 64px);
-  background: linear-gradient(180deg,#050b1099,#05090ec7),url("./assets/linkin-park/152259918.jpg") center 42% / cover no-repeat;
+  background: linear-gradient(180deg,#050b1099,#05090ec7),url("./assets/pwa/ambient-band.webp") center 42% / cover no-repeat;
   filter: blur(22px) saturate(.8); transform: scale(1.04);
 }
-.studio-workbench .experience-shell { background: transparent !important; }
+.studio-workbench .experience-shell { z-index: 1; background: transparent !important; }
 @media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
   .studio-workbench > .ambient-scene { filter: blur(18px) saturate(.8); }
+  .studio-workbench .experience-shell:not(.is-artboard-focused):has(.mobile-board-flow):has(.informative-artboard:nth-child(2),.polaroid-board:nth-child(2)) .mobile-board-haze--top {
+    --haze-direction: to top; top: 0; bottom: auto;
+    height: calc(124px + env(safe-area-inset-top));
+  }
+  /* Let the add control paint above the masks, without raising the artwork. */
+  .studio-workbench .experience-shell .stage-host.mobile-board-flow { z-index: auto; }
+  .studio-workbench .mobile-board-flow :is(#addInformativePage,.polaroid-add) { z-index: 830; }
+  .studio-workbench .experience-shell .app-header { position: relative; z-index: 840; }
 }
 
 /* Reserve the add button as part of the board layout, with a 20px artwork gap. */

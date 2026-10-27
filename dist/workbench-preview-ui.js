@@ -3,6 +3,7 @@
 const StudioUI = (() => {
   const mobileQuery = matchMedia("(max-width: 800px), (max-width: 960px) and (pointer: coarse)");
   let api, panelObserver, anchorFrame, artworkTools, expandedMobileBoard;
+  let editorHeight = 0, editorWidth = 0, editorTop = 0;
   const byId = id => document.getElementById(id);
   const panels = () => [byId("mediaPopover"), byId("textEditPopover"), byId("circlePopover"), byId("effectsPopover")];
   function positionEffects() {
@@ -101,7 +102,13 @@ const StudioUI = (() => {
   function syncViewport() {
     const view = window.visualViewport, height = view?.height || innerHeight, top = view?.offsetTop || 0;
     const inset = Math.max(0, innerHeight - height - top);
-    const keyboard = inset > 120 && Boolean(document.activeElement?.matches("input, textarea, [contenteditable=true]"));
+    const editing = Boolean(document.activeElement?.matches("input:not([type=range]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable=true]"));
+    // Keep the art's layout viewport stable; only the editing panel follows the keyboard.
+    const sameWidth = Math.abs(innerWidth - editorWidth) < 48;
+    const keyboard = sameWidth && (editing || document.body.classList.contains("keyboard-open")) && Math.max(inset, editorHeight - height - top) > 120;
+    if (!keyboard) { editorHeight = height; editorWidth = innerWidth; editorTop = top; }
+    document.documentElement.style.setProperty("--editor-viewport-height", `${editorHeight}px`);
+    document.documentElement.style.setProperty("--editor-viewport-top", `${editorTop}px`);
     document.documentElement.style.setProperty("--viewport-height", `${height}px`);
     document.documentElement.style.setProperty("--viewport-top", `${top}px`);
     document.documentElement.style.setProperty("--keyboard-inset", `${inset}px`);
@@ -125,9 +132,11 @@ const StudioUI = (() => {
     tools.append(byId("dockEffects"));
     tools.querySelector("svg").innerHTML = '<path d="m9.5 3-.6 2a7.5 7.5 0 0 0-1.5.9l-2-.5-2.5 4.2 1.5 1.5a8 8 0 0 0 0 1.8l-1.5 1.5 2.5 4.2 2-.5a7.5 7.5 0 0 0 1.5.9l.6 2h5l.6-2a7.5 7.5 0 0 0 1.5-.9l2 .5 2.5-4.2-1.5-1.5a8 8 0 0 0 0-1.8l1.5-1.5-2.5-4.2-2 .5a7.5 7.5 0 0 0-1.5-.9l-.6-2z"/><circle cx="12" cy="12" r="3"/>';
     document.querySelector(".experience-shell").append(tools);
-    const haze = document.createElement("div"); haze.className = "mobile-board-haze"; haze.setAttribute("aria-hidden", "true");
-    for (let layer = 0; layer < 3; layer++) haze.append(document.createElement("span"));
-    document.querySelector(".experience-shell").append(haze);
+    for (const edge of ["bottom", "top"]) {
+      const haze = document.createElement("div"); haze.className = `mobile-board-haze mobile-board-haze--${edge}`; haze.setAttribute("aria-hidden", "true");
+      for (let layer = 0; layer < 3; layer++) haze.append(document.createElement("span"));
+      document.querySelector(".experience-shell").append(haze);
+    }
     byId("exportButton").classList.add("header-export");
     document.querySelector(".app-header").append(byId("exportButton"));
     header(byId("mediaPopover"), "Mídia", byId("mobilePanelClose"));
