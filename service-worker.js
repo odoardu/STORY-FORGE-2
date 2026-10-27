@@ -1,29 +1,29 @@
-const CACHE_NAME = "story-forge-shell-v43-clear-actions";
+const CACHE_NAME = "story-forge-shell-v44-icon-refresh";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/apple-touch-icon.png?v=20261027-clear-actions",
+  "/apple-touch-icon-ed148eba-v2.png",
   "/apple-touch-icon-precomposed.png",
   "/assets/pwa/ambient-band.webp",
-  "/styles.css?v=20261027-clear-actions",
-  "/studio-ui.css?v=20261027-clear-actions",
-  "/studio-refinement.css?v=20261027-clear-actions",
-  "/workbench-preview-ui.js?v=20261027-clear-actions",
-  "/studio-motion.js?v=20261027-clear-actions",
-  "/media-loading-border.js?v=20261027-clear-actions",
-  "/content-ideas.js?v=20261027-clear-actions",
+  "/styles.css?v=20261027-icon-refresh",
+  "/studio-ui.css?v=20261027-icon-refresh",
+  "/studio-refinement.css?v=20261027-icon-refresh",
+  "/workbench-preview-ui.js?v=20261027-icon-refresh",
+  "/studio-motion.js?v=20261027-icon-refresh",
+  "/media-loading-border.js?v=20261027-icon-refresh",
+  "/content-ideas.js?v=20261027-icon-refresh",
   "/catalog/content-ideas.json",
-  "/artwork-effects.js?v=20261027-clear-actions",
-  "/editor-core.js?v=20261027-clear-actions",
-  "/export-review.js?v=20261027-clear-actions",
-  "/export-review.css?v=20261027-clear-actions",
-  "/editor-history.js?v=20261027-clear-actions",
-  "/polaroid.js?v=20261027-clear-actions",
-  "/app.js?v=20261027-clear-actions",
-  "/assets/vendor/video-export.js?v=20261027-clear-actions",
-  "/pwa.js?v=20261027-clear-actions",
-  "/manifest.webmanifest",
+  "/artwork-effects.js?v=20261027-icon-refresh",
+  "/editor-core.js?v=20261027-icon-refresh",
+  "/export-review.js?v=20261027-icon-refresh",
+  "/export-review.css?v=20261027-icon-refresh",
+  "/editor-history.js?v=20261027-icon-refresh",
+  "/polaroid.js?v=20261027-icon-refresh",
+  "/app.js?v=20261027-icon-refresh",
+  "/assets/vendor/video-export.js?v=20261027-icon-refresh",
+  "/pwa.js?v=20261027-icon-refresh",
+  "/manifest.webmanifest?v=ed148eba-v2",
   "/assets/TuskerGrotesk-4600Semibold.otf",
   "/assets/Gotham-Book.otf",
   "/assets/Gotham-Bold.otf",
@@ -38,11 +38,11 @@ const APP_SHELL = [
   "/assets/linkin-park/photos.json",
   "/assets/linkin-park/152259918.jpg",
   "/assets/pwa/icon-20261027.svg",
-  "/assets/pwa/icon-192-20261027.png",
-  "/assets/pwa/icon-512-20261027.png",
+  "/assets/pwa/icon-192-ed148eba-v2.png",
+  "/assets/pwa/icon-512-ed148eba-v2.png",
   "/assets/pwa/icon-maskable.svg",
-  "/assets/pwa/icon-maskable-512-20261027.png",
-  "/assets/pwa/apple-touch-icon-20261027.png"
+  "/assets/pwa/icon-maskable-512-ed148eba-v2.png",
+  "/apple-touch-icon-ed148eba-v2.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -75,9 +75,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate" || url.pathname === "/catalog/content-ideas.json") {
+  const installationAsset = url.pathname === "/manifest.webmanifest" || /\/apple-touch-icon[^/]*\.png$/.test(url.pathname) || url.pathname.startsWith("/assets/pwa/");
+  if (request.mode === "navigate" || url.pathname === "/catalog/content-ideas.json" || installationAsset) {
     event.respondWith(
-      fetch(request)
+      fetch(installationAsset ? new Request(request, { cache: "no-store" }) : request)
         .then((response) => {
           if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request.mode === "navigate" ? "/index.html" : request, response.clone())));
           return response;

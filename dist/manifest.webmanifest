@@ -16,19 +16,19 @@
   "theme_color": "#05090e",
   "icons": [
     {
-      "src": "/assets/pwa/icon-192-20261027.png",
+      "src": "/assets/pwa/icon-192-ed148eba-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/pwa/icon-512-20261027.png",
+      "src": "/assets/pwa/icon-512-ed148eba-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/pwa/icon-maskable-512-20261027.png",
+      "src": "/assets/pwa/icon-maskable-512-ed148eba-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
