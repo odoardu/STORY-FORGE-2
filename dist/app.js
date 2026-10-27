@@ -3279,7 +3279,7 @@ async function exportStoryVideo() {
   setStatus("Preparando vídeo…");
   try {
     await document.fonts.ready;
-    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261023-video-audio");
+    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261027-stories-texture");
     const response = await fetch(videoUrl);
     if (!response.ok) throw new Error("Não foi possível ler o vídeo selecionado. Selecione o arquivo novamente.");
     const spec = getCurrentFormatSpec();
@@ -3499,9 +3499,32 @@ function drawFeedBlurTopGradient(ctx, width = FEED.width, height = FEED.height) 
   ctx.fillRect(0, startY, width, height - startY);
 }
 
-function drawFeedTextures(ctx) {
-  drawFeedTexture(ctx, state.feedTextureExclusionImage, "exclusion", 0.38);
-  drawFeedTexture(ctx, state.feedTextureSoftLightImage, "soft-light", 0.49);
+const storiesTextureCache = new WeakMap();
+function getStoriesTexture(image) {
+  if (!image) return null;
+  if (storiesTextureCache.has(image)) return storiesTextureCache.get(image);
+  const canvas = document.createElement("canvas");
+  canvas.width = FEED.width;
+  canvas.height = FEED.height;
+  const ctx = canvas.getContext("2d");
+  drawImageCover(ctx, image, 0, 0, FEED.width, FEED.height);
+  // Preserve the lower texture while clearing the subject/video above the copy.
+  const mask = ctx.createLinearGradient(0, 0, 0, FEED.height);
+  mask.addColorStop(0, "rgba(0,0,0,.16)");
+  mask.addColorStop(.5, "rgba(0,0,0,.16)");
+  mask.addColorStop(.8, "rgba(0,0,0,1)");
+  mask.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.fillStyle = mask;
+  ctx.fillRect(0, 0, FEED.width, FEED.height);
+  storiesTextureCache.set(image, canvas);
+  return canvas;
+}
+
+function drawFeedTextures(ctx, stories = false) {
+  const texture = image => stories ? getStoriesTexture(image) : image;
+  drawFeedTexture(ctx, texture(state.feedTextureExclusionImage), "exclusion", 0.38);
+  drawFeedTexture(ctx, texture(state.feedTextureSoftLightImage), "soft-light", 0.49);
 }
 
 function drawFeedTexture(ctx, image, blendMode, opacity) {
@@ -4724,7 +4747,7 @@ function drawStoriesFrame(ctx) {
   if (media) { drawFeedBlurMask(ctx, 1080, 1920); drawFeedBlurTopGradient(ctx, 1080, 1920); }
   ctx.save();
   ctx.scale(1, 1920 / 1350);
-  drawFeedTextures(ctx);
+  drawFeedTextures(ctx, true);
   ctx.restore();
   // Keep the Feed typography undistorted, with more space above the copy.
   const shade = ctx.createLinearGradient(0, 850, 0, 1700);
