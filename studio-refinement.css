@@ -279,7 +279,20 @@ body.studio-workbench {
   /* Let the add control paint above the masks, without raising the artwork. */
   .studio-workbench .experience-shell .stage-host.mobile-board-flow { z-index: auto; }
   .studio-workbench .mobile-board-flow :is(#addInformativePage,.polaroid-add) { z-index: 830; }
-  .studio-workbench .experience-shell .app-header { position: relative; z-index: 840; }
+  .studio-workbench .experience-shell .app-header {
+    grid-column: 1; position: relative; z-index: 900; isolation: isolate; transform: translateZ(0);
+  }
+}
+
+/* The scroll viewport reaches the top edge, behind the separate header layer. */
+@media (max-width: 800px), (max-width: 960px) and (pointer: coarse) {
+  .studio-workbench .experience-shell:is([data-format="informative"],[data-format="polaroid"]):not(.is-artboard-focused):has(.informative-artboard:nth-child(2),.polaroid-board:nth-child(2)) .workspace {
+    grid-area: 1 / 1 / -1 / -1;
+  }
+  .studio-workbench .experience-shell[data-format="informative"]:not(.is-artboard-focused) .mobile-board-flow #informativeArtboards:has(.informative-artboard:nth-child(2)),
+  .studio-workbench .experience-shell[data-format="polaroid"]:not(.is-artboard-focused) .mobile-board-flow #polaroidArtboards:has(.polaroid-board:nth-child(2)) {
+    padding-top: calc(104px + env(safe-area-inset-top));
+  }
 }
 
 /* Reserve the add button as part of the board layout, with a 20px artwork gap. */
