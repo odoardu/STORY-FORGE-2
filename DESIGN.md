@@ -1,15 +1,11 @@
-# StoryForge studio interface
+# Story Forge workbench
 
-The artwork leads. Preserve the LPZ templates, AMOLED mobile background, neutral glass surfaces, pink (#e981be) action/selection accent, and restrained SVG icons.
+The released editor uses a dark blurred band photograph, glass controls and the pink #e981be accent. Mode: Operate. The artwork is the primary surface; keep tool labels accessible without visible hover balloons or unnecessary headings.
 
-Mobile shares the desktop glass dock: four format icons, effects, export, and the contextual media attachment. Touch targets remain at least 44 px with no permanent text labels. Below 371 px, the media attachment opens above its format icon to preserve button sizes. Mobile panels still use the touch layout in `studio-ui.js` and `studio-ui.css`, with one open panel at a time. Opening a panel reserves preview space; the keyboard uses visual-viewport measurements and temporarily hides the dock. Landscape touch devices remain in the mobile workspace.
+Desktop: centered artwork, compact vertical format dock at left 24px, media palette immediately beside it, export in the header. Small gear belongs to the lower-right of the artwork. In multi-board mode the gear appears only when a page is expanded. Desktop boards fit a grid, up to six per supported format.
 
-Desktop keeps the floating format dock and contextual media attachment. Upload, text, circle, and effects panels share header, dismissal, surface, spacing, and focus treatment across both layouts. Text remains editable by clicking/tapping the artwork.
+Mobile: 44px circular bottom navigation and header export, safe areas respected. One Informativo/Polaroid is centered; multiple pages become full-size vertical scrolling cards. Artwork continues behind the dock with a fixed gradient backdrop blur. Expanded editing removes this mask and return restores the selected scroll position. Preserve scroll gestures, touch targets and keyboard viewport handling.
 
-Informative artboards scroll vertically on mobile, with the add-page control below the last board. Desktop retains horizontal artboards. Mobile export has extra space around its divider.
+Preview and export use the same canvas renderer. Stories has reduced texture above the midpoint. Export review includes changed art plus closing; Stories/Reels always exports alone. Deliver separate files, with native multi-file save/share where supported and individual download links for recovery.
 
-Canvas previews and exported files share the artwork renderers. `artwork-effects.js` provides a cached raster blur independent of browser Canvas filter support. Keep textures separate from the blurred photo so their grain stays sharp. Informative artboard thumbnails use the same renderer as the active artboard and export.
-
-Verify touch editing, native upload selection, focus restoration, viewport changes, navigation hit areas, five informative pages, image/video export, and blur in both Chromium and WebKit. A simulated mobile viewport does not constitute a physical iPhone test.
-
-Video preview sound uses a single round control above the active artwork, aligned with artboard back/remove actions. New videos start unmuted; browsers may require a Play gesture. Preview mute never affects export: preserve the source audio in MP4 whenever the file contains it. The timeline has no options popover.
+Motion is interruptible and restrained: desktop board continuity, opacity-only mobile scroll transitions, and reduced-motion handling. Keep the background independent of the clipped editor shell. No visible StoryForge wordmark in the page header; the supplied wordmark is the PWA icon.

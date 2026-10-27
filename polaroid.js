@@ -197,6 +197,14 @@ const PolaroidStudio = (() => {
     removeActive: () => removePage(),
     selectRelative(delta) { active = Math.max(0, Math.min(pages.length - 1, active + delta)); render(); StudioUI.sync(); root.querySelectorAll(".polaroid-photo")[active]?.focus({ preventScroll: true }); },
     count: () => pages.length,
+    exportEntries: () => pages.map((page, index) => ({ key: page, format: "polaroid", board: true, ready: !!page.image,
+      label: `Polaroid ${index + 1}`, index, signature: JSON.stringify([page.image?.src || "", page.name, page.blur ?? defaultBlur, page.shade ?? defaultShade]) })),
+    async exportPage(page) {
+      const index = pages.indexOf(page);
+      if (index < 0 || !page.image) throw new Error("Selecione uma imagem para esta Polaroid.");
+      const canvas = document.createElement("canvas"); draw(canvas, page, index);
+      return canvasToBlob(canvas, "image/png");
+    },
     refresh: render,
     exportActive
   };

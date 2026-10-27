@@ -3,20 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-    <title>StoryForge LPZ</title>
-    <meta name="theme-color" content="#000000" />
+    <title>Story Forge LPZ</title>
+    <meta name="theme-color" content="#05090e" />
     <meta name="application-name" content="Story Forge" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Story Forge" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="/assets/pwa/icon.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./styles.css?v=20261027-stories-texture" />
-    <link rel="stylesheet" href="./studio-ui.css?v=20261027-stories-texture" />
+    <link rel="icon" type="image/svg+xml" href="/assets/pwa/icon-20261027.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/pwa/apple-touch-icon-20261027.png" />
+    <link rel="stylesheet" href="./export-review.css?v=20261027-workbench-pwa" />
+    <link rel="stylesheet" href="./styles.css?v=20261027-workbench-pwa" />
+    <link rel="stylesheet" href="./studio-ui.css?v=20261027-workbench-pwa" />
+    <link rel="stylesheet" href="./studio-refinement.css?v=20261027-workbench-pwa" />
   </head>
-  <body>
+  <body class="studio-workbench workbench-loading">
+    <div class="ambient-scene" aria-hidden="true"></div>
     <div id="mediaLoading" class="media-loading" role="status" aria-live="polite" hidden>
       <span id="mediaLoadingLabel">Preparando mídia…</span>
       <div id="mediaLoadingBar" class="media-loading-track" role="progressbar" aria-label="Preparando mídia" aria-valuemin="0" aria-valuemax="100"><span></span></div>
@@ -24,23 +27,9 @@
     
     <main class="experience-shell" data-format="feed">
       <button type="button" class="mobile-sheet-backdrop" id="mobileSheetBackdrop" aria-label="Fechar ajustes"></button>
-      <div class="ambient-scene" aria-hidden="true"></div>
 
       <header class="app-header" aria-label="Topo do editor">
-        <div class="brand-block">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" />
-            </svg>
-          </span>
-          <div>
-            <strong>StoryForge</strong>
-            <span>Estúdio LPZ</span>
-          </div>
-        </div>
-
-
-        <button id="openContentIdeas" class="ideas-open" type="button" aria-label="Abrir sugestões de pauta" hidden>Pautas</button>
+        <button id="openContentIdeas" class="ideas-open" type="button" aria-label="Abrir sugestões de pauta" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Pautas</span></button>
         <span id="mobileFormatName" class="mobile-format-name">Feed</span>
         <div class="header-meta" aria-label="Formato do arquivo">
           <span id="formatSizeLabel">1080 x 1350</span>
@@ -64,7 +53,7 @@
           </nav>
           <p class="sidebar-tip">Arraste a foto para enquadrar. Use a roda do mouse para ampliar.</p>
         </aside>
-        <aside class="control-panel-shell is-open" id="mediaPopover" role="dialog" aria-label="Enviar mídia" aria-modal="false">
+        <aside class="control-panel-shell is-open" id="mediaPopover" role="dialog" aria-label="Enviar mídia" aria-modal="false" hidden inert aria-hidden="true">
           <button class="studio-action popover-close" id="mobilePanelClose" type="button" aria-label="Fechar upload" data-tooltip="Fechar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
           <div class="panel-topline">
             <div>
@@ -381,16 +370,17 @@ DA SUA PUBLICAÇÃO</textarea>
       <div data-text-editor="infoTitleInput" hidden><label class="field compact-field informative-only"><span>Título do informativo</span><textarea id="infoTitleInput" aria-label="Título do informativo" rows="2" maxlength="120">TÍTULO DO POST AQUI</textarea></label></div>
       <div data-text-editor="infoBodyInput" hidden><label class="field compact-field informative-only"><span>Texto do informativo</span><textarea id="infoBodyInput" aria-label="Texto do informativo" rows="7" maxlength="600">Cada detalhe faz a diferença quando o objetivo é criar algo verdadeiramente especial, capaz de transmitir personalidade e identidade. Unimos criatividade, inovação e dedicação para desenvolver projetos que valorizam cada ideia e transformam conceitos em experiências visuais.</textarea></label><button class="studio-action text-selection-action" id="mobileInfoBold" type="button" aria-label="Negrito na seleção" data-tooltip="Negrito na seleção"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4h6a4 4 0 0 1 0 8H7m6 0a4 4 0 0 1 0 8H7"/></svg></button></div>
     </section>
-    <script src="./editor-core.js?v=20261027-stories-texture" defer></script>
-    <script src="./artwork-effects.js?v=20261027-stories-texture" defer></script>
-    <script src="./studio-motion.js?v=20261027-stories-texture" defer></script>
-    <script src="./media-loading-border.js?v=20261027-stories-texture" defer></script>
-    <script src="./studio-ui.js?v=20261027-stories-texture" defer></script>
-    <script src="./editor-history.js?v=20261027-stories-texture" defer></script>
-    <script src="./polaroid.js?v=20261027-stories-texture" defer></script>
-    <script src="./app.js?v=20261027-stories-texture" defer></script>
-    <script src="./content-ideas.js?v=20261027-stories-texture" defer></script>
-    <script src="./pwa.js?v=20261027-stories-texture" defer></script>
+    <script src="./editor-core.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./artwork-effects.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./studio-motion.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./media-loading-border.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./workbench-preview-ui.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./editor-history.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./polaroid.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./export-review.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./app.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./content-ideas.js?v=20261027-workbench-pwa" defer></script>
+    <script src="./pwa.js?v=20261027-workbench-pwa" defer></script>
   <aside id="circlePopover" class="circle-popover" hidden role="dialog" aria-label="Ajustar foto circular">
     <button id="circleBehind" class="studio-action" type="button" aria-label="Colocar círculo atrás do objeto principal" aria-pressed="true" data-tooltip="Atrás do objeto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></button>
     <button id="circleFrameMode" class="studio-action" type="button" aria-label="Enquadrar foto ao arrastar" aria-pressed="false" data-tooltip="Enquadrar foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><circle cx="12" cy="12" r="4"/></svg></button>
@@ -402,8 +392,8 @@ DA SUA PUBLICAÇÃO</textarea>
   </aside>
 <section id="effectsPopover" class="studio-panel effects-popover" hidden role="dialog" aria-labelledby="effectsHeading">
     <header class="studio-panel-header"><strong id="effectsHeading">Efeitos da imagem</strong><button id="closeEffects" class="studio-action" type="button" aria-label="Fechar efeitos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
-    <label class="effect-field"><span><span id="effectBlurLabel">Desfoque inferior</span><output id="effectBlurValue">16</output></span><input id="effectBlur" type="range" data-direct-range min="0" max="120" step="1" value="16" aria-label="Desfoque" /></label>
-    <label class="effect-field" id="effectShadeField"><span><span>Sombra</span><output id="effectShadeValue">20%</output></span><input id="effectShade" type="range" data-direct-range min="0" max="100" step="1" value="20" aria-label="Sombra" /></label>
+    <label class="effect-field"><svg class="effect-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="17" cy="7" r="1"/><circle cx="7" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="17" cy="12" r="1"/><circle cx="7" cy="17" r="1"/><circle cx="12" cy="17" r="1"/><circle cx="17" cy="17" r="1"/></svg><span><span id="effectBlurLabel">Desfoque inferior</span><output id="effectBlurValue">16</output></span><input id="effectBlur" type="range" data-direct-range min="0" max="120" step="1" value="16" aria-label="Desfoque" /></label>
+    <label class="effect-field" id="effectShadeField"><svg class="effect-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13a8 8 0 0 1-9-9 8 8 0 1 0 9 9Z"/></svg><span><span>Sombra</span><output id="effectShadeValue">20%</output></span><input id="effectShade" type="range" data-direct-range min="0" max="100" step="1" value="20" aria-label="Sombra" /></label>
   </section>
   <dialog id="fullHighlightWarning" class="highlight-warning" aria-labelledby="highlightWarningTitle" aria-describedby="highlightWarningDescription">
     <form method="dialog">

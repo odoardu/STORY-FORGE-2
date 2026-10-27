@@ -32,16 +32,22 @@ const StudioMotion = (() => {
     gridFrame = requestAnimationFrame(() => {
       boardSnapshotPending = false;
       if (reduced.matches) return;
+      const workbench = document.body.classList.contains("studio-workbench");
       document.querySelectorAll("[data-board-motion-key]").forEach(element => {
         if (!element.getClientRects().length) return;
         const before = previousBoards.get(element.dataset.boardMotionKey), after = element.getBoundingClientRect();
+        // Touch pages are a scroll flow; grid FLIP transforms would fight scroll restoration.
+        if (workbench && element.closest(".mobile-board-flow")) {
+          animate(element, [{ opacity: .7 }, { opacity: 1 }], 180);
+          return;
+        }
         if (!before) {
-          animate(element, [{ opacity: .35, translate: "0 10px", scale: ".97" }, { opacity: 1, translate: "0 0", scale: "1" }], 360);
+          animate(element, [{ opacity: .35, translate: "0 10px", scale: ".97" }, { opacity: 1, translate: "0 0", scale: "1" }], workbench ? 240 : 360);
         } else if (Math.abs(before.x - after.x) + Math.abs(before.y - after.y) + Math.abs(before.width - after.width) > 1 && after.width && after.height) {
           animate(element, [
             { transformOrigin: "0 0", transform: `translate(${before.x - after.x}px, ${before.y - after.y}px) scale(${before.width / after.width}, ${before.height / after.height})` },
             { transformOrigin: "0 0", transform: "none" }
-          ], 420);
+          ], workbench ? 300 : 420);
         }
       });
       previousBoards.clear();
@@ -50,9 +56,10 @@ const StudioMotion = (() => {
   function formatChanged() {
     const format = document.querySelector(".experience-shell").dataset.format;
     const target = document.getElementById(format === "informative" ? "informativeArtboards" : format === "polaroid" ? "polaroidArtboards" : "stageFrame");
+    if (document.body.classList.contains("studio-workbench")) { animate(target, [{ opacity: .7 }, { opacity: 1 }], 220); return; }
     animate(target, [{ opacity: .5, translate: "0 12px" }, { opacity: 1, translate: "0 0" }], 400);
   }
-  const surfaces = ["mediaPopover", "textEditPopover", "circlePopover", "effectsPopover", "videoOptionsPanel"];
+  const surfaces = ["mediaPopover", "textEditPopover", "circlePopover", "effectsPopover"];
   const visibility = new Map();
   function sync() {
     queued = false;
@@ -60,7 +67,8 @@ const StudioMotion = (() => {
       const element = document.getElementById(id);
       if (!element) return;
       const visible = !element.hidden && (id !== "mediaPopover" || document.body.classList.contains("mobile-controls-open")) && getComputedStyle(element).display !== "none";
-      if (visible && !visibility.get(id)) animate(element, [{ opacity: 0, translate: "0 14px", scale: ".98" }, { opacity: 1, translate: "0 0", scale: "1" }], 340);
+      if (visible && !visibility.get(id) && document.body.classList.contains("studio-workbench")) animate(element, [{ opacity: .5, translate: id === "mediaPopover" ? "0 0" : "0 6px" }, { opacity: 1, translate: "0 0" }], 200);
+      else if (visible && !visibility.get(id)) animate(element, [{ opacity: 0, translate: "0 14px", scale: ".98" }, { opacity: 1, translate: "0 0", scale: "1" }], 340);
       if (!visible) running.get(element)?.cancel();
       visibility.set(id, visible);
     });

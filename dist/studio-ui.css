@@ -310,7 +310,7 @@ body:not(.is-mobile-studio) #mediaPopover > .studio-panel-header { display: none
 .informative-remove:focus-visible { outline: 2px solid #e981be; outline-offset: 2px; }
 
 /* Artwork selection stays on the preview; the header contains actions only. */
-.experience-shell:is([data-format="feed"], [data-format="stories"]) #stageFrame,
+.experience-shell:is([data-format="feed"], [data-format="stories"], [data-format="closing"]) #stageFrame,
 .experience-shell[data-format="informative"] .informative-artboard.is-active .stage-frame,
 .experience-shell[data-format="polaroid"] .polaroid-board.is-active .polaroid-photo {
   outline: 1px solid #e981be80; outline-offset: 2px;

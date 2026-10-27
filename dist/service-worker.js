@@ -1,22 +1,25 @@
-const CACHE_NAME = "story-forge-shell-v35-stories-texture";
+const CACHE_NAME = "story-forge-shell-v40-workbench-pwa";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20261027-stories-texture",
-  "/studio-ui.css?v=20261027-stories-texture",
-  "/studio-ui.js?v=20261027-stories-texture",
-  "/studio-motion.js?v=20261027-stories-texture",
-  "/media-loading-border.js?v=20261027-stories-texture",
-  "/content-ideas.js?v=20261027-stories-texture",
+  "/styles.css?v=20261027-workbench-pwa",
+  "/studio-ui.css?v=20261027-workbench-pwa",
+  "/studio-refinement.css?v=20261027-workbench-pwa",
+  "/workbench-preview-ui.js?v=20261027-workbench-pwa",
+  "/studio-motion.js?v=20261027-workbench-pwa",
+  "/media-loading-border.js?v=20261027-workbench-pwa",
+  "/content-ideas.js?v=20261027-workbench-pwa",
   "/catalog/content-ideas.json",
-  "/artwork-effects.js?v=20261027-stories-texture",
-  "/editor-core.js?v=20261027-stories-texture",
-  "/editor-history.js?v=20261027-stories-texture",
-  "/polaroid.js?v=20261027-stories-texture",
-  "/app.js?v=20261027-stories-texture",
-  "/assets/vendor/video-export.js?v=20261027-stories-texture",
-  "/pwa.js?v=20261027-stories-texture",
+  "/artwork-effects.js?v=20261027-workbench-pwa",
+  "/editor-core.js?v=20261027-workbench-pwa",
+  "/export-review.js?v=20261027-workbench-pwa",
+  "/export-review.css?v=20261027-workbench-pwa",
+  "/editor-history.js?v=20261027-workbench-pwa",
+  "/polaroid.js?v=20261027-workbench-pwa",
+  "/app.js?v=20261027-workbench-pwa",
+  "/assets/vendor/video-export.js?v=20261027-workbench-pwa",
+  "/pwa.js?v=20261027-workbench-pwa",
   "/manifest.webmanifest",
   "/assets/TuskerGrotesk-4600Semibold.otf",
   "/assets/Gotham-Book.otf",
@@ -31,12 +34,12 @@ const APP_SHELL = [
   "/assets/textures/LUZ%20INDIRETA%2049.png",
   "/assets/linkin-park/photos.json",
   "/assets/linkin-park/152259918.jpg",
-  "/assets/pwa/icon.svg",
-  "/assets/pwa/icon-192.png",
-  "/assets/pwa/icon-512.png",
+  "/assets/pwa/icon-20261027.svg",
+  "/assets/pwa/icon-192-20261027.png",
+  "/assets/pwa/icon-512-20261027.png",
   "/assets/pwa/icon-maskable.svg",
-  "/assets/pwa/icon-maskable-512.png",
-  "/assets/pwa/apple-touch-icon.png"
+  "/assets/pwa/icon-maskable-512-20261027.png",
+  "/assets/pwa/apple-touch-icon-20261027.png"
 ];
 
 self.addEventListener("install", (event) => {

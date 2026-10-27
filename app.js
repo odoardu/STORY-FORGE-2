@@ -530,6 +530,7 @@ const feedEffectContext = feedEffectCanvas.getContext("2d", { willReadFrequently
 const activeMediaLoads = new Set();
 let mediaLoadingHideTimer;
 function beginMediaLoading(message = "Preparando mídia…", target = {}) {
+  const editFormat = state.format;
   const format = target.format || state.format;
   const page = target.page || (format === "informative" ? state.informativePages[state.activeInformativePage] : null);
   const finishBorder = MediaLoadingBorder.begin(() => {
@@ -552,6 +553,7 @@ function beginMediaLoading(message = "Preparando mídia…", target = {}) {
   label.textContent = message;
   return (success, message = null) => {
     if (!activeMediaLoads.delete(job)) return;
+    if (success && typeof ExportReview !== "undefined") ExportReview.touch(editFormat);
     finishBorder(success);
     if (activeMediaLoads.size) return;
     host.setAttribute("aria-busy", "false");
@@ -597,7 +599,7 @@ async function init() {
   closeMediaPopover();
   await applyLogo("/assets/logos/LOGO%201%20MONO.png", "Linkin Park Zero Brasil", "Logo padrão");
   await loadFeedTextures();
-  loadRandomFeedImage({ silent: true });
+  await loadRandomFeedImage({ silent: true });
   updateStageScale();
   updateText();
   updateFeedText();
@@ -606,6 +608,7 @@ async function init() {
   updateStoriesPreview();
   if (state.format === "polaroid") PolaroidStudio.refresh();
   requestAnimationFrame(updateControlPanelFade);
+  initExportReview();
 }
 
 function syncTitleBorderControls() {
@@ -995,7 +998,7 @@ function bindEvents() {
     updateInformativeText();
   });
   document.addEventListener("pointerdown", event => {
-    if (event.target.closest(".glass-dock, .mobile-navigation, .mobile-actionbar, .studio-panel, .control-panel-shell, .preview-audio-control")) return;
+    if (event.target.closest(".glass-dock, .editor-inspector, .editor-export, #inspectorToggle, .mobile-navigation, .mobile-actionbar, .studio-panel, .control-panel-shell, .preview-audio-control")) return;
     if (state.dockAttachmentFormat) {
       state.dockAttachmentFormat = null;
       closeMediaPopover();
@@ -1410,14 +1413,22 @@ function updateStageScale() {
   // Every 4:5 artwork shares the same space reservation, including board headers.
   const isPortraitPost = spec.width === 1080 && spec.height === 1350;
   const availableWidth = Math.max(24, stageHost.offsetWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (isPortraitPost ? 32 : 0));
-  const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - (isPortraitPost || hasTimelineVideo() ? 76 : 0));
-  const boardCount = state.artboardFocused ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  const workbench = document.body.classList.contains("studio-workbench");
   const boardGrid = ["informative", "polaroid"].includes(state.format);
+  // Mobile uses full-size pages in a vertical flow; desktop keeps the fitted grid.
+  const mobileBoardFlow = workbench && document.body.classList.contains("is-mobile-studio") && boardGrid;
+  stageHost.classList.toggle("mobile-board-flow", mobileBoardFlow);
+  const boardCount = state.artboardFocused || mobileBoardFlow ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  const heightReserve = workbench && boardCount > 1 ? 0 : isPortraitPost || hasTimelineVideo() ? 76 : 0;
+  const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - heightReserve);
   const columns = Math.min(boardCount, stageHost.offsetWidth < 600 ? 2 : 3);
   const rows = Math.ceil(boardCount / columns);
   const gap = stageHost.offsetWidth < 600 ? 12 : 28;
+  const gridHeight = workbench
+    ? availableHeight - (boardCount > 1 ? 112 + 44 * (rows - 1) : 0)
+    : availableHeight + (state.artboardFocused ? 8 : -48) - 64 * (rows - 1);
   const scale = boardGrid
-    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, availableHeight + (state.artboardFocused ? 8 : -48) - 64 * (rows - 1)) / rows / spec.height, .72)
+    ? Math.min(Math.max(24, availableWidth - gap * (columns - 1)) / columns / spec.width, Math.max(24, gridHeight) / rows / spec.height, .72)
     : Math.min(availableWidth / spec.width, availableHeight / spec.height, .72);
   stageHost.style.setProperty("--board-columns", columns);
   stageHost.style.setProperty("--board-gap", `${gap}px`);
@@ -3077,6 +3088,7 @@ async function applyLogoFromCard(button) {
 }
 
 async function applyLogo(url, name, meta, isObjectUrl = false) {
+  const editFormat = state.format;
   const finishLoading = isObjectUrl ? beginMediaLoading() : null;
   let mediaReady = false;
   try {
@@ -3090,6 +3102,7 @@ async function applyLogo(url, name, meta, isObjectUrl = false) {
     state.logoUrl = url;
     state.logoName = name || "Logo aplicada";
     state.logoImage = image;
+    if (typeof ExportReview !== "undefined") ExportReview.touch(editFormat);
     state.logoObjectUrl = isObjectUrl ? url : "";
     updateLogoTransform();
     updateLogoCatalogSelection();
@@ -3241,7 +3254,75 @@ function updatePlaybackIcons() {
   }
 }
 
+let batchExportFiles = null, batchExportName = "";
+const exportObjectIds = new WeakMap();
+let exportObjectId = 0;
+function exportIdentity(object) {
+  if (!object) return null;
+  if (!exportObjectIds.has(object)) exportObjectIds.set(object, ++exportObjectId);
+  return exportObjectIds.get(object);
+}
+function exportReviewEntries() {
+  const pick = (object, keys) => keys.map(key => object[key]);
+  const common = [elements.titleInput.value, elements.feedKickerInput.value, elements.feedSubtitleInput.innerHTML,
+    ...pick(state, ["mediaKind", "videoUrl", "videoTrimStart", "videoTrimEnd", "feedImageUrl", "zoom", "panX", "panY", "maskBlur", "blurGradientOpacity", "titleHighlights", "titleHighlightColor", "titleFontSize", "kickerMode", "kickerLogoIndex", "subtitleFontSize", "subtitleLetterSpacing", "subtitleLineHeight", "subtitleWordSpacing", "subtitleScaleX", "subtitleScaleY", "subtitleTextAlign", "subtitleTextTransform", "subtitleRotation", "subtitlePositionX", "subtitlePositionY", "subtitleMaxWidth", "subtitleMarks", "logoUrl"]),
+    ...pick(state.circle, ["url", "x", "y", "size", "zoom", "panX", "panY", "behind"]), exportIdentity(state.circle.image)];
+  const entries = ["feed", "stories", "story"].map(format => ({ key: format, format, label: format === "feed" ? "Feed" : "Stories / Reels",
+    video: state.mediaKind === "video" && !!state.videoUrl, signature: JSON.stringify([common, state.logoSettings[format]]) }));
+  state.informativePages.forEach((page, index) => entries.push({ key: page, format: "informative", board: true,
+    label: `Informativo ${index + 1}`, index, video: !!page.infoVideo,
+    signature: JSON.stringify([...pick(page, ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoVideoTrimStart", "infoVideoTrimEnd", "infoZoom", "infoPanX", "infoPanY"]), state.infoBackgroundBlur, state.infoShade]) }));
+  entries.push(...PolaroidStudio.exportEntries());
+  entries.push({ key: "closing", format: "closing", label: "Encerramento", signature: JSON.stringify([
+    exportIdentity(state.closingImage), state.closingBlur, state.closingShade, state.titleHighlightColor, state.logoSettings.closing]) });
+  return entries;
+}
+function initExportReview() {
+  if (typeof ExportReview === "undefined") return;
+  ExportReview.init({ entries: exportReviewEntries, format: () => state.format, status: setStatus,
+    loading: () => activeMediaLoads.size > 0 || state.randomPhotoLoading || state.circle.maskBusy,
+    flush: () => { saveLogoSettingsForCurrentFormat(); updateFeedText(); updateInformativeText(); },
+    export: exportReviewedArtwork, download: downloadBlob });
+}
+async function exportReviewedArtwork(entries, progress) {
+  const original = { format: state.format, informative: state.activeInformativePage, focused: state.artboardFocused,
+    playing: !elements.video.paused, infoPlaying: state.infoVideo && !state.infoVideo.paused };
+  batchExportFiles = [];
+  try {
+    for (const [index, entry] of entries.entries()) {
+      progress(`Preparando ${index + 1} de ${entries.length} · ${entry.label}`);
+      batchExportName = entry.format === "informative" ? `informativo-${entry.index + 1}` : entry.format === "polaroid" ? `polaroid-${entry.index + 1}` : entry.format === "closing" ? "encerramento" : entry.format === "feed" ? "feed" : "stories";
+      const countBefore = batchExportFiles.length;
+      if (entry.format === "polaroid") {
+        applyFormat("polaroid", { keepPanel: true });
+        batchExportFiles.push({ name: `${batchExportName}.png`, blob: await PolaroidStudio.exportPage(entry.key) });
+      } else {
+        if (entry.format === "informative") selectInformativePage(entry.index);
+        else applyFormat(entry.format, { keepPanel: true });
+        await exportSingleArtwork();
+      }
+      if (batchExportFiles.length !== countBefore + 1) throw new Error(`Não foi possível gerar ${entry.label}. Verifique a mídia e tente novamente.`);
+    }
+    progress("Artes prontas para salvar.");
+    return batchExportFiles.slice();
+  } finally {
+    batchExportFiles = null; batchExportName = "";
+    selectInformativePage(original.informative);
+    applyFormat(original.format, { keepPanel: true });
+    state.artboardFocused = original.focused;
+    if (original.format === "polaroid") PolaroidStudio.refresh(); else renderInformativePageTabs();
+    if (!original.playing) elements.video.pause();
+    if (!original.infoPlaying) state.infoVideo?.pause();
+    updateStageScale();
+  }
+}
+
 async function exportPrimary() {
+  if (typeof ExportReview !== "undefined") { ExportReview.open(); return; }
+  await exportSingleArtwork();
+}
+
+async function exportSingleArtwork() {
   if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (hasArtworkVideo() || hasInformativeVideo()) { await exportStoryVideo(); return; }
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
@@ -3253,6 +3334,7 @@ async function exportPrimary() {
 }
 
 async function exportCurrentPng() {
+  if (typeof ExportReview !== "undefined") { ExportReview.open(); return; }
   if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (["feed", "informative", "closing", "stories"].includes(state.format)) {
     await exportFeedPng();
@@ -3279,7 +3361,7 @@ async function exportStoryVideo() {
   setStatus("Preparando vídeo…");
   try {
     await document.fonts.ready;
-    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261027-stories-texture");
+    const { exportVideoFrames } = await import("./assets/vendor/video-export.js?v=20261027-workbench-pwa");
     const response = await fetch(videoUrl);
     if (!response.ok) throw new Error("Não foi possível ler o vídeo selecionado. Selecione o arquivo novamente.");
     const spec = getCurrentFormatSpec();
@@ -3307,6 +3389,7 @@ async function exportStoryVideo() {
     console.error(error);
     const message = error.message || "Não foi possível exportar este vídeo.";
     setStatus(message); beginMediaLoading()(false, message);
+    if (batchExportFiles) throw error;
   } finally {
     state.renderVideo = null;
     state.renderInformativePage = null;
@@ -3336,6 +3419,7 @@ async function exportStoryPng() {
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui gerar o PNG");
+    if (batchExportFiles) throw error;
   } finally {
     elements.pngExportButton.disabled = false;
   }
@@ -3363,6 +3447,7 @@ async function exportFeedPng() {
   } catch (error) {
     console.error(error);
     setStatus("Nao consegui gerar o PNG do feed");
+    if (batchExportFiles) throw error;
   } finally {
     elements.exportButton.disabled = false;
     elements.pngExportButton.disabled = false;
@@ -4154,6 +4239,10 @@ function canvasToBlob(canvas, type) {
 
 async function downloadExport(blob, fileName) {
   if (!blob || !blob.size) throw new Error("Arquivo exportado vazio");
+  if (batchExportFiles) {
+    batchExportFiles.push({ blob, name: `${batchExportName}.${blob.type.includes("video") ? "mp4" : "png"}` });
+    return { ok: true, fileName };
+  }
   downloadBlob(blob, fileName);
   return { ok: true, fileName };
 }

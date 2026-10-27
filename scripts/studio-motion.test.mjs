@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-function setup(reduced = false) {
+function setup(reduced = false, workbench = false, mobileFlow = false) {
   const frames = new Map(), animations = [], boards = [];
   let serial = 0;
   const context = {
@@ -11,7 +11,7 @@ function setup(reduced = false) {
     MutationObserver: class { observe() {} }, ResizeObserver: class { observe() {} },
     requestAnimationFrame: callback => { frames.set(++serial, callback); return serial; },
     cancelAnimationFrame: id => frames.delete(id),
-    document: { body: {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => boards },
+    document: { body: { classList: { contains: () => workbench } }, getElementById: () => null, querySelector: () => null, querySelectorAll: () => boards },
   };
   const motion = vm.runInNewContext(readFileSync(new URL("../studio-motion.js", import.meta.url), "utf8") + "; StudioMotion", context);
   const flush = () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback()); };
@@ -20,6 +20,7 @@ function setup(reduced = false) {
     const element = {
       dataset: { boardMotionKey: key }, visible, rect: { x, y: 0, width, height: width * 1.25 },
       getClientRects() { return this.visible ? [this.rect] : []; },
+      closest() { return mobileFlow ? {} : null; },
       getBoundingClientRect() { return { ...this.rect }; },
       animate(keyframes) { animations.push({ key, keyframes }); return { cancel() {} }; },
     };
@@ -53,4 +54,16 @@ test("reduced motion skips grid animations", () => {
   const item = board("one", true, 0, 400);
   motion.captureBoards(); item.rect.width = 200; motion.settleBoards(); flush();
   assert.equal(animations.length, 0);
+});
+
+test("mobile scroll restoration never animates a page through the previous grid coordinates", () => {
+  const { motion, board, animations, flush } = setup(false, true, true);
+  const page = board("selected", true, 30, 330);
+  motion.captureBoards();
+  page.rect = { x: 30, y: 581, width: 330, height: 413 };
+  motion.settleBoards(); flush();
+  assert.equal(animations.length, 1);
+  assert.equal(animations[0].keyframes[0].transform, undefined);
+  assert.equal(animations[0].keyframes[0].translate, undefined);
+  assert.equal(animations[0].keyframes.at(-1).opacity, 1);
 });
