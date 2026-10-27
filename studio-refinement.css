@@ -275,6 +275,8 @@ body.studio-workbench {
   .studio-workbench .experience-shell:not(.is-artboard-focused):has(.mobile-board-flow):has(.informative-artboard:nth-child(2),.polaroid-board:nth-child(2)) .mobile-board-haze--top {
     --haze-direction: to top; top: 0; bottom: auto;
     height: calc(124px + env(safe-area-inset-top));
+    /* Exclude the header actions from backdrop sampling, including in WebKit. */
+    clip-path: polygon(0 0,calc(100% - 120px) 0,calc(100% - 120px) calc(64px + env(safe-area-inset-top)),100% calc(64px + env(safe-area-inset-top)),100% 100%,0 100%);
   }
   /* Let the add control paint above the masks, without raising the artwork. */
   .studio-workbench .experience-shell .stage-host.mobile-board-flow { z-index: auto; }
