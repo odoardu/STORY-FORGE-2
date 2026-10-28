@@ -1,6 +1,11 @@
-const CACHE_NAME = "story-forge-shell-v47-vinyl";
+const CACHE_NAME = "story-forge-shell-v48-pwa-icons";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
+  "/favicon.ico",
+  "/apple-touch-icon-152-20261028.png", "/apple-touch-icon-167-20261028.png", "/apple-touch-icon-180-20261028.png",
+  "/assets/pwa/icon-32-20261028-v3.png", "/assets/pwa/icon-48-20261028-v3.png", "/assets/pwa/icon-96-20261028-v3.png",
+  "/assets/pwa/icon-192-20261028-v3.png", "/assets/pwa/icon-512-20261028-v3.png",
+  "/studio-session.js", "/inline-text-editor.js", "/inline-text-editor.css", "/mobile-text-preview.js", "/mobile-text-preview.css", "/export-checks.js", "/export-checks.css",
   "/vinyl-shell.js?v=20261028-vinyl",
   "/vinyl-workbench.css?v=20261028-vinyl",
   "/vinyl-timeline.css?v=20261028-vinyl",
@@ -35,7 +40,7 @@ const APP_SHELL = [
   "/app.js?v=20261028-collage",
   "/assets/vendor/video-export.js?v=20261028-collage",
   "/pwa.js?v=20261028-collage",
-  "/manifest.webmanifest?v=ed148eba-v2",
+  "/manifest.webmanifest?v=20261028-v3",
   "/assets/TuskerGrotesk-4600Semibold.otf",
   "/assets/Gotham-Book.otf",
   "/assets/Gotham-Bold.otf",
@@ -87,15 +92,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const installationAsset = url.pathname === "/manifest.webmanifest" || /\/apple-touch-icon[^/]*\.png$/.test(url.pathname) || url.pathname.startsWith("/assets/pwa/");
+  const installationAsset = url.pathname === "/favicon.ico" || url.pathname === "/manifest.webmanifest" || /\/apple-touch-icon[^/]*\.png$/.test(url.pathname) || url.pathname.startsWith("/assets/pwa/");
   if (request.mode === "navigate" || url.pathname === "/catalog/content-ideas.json" || installationAsset) {
     event.respondWith(
       fetch(installationAsset ? new Request(request, { cache: "no-store" }) : request)
         .then((response) => {
-          if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request.mode === "navigate" ? "/index.html" : request, response.clone())));
+          if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request.mode === "navigate" && ["/", "/index.html"].includes(url.pathname) ? "/index.html" : request, response.clone())));
           return response;
         })
-        .catch(async () => (await caches.match(request)) || (request.mode === "navigate" ? await caches.match("/index.html") : new Response('{"cards":[]}', { headers: { "Content-Type": "application/json" } })))
+        .catch(async () => (await caches.match(request)) || (request.mode === "navigate" ? await caches.match("/index.html") : installationAsset ? new Response("", { status: 503 }) : new Response('{"cards":[]}', { headers: { "Content-Type": "application/json" } })))
     );
     return;
   }

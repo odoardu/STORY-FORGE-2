@@ -1,0 +1,27 @@
+.inline-text-editor{position:fixed;z-index:940;box-sizing:border-box;transform-origin:top left;overflow:visible;background:transparent!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important;border:0!important;outline:0!important;box-shadow:none!important;padding:0!important;margin:0!important;border-radius:0!important;white-space:pre-wrap;word-break:normal;overflow-wrap:break-word;touch-action:manipulation}
+.inline-text-editor::selection,.inline-text-editor *::selection{background:#e981be88;color:#fff}
+.inline-title-mark{background:#e981be;box-shadow:10px 0 #e981be,-10px 0 #e981be;box-decoration-break:clone;-webkit-box-decoration-break:clone;padding-block:5.46px}
+.inline-text-editing[data-inline-field=subtitle] #feedSubtitlePreview,.inline-text-editing[data-inline-field=kicker] #feedKickerPreview{opacity:0!important}
+.inline-text-tools{position:fixed;z-index:960;right:10px;display:flex;flex-direction:column;gap:8px}
+.inline-text-tools button{display:grid;place-items:center;width:44px;height:44px;min-height:44px;border:1px solid #ffffff30;border-radius:50%;background:#242d32f2;color:#edf0f2;box-shadow:0 5px 14px #0003;padding:11px;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.inline-text-tools button:first-child:not(:last-child){background:#604055ed;color:#ffcbe9;border-color:#e981be66}
+.inline-text-tools svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.inline-text-tools button:focus-visible{outline:2px solid #e981be;outline-offset:3px}.inline-text-message{position:fixed;z-index:970;left:20px;right:64px;bottom:calc(var(--keyboard-inset,0px) + 12px);padding:10px 14px;border-radius:14px;background:#30242df2;color:#f9d9ec;font:12px/1.4 Gotham,sans-serif}.inline-text-message[hidden]{display:none}
+@media(max-width:800px),(max-width:960px) and (pointer:coarse){
+ .studio-workbench.mobile-text-editing :is(.stage-frame,.story-stage,.preview-card,.informative-artboard,.polaroid-board){transition:none!important;animation:none!important}
+ .studio-workbench.mobile-text-editing.inline-text-editing .experience-shell .stage-host{padding:4px 62px 4px 12px!important}
+ .studio-workbench.mobile-text-editing.inline-text-editing #vinylWorkspace{padding:4px 62px 4px 12px!important}
+ .studio-workbench.mobile-text-editing.inline-text-editing #vinylWorkspace .preview{width:min(calc(var(--text-width) - 88px),calc((var(--text-preview-height) - 8px)*.8))!important}
+}
+
+/* Keep the exact artwork renderer visible; this aligned native layer supplies
+   only the caret and selection, without replacing the exported glyphs. */
+.inline-text-editing:is([data-inline-field=title],[data-inline-field=infoTitle],[data-inline-field=infoBody],[data-inline-field=vinylTitle],[data-inline-field=vinylArtist]) .inline-text-editor,
+.inline-text-editing:is([data-inline-field=title],[data-inline-field=infoTitle],[data-inline-field=infoBody],[data-inline-field=vinylTitle],[data-inline-field=vinylArtist]) .inline-text-editor *{color:transparent!important;-webkit-text-fill-color:transparent!important}
+.inline-text-editing:is([data-inline-field=title],[data-inline-field=infoTitle],[data-inline-field=infoBody],[data-inline-field=vinylTitle],[data-inline-field=vinylArtist]) .inline-text-editor::selection,
+.inline-text-editing:is([data-inline-field=title],[data-inline-field=infoTitle],[data-inline-field=infoBody],[data-inline-field=vinylTitle],[data-inline-field=vinylArtist]) .inline-text-editor *::selection{color:transparent!important;-webkit-text-fill-color:transparent!important;background:#e981be55}
+
+.inline-text-tools button[data-kind]{background:#242d32f2;color:#edf0f2;border-color:#ffffff30}
+.inline-text-tools button[aria-pressed=true]{background:#e981be;color:#21171d;border-color:#f4b7d9}
+.inline-text-editor{outline:1px dashed #e981be70!important;outline-offset:5px!important}
+@media(prefers-reduced-motion:no-preference){.inline-text-tools button{transition:background .15s ease,color .15s ease}}

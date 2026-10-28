@@ -7,13 +7,15 @@ const root = process.cwd();
 const output = resolve(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(join(output, 'catalog'), { recursive: true });
-for (const file of ['collage-test.html', 'collage-layout.js', 'collage-shell.js', 'collage-test.js', 'collage-workbench.css', 'atualizar-pwa.html', 'pwa-reset.js', 'apple-touch-icon-ed148eba-v2.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'index.html', 'content-ideas.js', 'polaroid.js', 'editor-history.js', 'export-review.js', 'export-review.css', 'editor-core.js', 'app.js', 'styles.css', 'studio-ui.css', 'studio-refinement.css', 'workbench-preview-ui.js', 'studio-motion.js', 'artwork-effects.js', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
+for (const file of ['collage-test.html', 'collage-layout.js', 'collage-shell.js', 'collage-test.js', 'collage-workbench.css', 'favicon.ico', 'apple-touch-icon-152-20261028.png', 'apple-touch-icon-167-20261028.png', 'apple-touch-icon-180-20261028.png', 'atualizar-pwa.html', 'pwa-reset.js', 'apple-touch-icon-ed148eba-v2.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'index.html', 'content-ideas.js', 'polaroid.js', 'studio-session.js', 'editor-history.js', 'export-checks.js', 'export-checks.css', 'export-review.js', 'export-review.css', 'editor-core.js', 'app.js', 'styles.css', 'studio-ui.css', 'studio-refinement.css', 'workbench-preview-ui.js', 'studio-motion.js', 'artwork-effects.js', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
   await copyFile(join(root, file), join(output, file));
 }
 await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });
 for (const file of ['vinyl-test.html', 'vinyl-test.css', 'vinyl-test.js', 'vinyl-shell.js', 'vinyl-workbench.css', 'vinyl-timeline.js', 'vinyl-timeline.css', 'vinyl-video-export.js', 'vinyl-video-export.js.LEGAL.txt']) {
   await copyFile(join(root, file), join(output, file));
 }
+for (const file of ['mobile-text-preview.js', 'mobile-text-preview.css']) await copyFile(join(root, file), join(output, file));
+for (const file of ['inline-text-editor.js', 'inline-text-editor.css']) await copyFile(join(root, file), join(output, file));
 await copyFile(join(root, 'media-loading-border.js'), join(output, 'media-loading-border.js'));
 async function catalog(directories, extensions) {
   const files = [];

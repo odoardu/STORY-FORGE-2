@@ -5,6 +5,7 @@ const $ = id => root === document ? document.getElementById(id) : root.querySele
 const canvas = $('preview'), ctx = canvas.getContext('2d'), audio = $('audio');
 const disc = document.createElement('canvas'); disc.width = disc.height = 900;
 const background = document.createElement('canvas'); background.width = 1080; background.height = 1350;
+let coverFile, historyState, historyRestoring = false;
 let file, info, cover, mediaUrl, coverUrl, exporting = false, controller, loadId = 0;
 let trimEnd = null;
 let texture, logo, artworkReady = false;
@@ -29,13 +30,15 @@ const clip = () => {
 };
 function status(message, error = false) { $('status').textContent = message; $('status').dataset.error = String(error); }
 function sync() {
+  if (root !== document) root.classList.toggle('vinyl-has-audio', Boolean(info));
   const { start, duration } = clip();
-  $('export').disabled = exporting || !artworkReady || !file || !cover || !info || !$('title').value.trim() || duration <= 0;
+  $('export').disabled = exporting;
   $('play').disabled = exporting || !info;
   if (audio.paused) $('time').textContent = clock(start);
   $('start').disabled = exporting || !info;
   $('range-info').textContent = info ? `${clock(start)} → ${clock(start + duration)} · ${duration.toFixed(1)} s · Feed 1080 × 1350` : 'Feed · 1080 × 1350 · 30 fps';
-  timeline?.setDisabled(exporting);
+  timeline?.setDisabled(exporting || !info);
+  if (timeline) timeline.element.hidden = !info;
   $('highlight-field').hidden = $('title-style').value !== 'brand';
   for (const id of ['effect-blur', 'effect-shade']) { const input = $(id); if (input) input.disabled = exporting; }
   document.dispatchEvent(new CustomEvent('vinyl:state', { detail: { ready: !$('export').disabled, busy: exporting, style: $('title-style').value } }));
@@ -129,6 +132,10 @@ function render(time = 0) {
     ctx.fillStyle = '#ffffff'; ctx.fillText(line, 540, baseline);
   });
   ctx.textBaseline = 'middle';
+  if (root !== document) root.vinylTextLayout = {
+    title: { anchorY: (brand ? 900 + (feedGlyphMetrics('CONHECA', size).ascent - feedGlyphMetrics('CONHECA', size).descent) / 2 : 910) - 70, baseline: brand ? 'alphabetic' : 'middle', x: 235, y: (brand ? 900 : 910) - size * .6 - 70, width: 610, height: lines.length * size * (brand ? 1.1 : 1.25) + 10, fontSize: size, lineHeight: size * (brand ? 1.1 : 1.25) },
+    artist: { anchorY: 950 + (brand ? 10 : 0) + (lines.length - 1) * size * (brand ? 1 : 1.25) - 70, baseline: 'middle', x: 235, y: 950 + (brand ? 10 : 0) + (lines.length - 1) * size * (brand ? 1 : 1.25) - 70 - 16, width: 610, height: 36, fontSize: 25, lineHeight: 36 }
+  };
   ctx.font = '25px Gotham'; ctx.fillStyle = '#ffffff'; ctx.fillText($('artist').value.trim() || 'Nome do artista', 540, 950 + (brand ? 10 : 0) + (lines.length - 1) * size * (brand ? 1 : 1.25), 610);
   const y = 1025;
   ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff55'; ctx.beginPath(); ctx.moveTo(250, y); ctx.lineTo(830, y); ctx.stroke();
@@ -158,20 +165,20 @@ $('media').addEventListener('change', async event => {
   const id = ++loadId; pause(); file = info = undefined; sync(); status('Lendo o áudio…');
   try {
     const inspected = await inspectMedia(chosen); if (id !== loadId) return;
-    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    // Old media stays available to the bounded undo history.
     file = chosen; info = inspected; trimEnd = null; mediaUrl = URL.createObjectURL(chosen); audio.src = mediaUrl;
     $('media-name').textContent = chosen.name; $('start').value = '0'; $('start').max = Math.max(0, info.duration - .1);
     if (!$('title').value.trim() && document.activeElement !== $('title')) $('title').value = chosen.name.replace(/\.[^.]+$/, '').slice(0, 120);
     status('Áudio carregado. A prévia e o MP4 usam a mesma faixa.');
-    void timeline.load(chosen, info.duration, info.origin);
-  } catch (error) { status(error.message, true); }
-  sync(); render();
+    historyRestoring = true; try { await timeline.load(chosen, info.duration, info.origin); } finally { historyRestoring = false; }
+  } catch (error) { status(error.message, true); if(typeof ExportChecks!=='undefined')void ExportChecks.confirm([{level:'error',text:`Não foi possível abrir o áudio: ${error.message}`}]); }
+  sync(); render(); commitVinyl('Trocar áudio');
 });
 $('cover').addEventListener('change', async event => {
   const chosen = event.target.files[0]; if (!chosen) return;
   const url = URL.createObjectURL(chosen), image = new Image(); image.src = url;
-  try { await image.decode(); if (coverUrl) URL.revokeObjectURL(coverUrl); coverUrl = url; cover = image; $('cover-thumb').style.backgroundImage = `url("${url}")`; $('cover-name').textContent = chosen.name; cacheArtwork(); sync(); render(); }
-  catch { URL.revokeObjectURL(url); status('Não foi possível abrir essa capa. Tente JPG, PNG ou WebP.', true); }
+  try { await image.decode(); coverUrl = url; cover = image; coverFile = chosen; $('cover-thumb').style.backgroundImage = `url("${url}")`; $('cover-name').textContent = chosen.name; cacheArtwork(); sync(); render(); commitVinyl('Trocar capa'); }
+  catch { URL.revokeObjectURL(url); status('Não foi possível abrir essa capa. Tente JPG, PNG ou WebP.', true); if(typeof ExportChecks!=='undefined')void ExportChecks.confirm([{level:'error',text:'Não foi possível abrir a capa. Tente uma imagem JPG, PNG ou WebP.'}]); }
 });
 for (const id of ['title', 'artist', 'title-style', 'highlight', 'start', 'length']) $(id).addEventListener('input', () => { if (id === 'start' || id === 'length') pause(); sync(); render(info ? Math.max(0, audio.currentTime - info.origin - clip().start) : 0); });
 $('start').addEventListener('change', () => { $('start').value = String(clip().start); sync(); });
@@ -192,19 +199,25 @@ function animate() {
   requestAnimationFrame(animate);
 }
 $('export').addEventListener('click', async () => {
-  if ($('export').disabled) return;
+  if (exporting) return;
+  if (typeof ExportChecks !== 'undefined') {
+    const issues = ExportChecks.inspect({ format:'vinyl',label:'Disco',audio:!!file,duration:info?.duration,image:!!cover?.naturalWidth,title:$('title').value,artist:$('artist').value,start:Number($('start').value),end:trimEnd ?? Number($('start').value) + clip().duration,assetsReady:artworkReady });
+    const edit = key => { if (typeof InlineTextEditor !== 'undefined') InlineTextEditor.open(key); else $(key === 'vinylTitle' ? 'title' : 'artist').focus(); };
+    if (!(await ExportChecks.confirm(issues,{ audio:()=>$('media').click(),cover:()=>$('cover').click(),title:()=>edit('vinylTitle'),artist:()=>edit('vinylArtist'),trim:()=>timeline.element.querySelector('.vt-start').focus() }))) return;
+  } else if (!file || !cover || !info || !$('title').value.trim()) return;
+  document.dispatchEvent(new Event('inline:finish'));
   pause(); exporting = true; controller = new AbortController(); $('fields').disabled = true; $('export-progress').hidden = false; $('progress').value = 0; sync(); status('Renderizando o vinil e incluindo o áudio…');
   try {
     await document.fonts.ready;
     const blob = await exportVinyl({ file, canvas, render, ...clip(), signal: controller.signal, onProgress: value => { $('progress').value = value; $('progress-label').textContent = `Exportando ${Math.round(value * 100)}%`; } });
     const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = `vinil-${$('title').value.trim().replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 70)}.mp4`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
     status('MP4 pronto: Feed 4:5, vinil a 30 fps e áudio incluído.');
-  } catch (error) { status(error.name === 'AbortError' ? 'Exportação cancelada. Você pode continuar editando.' : `Não foi possível exportar: ${error.message}`, error.name !== 'AbortError'); }
+  } catch (error) { status(error.name === 'AbortError' ? 'Exportação cancelada. Você pode continuar editando.' : `Não foi possível exportar: ${error.message}`, error.name !== 'AbortError'); if(error.name!=='AbortError'&&typeof ExportChecks!=='undefined')await ExportChecks.confirm([{level:'error',text:`Não foi possível exportar o Disco: ${error.message}`}]); }
   finally { exporting = false; $('fields').disabled = false; $('export-progress').hidden = true; if (info) audio.currentTime = info.origin + clip().start; timeline.setPosition(clip().start); sync(); render(); }
 });
 $('cancel').addEventListener('click', () => controller?.abort());
 const timeline = createTimeline({ host: root === document ? document.querySelector('aside') : root, audio,
-  onTrim(start, end) { pause(); $('start').value = start; trimEnd = end; if (info) audio.currentTime = info.origin + start; sync(); render(); timeline.setPosition(start); },
+  onTrim(start, end) { pause(); $('start').value = start; trimEnd = end; if (info) audio.currentTime = info.origin + start; sync(); render(); timeline.setPosition(start); commitVinyl('Ajustar corte', 'vinyl-trim'); },
   onSeek(position) { if (!info) return; const { start, duration } = clip(); const next = Math.max(start, Math.min(start + duration, position)); audio.currentTime = info.origin + next; render(next - start); $('time').textContent = clock(next); timeline.setPosition(next); },
   togglePlayback() { $('play').click(); }
 });
@@ -220,3 +233,49 @@ try {
   artworkReady = true;
 } catch (error) { status(error.message, true); }
 cacheArtwork(); render(); sync(); animate();
+
+const vinylFieldIds = ['title','artist','title-style','highlight','start','length','effect-blur','effect-shade'];
+function vinylSnapshot() {
+  return { file, info, coverFile, cover, mediaUrl, coverUrl, trimEnd, fields: Object.fromEntries(vinylFieldIds.filter(id => $(id)).map(id => [id, $(id).value])) };
+}
+function restoreVinyl(saved) {
+  historyRestoring = true;
+  try {
+    const previousMedia = file;
+    pause(); ({ file, info, coverFile, cover, mediaUrl, coverUrl, trimEnd } = saved);
+    if (info && previousMedia !== file) { void timeline.load(file, info.duration, info.origin); trimEnd = saved.trimEnd; }
+    for (const [id, value] of Object.entries(saved.fields)) if ($(id)) $(id).value = value;
+    if (mediaUrl && audio.src !== mediaUrl) audio.src = mediaUrl;
+    if (info) { $('start').max = String(Math.max(0, info.duration - .1)); audio.currentTime = info.origin + clip().start; timeline.setTrim(clip().start, clip().start + clip().duration); timeline.setPosition(clip().start); }
+    cacheArtwork(); sync(); render(); historyState = vinylSnapshot();
+    document.dispatchEvent(new Event('inline:refresh')); if (typeof StudioSession !== 'undefined') StudioSession.schedule('vinyl');
+  } finally { historyRestoring = false; }
+}
+function commitVinyl(label, key) {
+  if (historyRestoring) return;
+  const next = vinylSnapshot(), previous = historyState; historyState = next;
+  if (historyRestoring || !previous || typeof EditorHistory === 'undefined') return;
+  if (previous.file === next.file && previous.coverFile === next.coverFile && previous.trimEnd === next.trimEnd && JSON.stringify(previous.fields) === JSON.stringify(next.fields)) return;
+  EditorHistory.record(previous, next, restoreVinyl, label, key);
+  if (typeof StudioSession !== 'undefined') StudioSession.schedule('vinyl');
+}
+for (const id of vinylFieldIds) $(id)?.addEventListener('input', () => commitVinyl('Editar vinil', `vinyl-${id}`));
+historyState = vinylSnapshot();
+document.addEventListener('keydown', event => {
+  if (!document.body.classList.contains('vinyl-active') || exporting || document.querySelector('dialog[open]') || !(event.ctrlKey || event.metaKey)) return;
+  const key = event.key.toLowerCase(); if (!['z','y'].includes(key)) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  key === 'y' || event.shiftKey ? EditorHistory.redo() : EditorHistory.undo();
+}, true);
+if (typeof StudioSession !== 'undefined') await StudioSession.register('vinyl', {
+  busy: () => exporting,
+  capture: () => ({ file, coverFile, fields: vinylSnapshot().fields, trimEnd }),
+  async restore(saved) {
+    historyRestoring = true;
+    try {
+      if (saved.file) { file = saved.file; info = await inspectMedia(file); mediaUrl = URL.createObjectURL(file); audio.src = mediaUrl; await timeline.load(file, info.duration, info.origin); }
+      if (saved.coverFile) { coverFile = saved.coverFile; coverUrl = URL.createObjectURL(coverFile); cover = await loadImage(coverUrl); }
+      restoreVinyl({ ...vinylSnapshot(), ...saved, file, info, coverFile, cover, mediaUrl, coverUrl });
+    } finally { historyRestoring = false; historyState = vinylSnapshot(); }
+  }
+});

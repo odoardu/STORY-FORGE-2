@@ -512,7 +512,6 @@ function selectInformativePage(index) {
 
 const HIGHLIGHT_COLORS = {
   pink: "#e981be",
-  black: "#111111",
   none: "transparent",
 };
 
@@ -555,6 +554,7 @@ function beginMediaLoading(message = "Preparando mídia…", target = {}) {
     if (!activeMediaLoads.delete(job)) return;
     if (success && typeof ExportReview !== "undefined") ExportReview.touch(editFormat);
     finishBorder(success);
+    if (success && typeof StudioSession !== 'undefined') StudioSession.schedule('studio');
     if (activeMediaLoads.size) return;
     host.setAttribute("aria-busy", "false");
     host.classList.add(success ? "is-complete" : "is-error");
@@ -609,6 +609,7 @@ async function init() {
   if (state.format === "polaroid") PolaroidStudio.refresh();
   requestAnimationFrame(updateControlPanelFade);
   initExportReview();
+  await initStudioSession();
 }
 
 function syncTitleBorderControls() {
@@ -1415,11 +1416,12 @@ function updateStageScale() {
   const availableWidth = Math.max(24, stageHost.offsetWidth - parseFloat(hostStyle.paddingLeft) - parseFloat(hostStyle.paddingRight) - (isPortraitPost ? 32 : 0));
   const workbench = document.body.classList.contains("studio-workbench");
   const boardGrid = ["informative", "polaroid"].includes(state.format);
+  const editingText = document.body.classList.contains("mobile-text-editing");
   // Mobile uses full-size pages in a vertical flow; desktop keeps the fitted grid.
-  const mobileBoardFlow = workbench && document.body.classList.contains("is-mobile-studio") && boardGrid;
+  const mobileBoardFlow = workbench && document.body.classList.contains("is-mobile-studio") && boardGrid && !editingText;
   stageHost.classList.toggle("mobile-board-flow", mobileBoardFlow);
-  const boardCount = state.artboardFocused || mobileBoardFlow ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
-  const heightReserve = workbench && boardCount > 1 ? 0 : isPortraitPost || hasTimelineVideo() ? 76 : 0;
+  const boardCount = state.artboardFocused || mobileBoardFlow || editingText ? 1 : state.format === "informative" ? state.informativePages.length : state.format === "polaroid" ? PolaroidStudio.count() : 1;
+  const heightReserve = editingText || workbench && boardCount > 1 ? 0 : isPortraitPost || hasTimelineVideo() ? 76 : 0;
   const availableHeight = Math.max(24, stageHost.offsetHeight - parseFloat(hostStyle.paddingTop) - parseFloat(hostStyle.paddingBottom) - heightReserve);
   const columns = Math.min(boardCount, stageHost.offsetWidth < 600 ? 2 : 3);
   const rows = Math.ceil(boardCount / columns);
@@ -1471,7 +1473,7 @@ async function handleVideoUpload(event) {
   const finishLoading = beginMediaLoading("Preparando vídeo…", { format: "feed" });
   let mediaReady = false;
   const token = ++state.videoLoadingToken;
-  const url = URL.createObjectURL(file);
+  const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
   const candidate = document.createElement("video");
   candidate.src = url;
   candidate.muted = true;
@@ -1667,7 +1669,7 @@ function confirmImageResolution(image, targetWidth, targetHeight) {
 
 async function importClosingImageFile(file) {
   if (!file || state.exportingVideo) return;
-  const url = URL.createObjectURL(file), finish = beginMediaLoading();
+  const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file)), finish = beginMediaLoading();
   let ready = false;
   try {
     const image = await loadImage(url); ready = true; finish(true, "Imagem carregada");
@@ -1683,7 +1685,7 @@ function handleFeedImageUpload(event) {
   const [file] = event.target.files;
   if (!file) return;
 
-  const url = URL.createObjectURL(file);
+  const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
   const operation = applyFeedImage(url, file.name, formatFileSize(file.size), true).catch(() => setStatus("Não foi possível abrir essa imagem. Tente outro arquivo.")).finally(() => { event.target.value = ""; });
   if (state.format !== "stories") applyFormat("feed");
   return operation;
@@ -2405,7 +2407,7 @@ function handleInformativeImageUpload(event) {
   event.target.value = "";
   if (!file || state.exportingVideo) return;
   const page = state.informativePages[state.activeInformativePage], token = ++page.infoUploadToken;
-  const url = URL.createObjectURL(file);
+  const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
   const video = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm)$/i.test(file.name);
   const operation = video ? applyInformativeVideo(url, file.name, page, token) : applyInformativeImage(url, file.name, formatFileSize(file.size), true, page, token);
   return operation.catch(() => { URL.revokeObjectURL(url); setStatus("Não foi possível carregar a mídia do informativo."); });
@@ -2533,13 +2535,13 @@ function updateInformativeText() {
   updateInformativePreview();
 }
 
-function getInformativeBodyRuns(start = 0, end = state.infoBody.length) {
+function getInformativeBodyRuns(start = 0, end = state.infoBody.length, page = state) {
   const runs = [];
   for (let index = start; index < end; index++) {
-    const bold = state.infoBodyBold.some(range => index >= range.start && index < range.end);
+    const bold = page.infoBodyBold.some(range => index >= range.start && index < range.end);
     const last = runs.at(-1);
-    if (last && last.bold === bold) last.text += state.infoBody[index];
-    else runs.push({ text: state.infoBody[index], bold });
+    if (last && last.bold === bold) last.text += page.infoBody[index];
+    else runs.push({ text: page.infoBody[index], bold });
   }
   return runs;
 }
@@ -3282,7 +3284,7 @@ function initExportReview() {
   ExportReview.init({ entries: exportReviewEntries, format: () => state.format, status: setStatus,
     loading: () => activeMediaLoads.size > 0 || state.randomPhotoLoading || state.circle.maskBusy,
     flush: () => { saveLogoSettingsForCurrentFormat(); updateFeedText(); updateInformativeText(); },
-    export: exportReviewedArtwork, download: downloadBlob });
+    check: checkReviewedArtwork, thumbnail: reviewThumbnail, export: exportReviewedArtwork, download: downloadBlob });
 }
 async function exportReviewedArtwork(entries, progress) {
   const original = { format: state.format, informative: state.activeInformativePage, focused: state.artboardFocused,
@@ -3631,7 +3633,9 @@ function drawFeedCopy(ctx) {
   const kicker = getFeedTypography("kicker");
   const titleLayouts = getFeedTitleLayouts();
   const kickerPosition = getFeedKickerPosition(titleLayouts);
-  if (state.kickerMode === "image" && state.kickerImage) {
+  if (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'kicker')) {
+    // The focused DOM text is the preview while editing; exports still draw the artwork text.
+  } else if (state.kickerMode === "image" && state.kickerImage) {
     const width = 320;
     const height = width * state.kickerImage.naturalHeight / state.kickerImage.naturalWidth;
     ctx.drawImage(state.kickerImage, (FEED.width - width) / 2, kickerPosition - height, width, height);
@@ -3642,6 +3646,7 @@ function drawFeedCopy(ctx) {
   const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.pink;
 
   titleLayouts.forEach((spec) => {
+    if (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'title')) return;
     if (state.titleHighlightColor !== "none") {
       ctx.fillStyle = highlightColor;
       spec.highlightRects.forEach(rect => ctx.fillRect(rect.x, rect.y, rect.width, rect.height));
@@ -3894,6 +3899,7 @@ function getCanvasFontSize(font) {
 }
 
 function drawSubtitleBlock(ctx) {
+  if (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'subtitle')) return;
   const titleLayouts = getFeedTitleLayouts();
   applyAutoSubtitleState(titleLayouts);
   const lines = layoutSubtitleLines(measureContext, getSubtitleDisplaySegments(), titleLayouts);
@@ -4614,29 +4620,10 @@ function drawInformativeCopy(ctx) {
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.font = `43px "Tusker Story", Impact, sans-serif`;
-  ctx.fillText(state.infoTitle || "TÍTULO DO POST AQUI", INFORMATIVE.title.x, INFORMATIVE.title.y);
+  if (!(typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'infoTitle'))) ctx.fillText(state.infoTitle || "TÍTULO DO POST AQUI", INFORMATIVE.title.x, INFORMATIVE.title.y);
   ctx.letterSpacing = ".15px";
-  let x = INFORMATIVE.body.x;
-  let y = INFORMATIVE.body.y;
-  for (const token of state.infoBody.matchAll(/\n|[^\S\n]+|[^\s]+/g)) {
-    if (token[0] === "\n") {
-      x = INFORMATIVE.body.x;
-      y += INFORMATIVE.body.lineHeight;
-      continue;
-    }
-    const runs = getInformativeBodyRuns(token.index, token.index + token[0].length);
-    const setFont = run => { ctx.font = `${run.bold ? 700 : 400} ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`; };
-    const width = runs.reduce((sum, run) => { setFont(run); return sum + ctx.measureText(run.text).width; }, 0);
-    if (x > INFORMATIVE.body.x && x + width > INFORMATIVE.body.x + INFORMATIVE.body.width) {
-      x = INFORMATIVE.body.x;
-      y += INFORMATIVE.body.lineHeight;
-    }
-    if (x === INFORMATIVE.body.x && /^\s+$/.test(token[0])) continue;
-    for (const run of runs) {
-      setFont(run);
-      ctx.fillText(run.text, x, y);
-      x += ctx.measureText(run.text).width;
-    }
+  if (!(typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'infoBody'))) {
+    for (const row of getInformativeBodyLayout(ctx)) { ctx.font = `${row.bold ? 700 : 400} ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`; ctx.fillText(row.text, row.x, row.y); }
   }
   ctx.restore();
 }
@@ -4702,6 +4689,7 @@ function toggleMediaPopover() {
 }
 
 function openTextEditPopover(selection, event) {
+  if (typeof InlineTextEditor !== 'undefined') { InlineTextEditor.open(selection); return; }
   StudioUI.closeOtherPanels("text");
   closeMediaPopover();
   const popover = document.getElementById("textEditPopover");
@@ -5004,7 +4992,7 @@ function bindCircleInset() {
   input.addEventListener("change", async () => {
     const file = input.files[0]; input.value = "";
     if (!file) return;
-    const c = state.circle, token = ++c.token, url = URL.createObjectURL(file), finish = beginMediaLoading();
+    const c = state.circle, token = ++c.token, url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file)), finish = beginMediaLoading();
     try {
       const image = await loadImage(url);
       if (token !== c.token) { URL.revokeObjectURL(url); finish(true); return; }
@@ -5166,4 +5154,106 @@ function bindEditorShortcuts() {
       else selectInformativePage(Math.max(0, Math.min(state.informativePages.length - 1, state.activeInformativePage + delta)));
     }
   });
+}
+
+function reviewThumbnail(entry) {
+  if (entry.format === 'polaroid') return PolaroidStudio.thumbnail(entry.key);
+  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = ['stories', 'story'].includes(entry.format) ? 1920 : 1350;
+  const original = { format: state.format, page: state.activeInformativePage, cache: state.renderInformativeLayers };
+  try {
+    state.format = entry.format;
+    const ctx = canvas.getContext('2d');
+    if (entry.format === 'informative') { state.activeInformativePage = entry.index; state.renderInformativeLayers = null; drawInformativeFrame(ctx); }
+    else if (entry.format === 'closing') drawClosingFrame(ctx);
+    else if (entry.format === 'feed') drawFeedFrame(ctx);
+    else { updateStoriesPreview(); ctx.drawImage(document.getElementById('storiesPreview'), 0, 0); }
+    return canvas;
+  } finally { state.format = original.format; state.activeInformativePage = original.page; state.renderInformativeLayers = original.cache; }
+}
+async function initStudioSession() {
+  if (typeof StudioSession === 'undefined') return;
+  const keys = ['format','mediaKind','videoUrl','videoName','videoTrimStart','videoTrimEnd','feedImageUrl','feedImageName','feedImage','closingImage','closingBlur','closingShade','infoBackgroundBlur','infoShade','zoom','panX','panY','maskBlur','blurGradientOpacity','titleHighlights','titleHighlightColor','titleFontSize','subtitleFontSize','subtitleLetterSpacing','subtitleLineHeight','subtitleWordSpacing','subtitleScaleX','subtitleScaleY','subtitleTextAlign','subtitleTextTransform','subtitleRotation','subtitlePositionX','subtitlePositionY','subtitleMaxWidth','subtitleMarks','logoUrl','logoName','logoImage','logoWidth','logoX','logoY','logoOpacity','logoSettings','kickerMode','kickerLogoIndex'];
+  const pick = (object, names) => Object.fromEntries(names.map(key => [key, object[key]]));
+  await StudioSession.register('studio', {
+    busy: () => state.exportingVideo || activeMediaLoads.size > 0 || ExportReview.isRunning(),
+    capture() {
+      saveLogoSettingsForCurrentFormat();
+      return { state: pick(state, keys), title: elements.titleInput.value, kicker: elements.feedKickerInput.value, subtitle: getSubtitlePlainText(),
+        circle: pick(state.circle, ['image','url','behind','x','y','size','zoom','panX','panY']),
+        pages: state.informativePages.map(page => pick(page, informativePageKeys.filter(key => !['infoUploadToken','infoImageObjectUrl'].includes(key)))), activePage: state.activeInformativePage,
+        polaroid: PolaroidStudio.session(), review: ExportReview.session(), tab: document.body.classList.contains('vinyl-active') ? 'vinyl' : document.body.classList.contains('collage-active') ? 'collage' : state.format };
+    },
+    async restore(saved) {
+      Object.assign(state, saved.state); Object.assign(state.circle, saved.circle);
+      state.informativePages = saved.pages.map(page => Object.assign(createInformativePage(), page)); state.activeInformativePage = Math.min(saved.activePage, state.informativePages.length - 1);
+      elements.titleInput.value = saved.title; state.previousTitleText = saved.title; elements.feedKickerInput.value = saved.kicker; elements.feedSubtitleInput.textContent = saved.subtitle;
+      state.kickerImage = state.kickerImages[state.kickerLogoIndex || 0];
+      if (state.feedImageUrl) elements.feedImage.src = state.feedImageUrl;
+      if (state.logoUrl) elements.logoPreview.src = state.logoUrl;
+      if (state.videoUrl) {
+        await new Promise((resolve, reject) => { elements.video.addEventListener('loadeddata', resolve, { once: true }); elements.video.addEventListener('error', reject, { once: true }); elements.video.src = state.videoUrl; });
+        state.videoTrimStart = saved.state.videoTrimStart; state.videoTrimEnd = saved.state.videoTrimEnd; elements.video.pause();
+      }
+      const format = saved.state.format; selectInformativePage(state.activeInformativePage); PolaroidStudio.restoreSession(saved.polaroid); applyFormat(format, { keepPanel: true });
+      writeRangeRealValue(elements.titleFontSizeInput, state.titleFontSize, elements.titleFontSizeValue);
+      syncLogoControls(); syncFeedEffectControls(); syncSubtitleFormatControls(); updateFeedText(); updateMediaTransform(); updateLogoTransform(); updateStoriesPreview(); updateClosingPreview(); updateStageScale(); StudioUI.sync();
+      ExportReview.restoreSession(saved.review || []);
+      if (['vinyl', 'collage'].includes(saved.tab)) document.querySelector(`.${saved.tab}-option`)?.click();
+      closeMediaPopover();
+    }
+  });
+}
+
+function getInformativeBodyLayout(ctx, page = state) {
+  const rows = []; ctx.letterSpacing = ".15px";
+  let x = INFORMATIVE.body.x;
+  let y = INFORMATIVE.body.y;
+  const body = page.infoBody;
+  for (const token of body.matchAll(/\n|[^\S\n]+|[^\s]+/g)) {
+    if (token[0] === "\n") {
+      x = INFORMATIVE.body.x;
+      y += INFORMATIVE.body.lineHeight;
+      continue;
+    }
+    const runs = getInformativeBodyRuns(token.index, token.index + token[0].length, page);
+    const setFont = run => { ctx.font = `${run.bold ? 700 : 400} ${INFORMATIVE.body.fontSize}px Gotham, Montserrat, sans-serif`; };
+    const width = runs.reduce((sum, run) => { setFont(run); return sum + ctx.measureText(run.text).width; }, 0);
+    if (x > INFORMATIVE.body.x && x + width > INFORMATIVE.body.x + INFORMATIVE.body.width) {
+      x = INFORMATIVE.body.x;
+      y += INFORMATIVE.body.lineHeight;
+    }
+    if (x === INFORMATIVE.body.x && /^\s+$/.test(token[0])) continue;
+    for (const run of runs) {
+      setFont(run);
+      rows.push({ ...run, x, y });
+      x += ctx.measureText(run.text).width;
+    }
+  }
+  return rows;
+}
+
+async function checkReviewedArtwork(entries) {
+  if (typeof ExportChecks === 'undefined') return true;
+  const issues = [], actions = {};
+  const editInfo = (index, field = 'infoBody') => { selectInformativePage(index); state.artboardFocused = state.informativePages.length > 1; renderInformativePageTabs(); updateStageScale(); InlineTextEditor.open(field); };
+  const inspect = (descriptor, handlers) => {
+    for (const issue of ExportChecks.inspect(descriptor)) {
+      const key = `${descriptor.label}:${issue.action}`; actions[key] = handlers?.[issue.action]; issue.action = key; issues.push(issue);
+    }
+  };
+  for (const entry of entries) {
+    if (entry.format === 'informative') {
+      const page = state.informativePages[entry.index], context = document.createElement('canvas').getContext('2d');
+      const rows = getInformativeBodyLayout(context,page), lines = new Set(rows.filter(row=>row.text.trim()).map(row=>row.y)).size;
+      inspect({format:'informative',label:entry.label,body:page.infoBody,lines,overflow:rows.some(row=>row.text.trim()&&row.y+INFORMATIVE.body.fontSize>INFORMATIVE.body.y+334)}, {body:()=>editInfo(entry.index)});
+    } else if (entry.format === 'polaroid') {
+      inspect({format:'polaroid',label:entry.label,image:!!entry.key.image?.naturalWidth},{photo:()=>PolaroidStudio.editPage(entry.key)});
+    } else if (['feed','stories','story'].includes(entry.format)) {
+      inspect({format:entry.format,label:entry.label,image:!!state.feedImage?.naturalWidth,title:elements.titleInput.value,video:state.mediaKind==='video',broken:!!elements.video.error||elements.video.readyState<2}, {media:()=>{applyFormat(entry.format);toggleMediaPopover();},title:()=>{applyFormat(entry.format);InlineTextEditor.open('title');}});
+    }
+  }
+  if (state.format === 'polaroid') for (const entry of PolaroidStudio.exportEntries().filter(entry=>!entry.ready)) {
+    inspect({format:'polaroid',label:entry.label,image:false,skipped:entries.length>0},{photo:()=>PolaroidStudio.editPage(entry.key)});
+  }
+  return ExportChecks.confirm(issues,actions);
 }

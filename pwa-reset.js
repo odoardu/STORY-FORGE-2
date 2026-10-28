@@ -13,9 +13,9 @@ async function resetStoryForgeCache() {
     await Promise.all(keys.filter(key => key.startsWith("story-forge-")).map(key => caches.delete(key)));
   }
   // Warm the fresh icon through HTTP without touching localStorage or IndexedDB.
-  const icon = await fetch("/apple-touch-icon-ed148eba-v2.png", { cache: "reload" });
+  const icon = await fetch("/apple-touch-icon-180-20261028.png", { cache: "reload" });
   if (!icon.ok || !icon.headers.get("content-type")?.includes("image/png")) throw new Error("Ícone indisponível");
-  location.replace("/?pwa-refresh=ed148eba-v2");
+  location.replace("/?pwa-refresh=20261028-v3");
 }
 resetStoryForgeCache().catch(() => {
   const status = document.getElementById("status");

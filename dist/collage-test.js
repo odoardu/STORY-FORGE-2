@@ -150,8 +150,9 @@
   function busy(value,message) {
     loading=value; $('busy').hidden=!value; $('busy').textContent=message||'Preparando a colagem…';
     $('upload').disabled=value; $('examples').disabled=value;
-    $('shuffle').disabled=value||photos.length<2; $('export').disabled=value||!photos.length||!ready;
+    $('shuffle').disabled=value||photos.length<2; $('export').disabled=value;
     if(document.body.classList.contains('collage-active'))document.getElementById('exportButton').disabled=$('export').disabled;
+    if(!value&&typeof StudioSession!=='undefined')StudioSession.schedule('collage');
   }
   function sync() {
     $('thumbnails').replaceChildren(); $('count').textContent=photos.length+' / 12';
@@ -163,7 +164,7 @@
       remove.addEventListener('click',()=>{ if(loading)return; const [old]=photos.splice(index,1);if(old.objectUrl)URL.revokeObjectURL(old.src);sync();arrange();$('status').textContent=photos.length?'Composição atualizada.':'Adicione fotos para começar.'; });
       tile.append(image,remove); $('thumbnails').append(tile);
     });
-    busy(loading);
+    busy(loading); if(typeof StudioSession!=='undefined')StudioSession.schedule('collage');
   }
   function releaseUploads() { photos.filter(photo=>photo.objectUrl).forEach(photo=>URL.revokeObjectURL(photo.src)); }
   async function examples() {
@@ -181,7 +182,7 @@
     busy(true); let failed=0; const incoming=[];
     for (const [i,file] of files.slice(0,available).entries()) {
       $('busy').textContent=`Abrindo foto ${i+1} de ${Math.min(files.length,available)}…`;
-      const src=URL.createObjectURL(file);
+      const src=(typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
       try { const image=await loadImage(src);incoming.push({src,name:file.name,image,objectUrl:true}); }
       catch(error){URL.revokeObjectURL(src);failed++;}
     }
@@ -192,7 +193,9 @@
   $('shuffle').addEventListener('click',()=>{seed++;arrange();$('status').textContent='Nova composição pronta.';});
   $('shade').addEventListener('input',schedule);
   $('examples').addEventListener('click',examples);
-  $('export').addEventListener('click',()=>{
+  $('export').addEventListener('click',async()=>{
+    if(loading)return;
+    if(typeof ExportChecks!=='undefined' && !(await ExportChecks.confirm(ExportChecks.inspect({format:'collage',label:'Colagem',count:photos.length,broken:photos.some(photo=>!photo.image?.naturalWidth),examples:photos.some(photo=>!photo.src.startsWith('blob:')),assetsReady:ready}),{photos:()=>{if(photos.length)$('managePhotos').click();else $('photos').click();}})))return;
     draw();canvas.toBlob(blob=>{
       if(!blob){$('status').textContent='Não foi possível exportar. Tente novamente.';return;}
       const href=URL.createObjectURL(blob),link=document.createElement('a');link.href=href;link.download='colagem-story-forge.png';link.click();setTimeout(()=>URL.revokeObjectURL(href),60000);$('status').textContent='PNG exportado em 1080 × 1350.';
@@ -203,7 +206,14 @@
     try {
       [texture,textureSoft,logo,demoPhotos]=await Promise.all([loadImage('/assets/textures/ECLUS%C3%83O%2038.png'),loadImage('/assets/textures/LUZ%20INDIRETA%2049.png'),loadImage('/assets/logos/LOGO%201%20MONO.png'),fetch('/assets/collage-test/photos.json').then(r=>{if(!r.ok)throw Error();return r.json();})]);
       demoPhotos.forEach(photo=>{const li=document.createElement('li'),a=document.createElement('a');a.href=photo.source;a.target='_blank';a.rel='noopener';a.textContent=photo.author+' · '+photo.license;li.append(a);$('credits').append(li);});
-      ready=true;await examples();
+      ready=true;
+      let restored=false;
+      if(typeof StudioSession!=='undefined') await StudioSession.register('collage',{
+        busy:()=>loading,
+        capture:()=>({photos:photos.map(({src,name,image,framing})=>({src,name,image,framing})),seed,shade:$('shade').value}),
+        restore(saved){photos=saved.photos;seed=saved.seed;if(saved.shade!=null){$('shade').value=saved.shade;$('shadeValue').textContent=saved.shade+'%';}restored=true;sync();arrange();}
+      });
+      if(!restored)await examples();else busy(false);
     }catch(error){$('status').textContent='Não foi possível preparar os efeitos. Recarregue a página para tentar novamente.';busy(false);}
   }
   document.addEventListener('collage:activate',()=>void init(),{once:true});

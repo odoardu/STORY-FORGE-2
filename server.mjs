@@ -20,6 +20,7 @@ const mime = new Map([
   [".json", "application/json; charset=utf-8"],
   [".webmanifest", "application/manifest+json; charset=utf-8"],
   [".png", "image/png"],
+  [".ico", "image/vnd.microsoft.icon"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
   [".svg", "image/svg+xml; charset=utf-8"],

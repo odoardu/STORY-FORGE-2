@@ -154,7 +154,7 @@ const PolaroidStudio = (() => {
   async function uploadFile(file, page = pages[active]) {
     if (!file || !page) return;
     const token = ++page.token, done = beginMediaLoading("Abrindo foto…", { format: "polaroid", page });
-    const url = URL.createObjectURL(file);
+    const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
     try {
       const image = new Image(); image.src = url; await image.decode();
       if (token !== page.token || !pages.includes(page)) { done(true); return; }
@@ -164,6 +164,7 @@ const PolaroidStudio = (() => {
       if (token !== page.token || !pages.includes(page)) return;
       const before = { image: page.image, name: page.name };
       page.image = image; page.name = file.name; render(); done(true);
+      if (typeof StudioSession !== 'undefined') StudioSession.schedule('studio');
       EditorHistory.record(before, { image, name: file.name }, value => {
         page.image = value.image; page.name = value.name;
         if (pages.includes(page)) { active = pages.indexOf(page); applyFormat("polaroid", { keepPanel: true }); render(); }
@@ -184,6 +185,7 @@ const PolaroidStudio = (() => {
     finally { elements.exportButton.disabled = false; }
   }
   return {
+    editPage(page) { active = Math.max(0, pages.indexOf(page)); applyFormat('polaroid', { keepPanel: true }); render(); uploadPage = page; input.click(); },
     show(visible) { root.hidden = !visible; if (visible) render(); },
     getEffects() { return { blur: pages[active].blur ?? defaultBlur, shade: pages[active].shade ?? defaultShade }; },
     setEffect(id, value) {
@@ -205,6 +207,9 @@ const PolaroidStudio = (() => {
       const canvas = document.createElement("canvas"); draw(canvas, page, index);
       return canvasToBlob(canvas, "image/png");
     },
+    session: () => ({ pages: pages.map(({ image, name, blur, shade }) => ({ image, name, blur, shade })), active }),
+    restoreSession(saved) { pages.splice(0, pages.length, ...saved.pages.map(page => ({ ...page, token: 0 }))); active = Math.min(saved.active, pages.length - 1); render(); },
+    thumbnail(page) { const canvas = document.createElement('canvas'); draw(canvas, page, pages.indexOf(page)); return canvas; },
     refresh: render,
     exportActive
   };

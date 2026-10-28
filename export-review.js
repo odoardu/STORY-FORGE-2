@@ -55,17 +55,21 @@ const ExportReview = (() => {
       }, true);
     }
   }
-  function open() {
+  async function open() {
     if (!api || running) return;
     if (api.loading()) { api.status("Aguarde a mídia terminar de carregar antes de exportar."); return; }
     clearPrepared();
     api.flush();
     pending = plan(api.entries(), baseline, touched, api.format());
+    if (api.check && !(await api.check(pending))) return;
     list.replaceChildren();
     for (const entry of pending) {
       const row = document.createElement("li"), name = document.createElement("span"), type = document.createElement("small");
       name.textContent = entry.label; type.textContent = entry.video ? "MP4 · com áudio da origem" : "PNG";
       row.append(name, type); list.append(row);
+      const thumb = document.createElement('canvas'); thumb.className = 'export-review-thumb'; thumb.width = 96; thumb.height = entry.format === 'stories' ? 170 : 120; thumb.setAttribute('aria-label', `Prévia de ${entry.label}`); thumb.setAttribute('role', 'img');
+      row.prepend(thumb);
+      try { const artwork = api.thumbnail(entry); thumb.getContext('2d').drawImage(artwork, 0, 0, thumb.width, thumb.height); } catch { thumb.setAttribute('aria-label', `Prévia indisponível de ${entry.label}`); }
     }
     const vertical = ["stories", "story"].includes(api.format());
     dialog.querySelector(".export-review-note").textContent = !pending.length ? "Nenhuma arte alterada para exportar." : vertical ? "Stories/Reels é exportado separadamente." : "Artes alteradas e encerramento, em arquivos separados.";
@@ -83,7 +87,7 @@ const ExportReview = (() => {
       const link = document.createElement("a"), row = list.children[index];
       const url = URL.createObjectURL(file.blob); urls.push(url);
       link.href = url; link.download = file.name; link.textContent = pending[index].label;
-      link.setAttribute("aria-label", `Baixar ${file.name}`); row.firstElementChild.replaceWith(link);
+      link.setAttribute("aria-label", `Baixar ${file.name}`); row.querySelector("span").replaceWith(link);
     });
   }
   async function deliver() {
@@ -123,6 +127,8 @@ const ExportReview = (() => {
     }
   }
 
-  return { init, open, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
+  function session() { return api.entries().filter(entry => baseline.get(entry.key) !== entry.signature && (entry.board || touched.has(entry.format))).map(entry => `${entry.format}:${entry.index ?? 0}`); }
+  function restoreSession(dirty) { for (const entry of api.entries()) { const changed = dirty.includes(`${entry.format}:${entry.index ?? 0}`); baseline.set(entry.key, changed ? '__restored_edit__' : entry.signature); if (changed) touched.add(entry.format); } }
+  return { session, restoreSession, init, open, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
 })();
 if (typeof module !== "undefined") module.exports = ExportReview;

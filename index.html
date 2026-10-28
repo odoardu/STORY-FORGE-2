@@ -10,16 +10,22 @@
     <meta name="apple-mobile-web-app-title" content="Story Forge" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="/manifest.webmanifest?v=ed148eba-v2" />
-    <link rel="icon" type="image/svg+xml" href="/assets/pwa/icon-20261027.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-ed148eba-v2.png" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20261028-v3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/pwa/icon-32-20261028-v3.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/assets/pwa/icon-48-20261028-v3.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/assets/pwa/icon-96-20261028-v3.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="152x152" type="image/png" href="/apple-touch-icon-152-20261028.png" />
+    <link rel="apple-touch-icon" sizes="167x167" type="image/png" href="/apple-touch-icon-167-20261028.png" />
+    <link rel="apple-touch-icon" sizes="180x180" type="image/png" href="/apple-touch-icon-180-20261028.png" />
+    <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-180-20261028.png" />
     <link rel="stylesheet" href="./export-review.css?v=20261028-collage" />
     <link rel="stylesheet" href="./styles.css?v=20261028-collage" />
     <link rel="stylesheet" href="./studio-ui.css?v=20261028-collage" />
     <link rel="stylesheet" href="./studio-refinement.css?v=20261028-collage" />
   <link rel="stylesheet" href="/collage-workbench.css?v=20261028-collage">
 
-<link rel="stylesheet" href="/vinyl-timeline.css?v=20261028-vinyl"><link rel="stylesheet" href="/vinyl-workbench.css?v=20261028-vinyl"></head>
+<link rel="stylesheet" href="/vinyl-timeline.css?v=20261028-vinyl"><link rel="stylesheet" href="/vinyl-workbench.css?v=20261028-vinyl"><link rel="stylesheet" href="/mobile-text-preview.css"><link rel="stylesheet" href="/inline-text-editor.css"><link rel="stylesheet" href="/export-checks.css"><script src="/export-checks.js" defer></script></head>
   <body class="studio-workbench workbench-loading">
     <div class="ambient-scene" aria-hidden="true"></div>
     <div id="mediaLoading" class="media-loading" role="status" aria-live="polite" hidden>
@@ -177,7 +183,6 @@
                 </div>
                 <div class="color-picker-group" id="panelTitleHighlightGroup">
                   <button type="button" class="color-chip is-active" data-color="pink" style="--chip-color: #e981be;" aria-label="Rosa" data-tooltip="Rosa"></button>
-                  <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" aria-label="Preto" data-tooltip="Preto"></button>
                   <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" aria-label="Sem Fundo" data-tooltip="Sem Fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m6 18 12-12"/></svg></button>
                 </div>
                 <small class="field-hint">Selecione um trecho do título e clique com o botão direito para aplicar ou remover a tarja. Você pode destacar vários trechos.</small>
@@ -332,7 +337,6 @@ DA SUA PUBLICAÇÃO</textarea>
                   </div>
                   <div class="color-picker-group" id="popoverTitleHighlightGroup">
                     <button type="button" class="color-chip is-active" data-color="pink" style="--chip-color: #e981be;" aria-label="Rosa" data-tooltip="Rosa"></button>
-                    <button type="button" class="color-chip" data-color="black" style="--chip-color: #111111;" aria-label="Preto" data-tooltip="Preto"></button>
                     <button type="button" class="color-chip" data-color="none" style="--chip-color: transparent;" aria-label="Sem Fundo" data-tooltip="Sem Fundo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m6 18 12-12"/></svg></button>
                   </div>
                   <small class="field-hint">Selecione um trecho do título e clique com o botão direito para aplicar ou remover a tarja. Você pode destacar vários trechos.</small>
@@ -377,7 +381,7 @@ DA SUA PUBLICAÇÃO</textarea>
     <script src="./studio-motion.js?v=20261028-collage" defer></script>
     <script src="./media-loading-border.js?v=20261028-collage" defer></script>
     <script src="./workbench-preview-ui.js?v=20261028-collage" defer></script>
-    <script src="./editor-history.js?v=20261028-collage" defer></script>
+    <script src="./studio-session.js" defer></script><script src="./editor-history.js?v=20261028-collage" defer></script>
     <script src="./polaroid.js?v=20261028-collage" defer></script>
     <script src="./export-review.js?v=20261028-collage" defer></script>
     <script src="./app.js?v=20261028-collage" defer></script>
@@ -442,5 +446,5 @@ DA SUA PUBLICAÇÃO</textarea>
  <label for="shade">Sombra inferior <output id="shadeValue">86%</output></label><input id="shade" data-direct-range type="range" min="0" max="100" value="86">
 </section>
 <button id="export" type="button" hidden>Exportar colagem</button><p id="status" class="sr-only" role="status" aria-live="polite"></p>
-<script src="/collage-layout.js?v=20261028-collage" defer></script><script src="/collage-test.js?v=20261028-collage" defer></script><script src="/collage-shell.js?v=20261028-collage" defer></script><script src="/vinyl-shell.js?v=20261028-vinyl" defer></script></body>
+<script src="/collage-layout.js?v=20261028-collage" defer></script><script src="/collage-test.js?v=20261028-collage" defer></script><script src="/collage-shell.js?v=20261028-collage" defer></script><script src="/vinyl-shell.js?v=20261028-vinyl" defer></script><script src="/mobile-text-preview.js" defer></script><script src="/inline-text-editor.js" defer></script></body>
 </html>

@@ -45,6 +45,7 @@ const StudioUI = (() => {
     });
   }
   function closeOtherPanels(except) {
+    document.dispatchEvent(new CustomEvent("studio:close-panels", { detail: { except } }));
     if (except !== "media") api.closeMedia();
     if (except !== "text") api.closeText();
     if (except !== "circle") byId("circlePopover").hidden = true;
@@ -181,7 +182,7 @@ const StudioUI = (() => {
       target?.focus({ preventScroll: true });
     });
     document.addEventListener("pointerdown", event => {
-      if (event.target.closest("#fullHighlightWarning, #imageResolutionWarning, .studio-panel, .glass-dock, .art-tools, .header-export, .mobile-navigation, .mobile-actionbar, .preview-audio-control, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
+      if (event.target.closest("#fullHighlightWarning, #imageResolutionWarning, .inline-text-editor, .inline-text-tools, .vinyl-edit, .vinyl-effects, .vinyl-media, .collage-panel, #collageGear, #managePhotos, .collage-media, .studio-panel, .glass-dock, .art-tools, .header-export, .mobile-navigation, .mobile-actionbar, .preview-audio-control, .circle-inset, .feed-title-layer, .feed-subtitle, .feed-kicker, .informative-title, .informative-body")) return;
       closeOtherPanels();
     });
     panelObserver = new ResizeObserver(sync); panels().forEach(panel => panelObserver.observe(panel));

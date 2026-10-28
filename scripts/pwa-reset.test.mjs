@@ -12,7 +12,7 @@ test('cache reset removes only Story Forge caches and worker, preserving user st
     URL, window: { caches }, caches,
     navigator: { serviceWorker: { getRegistrations: async () => [registration('/service-worker.js'), registration('/other-worker.js')] } },
     fetch: async (path, options) => {
-      assert.equal(path, '/apple-touch-icon-ed148eba-v2.png');
+      assert.equal(path, '/apple-touch-icon-180-20261028.png');
       assert.equal(options.cache, 'reload');
       return { ok: true, headers: { get: () => 'image/png' } };
     },
@@ -23,7 +23,7 @@ test('cache reset removes only Story Forge caches and worker, preserving user st
   await vm.runInNewContext(source, context);
   assert.deepEqual(removed, ['story-forge-shell-old', 'story-forge-shell-v43']);
   assert.deepEqual(workers, ['/service-worker.js']);
-  assert.deepEqual(redirects, ['/?pwa-refresh=ed148eba-v2']);
+  assert.deepEqual(redirects, ['/?pwa-refresh=20261028-v3']);
 });
 
 test('failed icon request shows a retry instead of claiming success', async () => {

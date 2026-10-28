@@ -20,6 +20,7 @@ export function createTimeline({ host, audio, onTrim, onSeek, togglePlayback }) 
   audio.addEventListener('play', playback); audio.addEventListener('pause', playback);
   return {
     element: timeline,
+    setTrim(from, to) { start.value = String(from); end.value = String(to); paintSelection(); },
     setPosition(time) { seek.value = Math.max(0, Math.min(duration, time)); },
     setDisabled(value) { timeline.querySelectorAll('input,button').forEach(element => element.disabled = value); },
     async load(file, seconds, origin = 0) {
