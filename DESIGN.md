@@ -9,3 +9,5 @@ Mobile: 44px circular bottom navigation and header export, safe areas respected.
 Preview and export use the same canvas renderer. Stories has reduced texture above the midpoint. Export review includes changed art plus closing; Stories/Reels always exports alone. Deliver separate files, with native multi-file save/share where supported and individual download links for recovery.
 
 Motion is interruptible and restrained: desktop board continuity, opacity-only mobile scroll transitions, and reduced-motion handling. Keep the background independent of the clipped editor shell. No visible StoryForge wordmark in the page header; the supplied wordmark is the PWA icon.
+
+Collage: free overlapping diagonal, trapezoid and torn photo cutouts, with no circular photo masks. Preserve Feed textures and logo, with a dark lower gradient and no artwork blur. Selecting a photo permits bounded pan and zoom from 100–400% inside its fixed cutout; selection controls never enter the PNG. Undo/redo restores framing. Dock order ends in Collage, Closing. Show a beta warning only on mobile when entering Collage, once per page load. Load collage demo media on first entry.

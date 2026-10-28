@@ -6,7 +6,7 @@ const root = process.cwd();
 const output = resolve(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(join(output, 'catalog'), { recursive: true });
-for (const file of ['atualizar-pwa.html', 'pwa-reset.js', 'apple-touch-icon-ed148eba-v2.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'index.html', 'content-ideas.js', 'polaroid.js', 'editor-history.js', 'export-review.js', 'export-review.css', 'editor-core.js', 'app.js', 'styles.css', 'studio-ui.css', 'studio-refinement.css', 'workbench-preview-ui.js', 'studio-motion.js', 'artwork-effects.js', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
+for (const file of ['collage-test.html', 'collage-layout.js', 'collage-shell.js', 'collage-test.js', 'collage-workbench.css', 'atualizar-pwa.html', 'pwa-reset.js', 'apple-touch-icon-ed148eba-v2.png', 'apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'index.html', 'content-ideas.js', 'polaroid.js', 'editor-history.js', 'export-review.js', 'export-review.css', 'editor-core.js', 'app.js', 'styles.css', 'studio-ui.css', 'studio-refinement.css', 'workbench-preview-ui.js', 'studio-motion.js', 'artwork-effects.js', 'pwa.js', 'manifest.webmanifest', 'service-worker.js']) {
   await copyFile(join(root, file), join(output, file));
 }
 await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });
