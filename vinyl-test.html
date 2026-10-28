@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vinil — teste local</title><link rel="stylesheet" href="vinyl-test.css"><link rel="stylesheet" href="vinyl-timeline.css">
+</head>
+<body class="vinyl-test-page">
+  <header><a href="/" aria-label="Voltar ao editor">←</a><h1>Vinil <span>Teste local</span></h1><button id="export" disabled>Exportar MP4</button></header>
+  <main>
+    <aside>
+      <h2>Sua música, em rotação.</h2><p class="intro">Uma capa, uma faixa. Um vídeo para o Feed.</p>
+      <fieldset id="fields">
+        <label class="upload" for="media"><strong>Escolher MP3 ou MP4</strong><span id="media-name">O áudio do arquivo vai para o vídeo.</span></label><input id="media" type="file" accept="audio/mpeg,audio/mp3,video/mp4,.mp3,.mp4" hidden>
+        <label class="upload cover-upload" for="cover"><span id="cover-thumb"></span><span><strong>Adicionar capa</strong><small id="cover-name">JPG, PNG ou WebP</small></span></label><input id="cover" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        <label for="title">Nome da música</label><input id="title" value="Nome da música" placeholder="Nome da música" maxlength="120" autocomplete="off">
+        <label for="artist" style="margin-top:18px">Nome do artista</label><input id="artist" value="Nome do artista" placeholder="Nome do artista" maxlength="80" autocomplete="off">
+        <label for="title-style" style="margin-top:18px">Estilo do título</label><select id="title-style"><option value="player">Player atual</option><option value="brand">Fonte + tarja</option></select>
+        <div id="highlight-field" hidden><label for="highlight" style="margin-top:18px">Tarja no título inteiro</label><select id="highlight"><option value="on">Ativada</option><option value="off">Desativada</option></select></div>
+        <div class="range-fields"><div><label for="start">Começar em (seg.)</label><input id="start" type="number" value="0" min="0" step="0.1" disabled></div><div><label for="length">Duração</label><select id="length"><option value="15">15 segundos</option><option value="30" selected>30 segundos</option><option value="all">Até o final</option></select></div></div>
+      </fieldset>
+      <p id="range-info">Feed · 1080 × 1350 · 30 fps</p>
+      <div class="player"><button id="play" disabled>Ouvir prévia</button><span id="time">0:00</span></div>
+      <div id="export-progress" hidden><progress id="progress" max="1" value="0"></progress><div><span id="progress-label">Preparando…</span><button id="cancel">Cancelar</button></div></div>
+      <p id="status" role="status" aria-live="polite">Escolha o áudio e a capa para começar.</p>
+    </aside>
+    <section class="stage" aria-label="Prévia do vídeo em formato 4 por 5"><div class="preview"><canvas id="preview" width="1080" height="1350" aria-label="Vinil com capa girando e título da música"></canvas></div><span class="caption">Prévia · Feed 4:5</span></section>
+  </main>
+  <audio id="audio" preload="metadata"></audio>
+  <script src="editor-core.js"></script><script src="artwork-effects.js"></script>
+  <script type="module" src="vinyl-test.js"></script>
+</body></html>

@@ -1,6 +1,13 @@
-const CACHE_NAME = "story-forge-shell-v46-collage";
+const CACHE_NAME = "story-forge-shell-v47-vinyl";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
+  "/vinyl-shell.js?v=20261028-vinyl",
+  "/vinyl-workbench.css?v=20261028-vinyl",
+  "/vinyl-timeline.css?v=20261028-vinyl",
+  "/vinyl-test.html",
+  "/vinyl-test.js",
+  "/vinyl-timeline.js",
+  "/vinyl-video-export.js",
   "/",
   "/index.html",
   "/collage-layout.js?v=20261028-collage",

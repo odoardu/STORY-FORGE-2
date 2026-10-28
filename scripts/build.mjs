@@ -1,5 +1,6 @@
 import './build-mask.mjs';
 import './build-video.mjs';
+import './build-vinyl.mjs';
 import { mkdir, readdir, stat, copyFile, cp, rm, writeFile } from 'node:fs/promises';
 import { resolve, join, extname } from 'node:path';
 const root = process.cwd();
@@ -10,6 +11,9 @@ for (const file of ['collage-test.html', 'collage-layout.js', 'collage-shell.js'
   await copyFile(join(root, file), join(output, file));
 }
 await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true });
+for (const file of ['vinyl-test.html', 'vinyl-test.css', 'vinyl-test.js', 'vinyl-shell.js', 'vinyl-workbench.css', 'vinyl-timeline.js', 'vinyl-timeline.css', 'vinyl-video-export.js', 'vinyl-video-export.js.LEGAL.txt']) {
+  await copyFile(join(root, file), join(output, file));
+}
 await copyFile(join(root, 'media-loading-border.js'), join(output, 'media-loading-border.js'));
 async function catalog(directories, extensions) {
   const files = [];
