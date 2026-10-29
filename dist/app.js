@@ -1052,7 +1052,7 @@ function bindEvents() {
     if (selection === "logo") return;
     if (selection === "kicker" && state.kickerMode === "image") {
       closeTextEditPopover();
-      selectKickerLogo(1 - state.kickerLogoIndex);
+      InlineTextEditor.open("kicker");
       return;
     }
     if (["title", "subtitle", "kicker", "infoTitle", "infoBody"].includes(selection)) {
@@ -1619,6 +1619,7 @@ function bindVideoControls() {
     syncVideoControls();
     refreshVideoArtwork();
   });
+  EditorCore.bindTimelineSeek(document.getElementById("videoSeek"), ["videoTrimStart", "videoTrimEnd"].map(id => document.getElementById(id)));
   document.getElementById("videoSeek").addEventListener("input", event => {
     const timeline = getTimelineState(), video = getTimelineVideo(); if (!video) return;
     video.pause();
@@ -1819,6 +1820,17 @@ function updateText() {
   trimTitleStrips(layouts.length);
 }
 
+function selectKickerAppearance(choice, record = true) {
+  const before = `${state.kickerMode}:${state.kickerLogoIndex}`;
+  const [mode, value] = choice.split(':');
+  state.kickerMode = mode;
+  selectKickerLogo(Number(value), false);
+  document.getElementById('kickerModeInput').value = mode;
+  if (record && before !== choice) EditorHistory.record(before, choice, saved => selectKickerAppearance(saved, false), 'Trocar chapéu ou logo');
+  document.dispatchEvent(new Event('inline:refresh'));
+  elements.feedKickerInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function selectKickerLogo(index, record = true) {
   if (!state.kickerImages?.[index]) return;
   const before = state.kickerLogoIndex;
@@ -1847,8 +1859,8 @@ function updateFeedText() {
   elements.feedKickerPreview.classList.toggle("is-image", Boolean(imageKicker));
   document.getElementById("kickerTextField").hidden = Boolean(imageKicker);
   document.getElementById("kickerLogoField").hidden = !imageKicker;
-  elements.feedKickerPreview.title = imageKicker ? "Clique para alternar as logos. Botão direito ou Enter para opções do chapéu." : "Editar chapéu";
-  elements.feedKickerPreview.setAttribute("aria-label", imageKicker ? `Logo Mundo Soldier ${state.kickerLogoIndex + 1}: clique para alternar; Enter para opções` : "Editar chapéu");
+  elements.feedKickerPreview.title = imageKicker ? "Escolher logo ou chapéu" : "Editar chapéu";
+  elements.feedKickerPreview.setAttribute("aria-label", imageKicker ? `Logo Mundo Soldier ${state.kickerLogoIndex + 1}: escolher logo ou chapéu` : "Editar chapéu");
   if (imageKicker) {
     const image = document.createElement("img");
     image.src = state.kickerImage.src;
@@ -5192,6 +5204,7 @@ async function initStudioSession() {
       if (state.logoUrl) elements.logoPreview.src = state.logoUrl;
       if (state.videoUrl) {
         await new Promise((resolve, reject) => { elements.video.addEventListener('loadeddata', resolve, { once: true }); elements.video.addEventListener('error', reject, { once: true }); elements.video.src = state.videoUrl; });
+        state.videoDuration = elements.video.duration;
         state.videoTrimStart = saved.state.videoTrimStart; state.videoTrimEnd = saved.state.videoTrimEnd; elements.video.pause();
       }
       const format = saved.state.format; selectInformativePage(state.activeInformativePage); PolaroidStudio.restoreSession(saved.polaroid); applyFormat(format, { keepPanel: true });

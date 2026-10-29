@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v48-pwa-icons";
+const CACHE_NAME = "story-forge-shell-v49-logo-timeline";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/favicon.ico",

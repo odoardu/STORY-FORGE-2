@@ -14,6 +14,7 @@ export function createTimeline({ host, audio, onTrim, onSeek, togglePlayback }) 
     paintSelection(); onTrim(Number(start.value), Number(end.value));
   }
   start.addEventListener('input', () => trim(start)); end.addEventListener('input', () => trim(end));
+  EditorCore.bindTimelineSeek(seek, [start, end]);
   seek.addEventListener('input', () => onSeek(Number(seek.value)));
   find('button').addEventListener('click', togglePlayback);
   function playback() { find('button path').setAttribute('d', audio.paused ? 'm8 5 11 7-11 7Z' : 'M8 5v14M16 5v14'); }

@@ -97,5 +97,33 @@ const EditorCore = (() => {
     return { scale, low: !Number.isFinite(scale) || scale > 1.25 };
   }
 
-  return Object.freeze({ imageResolution, isFullyHighlighted, videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
+  // Empty-track clicks move the nearest trim handle. Keep that handle for
+  // the entire gesture so dragging across the midpoint cannot switch ends.
+  function bindTimelineSeek(input, handles = []) {
+    let pointer = null, target = input;
+    const seek = event => {
+      const rect = input.getBoundingClientRect(), min = Number(input.min) || 0, max = Number(input.max);
+      if (!rect.width || !Number.isFinite(max) || max <= min) return;
+      target.value = String(min + Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * (max - min));
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    input.style.touchAction = 'none';
+    input.addEventListener('pointerdown', event => {
+      if (input.disabled || event.button !== 0 || event.isPrimary === false) return;
+      event.preventDefault(); pointer = event.pointerId;
+      const rect = input.getBoundingClientRect();
+      const time = Number(input.min || 0) + Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * (Number(input.max) - Number(input.min || 0));
+      target = handles.filter(handle => !handle.disabled).reduce((nearest, handle) => !nearest || Math.abs(Number(handle.value) - time) < Math.abs(Number(nearest.value) - time) ? handle : nearest, null) || input;
+      input.setPointerCapture(pointer); target.focus({ preventScroll: true }); seek(event);
+    });
+    input.addEventListener('pointermove', event => { if (pointer === event.pointerId) seek(event); });
+    input.addEventListener('pointerup', event => {
+      if (pointer !== event.pointerId) return;
+      seek(event); pointer = null; input.releasePointerCapture(event.pointerId);
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    for (const type of ['pointercancel', 'lostpointercapture']) input.addEventListener(type, () => { pointer = null; });
+  }
+
+  return Object.freeze({ bindTimelineSeek, imageResolution, isFullyHighlighted, videoTrim, mergeRanges, toggleRange, remapRanges, titleLines, imageGeometry });
 })();

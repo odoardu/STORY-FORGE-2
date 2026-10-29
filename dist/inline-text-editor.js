@@ -6,7 +6,7 @@ const InlineTextEditor = (() => {
   let selection, source, editor, tools, message, lastText = '', composing = false;
   const isVinyl = () => selection?.startsWith('vinyl');
   const isEditing = key => Boolean(editor && selection === key);
-  function omit(context, key) { return !['title', 'infoTitle', 'infoBody', 'vinylTitle', 'vinylArtist'].includes(key) && isEditing(key) && ['videoArtworkPreview', 'storiesPreview', 'informativePreview'].includes(context.canvas.id); }
+  function omit(context, key) { if (key === 'kicker' && state.kickerMode === 'image') return false; return !['title', 'infoTitle', 'infoBody', 'vinylTitle', 'vinylArtist'].includes(key) && isEditing(key) && ['videoArtworkPreview', 'storiesPreview', 'informativePreview'].includes(context.canvas.id); }
   function offsets() {
     const selected = window.getSelection();
     if (!editor || !selected?.rangeCount || !editor.contains(selected.getRangeAt(0).commonAncestorContainer)) return { start: 0, end: 0 };
@@ -102,7 +102,7 @@ const InlineTextEditor = (() => {
     if (!editor) return;
     const field = source;
     editor.blur(); editor.remove(); tools.remove(); message.remove(); editor = tools = message = source = null; selection = null;
-    document.body.classList.remove('inline-text-editing'); delete document.body.dataset.inlineField;
+    document.body.classList.remove('inline-text-editing', 'inline-kicker-image'); delete document.body.dataset.inlineField;
     field.dispatchEvent(new Event('input', { bubbles: true }));
   }
   function readSource() { return source.isContentEditable ? getSubtitlePlainText() : source.value; }
@@ -140,6 +140,13 @@ const InlineTextEditor = (() => {
   }
   function updateTools() {
     if (!editor) return;
+    if (selection === 'kicker') {
+      const image = state.kickerMode === 'image';
+      document.body.classList.toggle('inline-kicker-image', image);
+      editor.hidden = image; editor.contentEditable = String(!image);
+      if (image && document.activeElement === editor) editor.blur();
+      tools.querySelector('[data-kicker-cycle]')?.setAttribute('aria-description', image ? `Atual: Mundo Soldier ${state.kickerLogoIndex + 1}` : 'Atual: chapéu em texto');
+    }
     const { start, end } = range();
     for (const button of tools.querySelectorAll('[data-kind]')) {
       const active = button.dataset.kind === 'highlight'
@@ -150,14 +157,23 @@ const InlineTextEditor = (() => {
   }
   function open(key) {
     const field = document.getElementById(fields[key]); if (!field) return;
-    if (editor && selection === key) { editor.focus({ preventScroll: true }); return; }
+    if (editor && selection === key) { if (!editor.hidden) editor.focus({ preventScroll: true }); return; }
     close(); if (typeof StudioUI !== 'undefined') StudioUI.closeOtherPanels();
     selection = key; source = field; lastText = readSource();
     editor = document.createElement('div'); editor.id = 'inlineTextEditor'; editor.className = 'inline-text-editor'; editor.contentEditable = 'true'; editor.setAttribute('role', 'textbox'); editor.setAttribute('aria-multiline', 'true'); editor.spellcheck = false; editor.setAttribute('aria-label', `${names[key]} diretamente na prévia`); editor.setAttribute('autocorrect', 'off');
     Object.defineProperties(editor, { value: { get() { return this.textContent; }, set(value) { this.textContent = value; } }, selectionStart: { get() { return offsets().start; } }, selectionEnd: { get() { return offsets().end; } } }); editor.setSelectionRange = selectRange; editor.value = lastText;
     if (field.maxLength > 0) editor.maxLength = field.maxLength;
     tools = document.createElement('div'); tools.className = 'inline-text-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', 'Formatação do texto na prévia');
-    const button = (label, path, action) => { const element = document.createElement('button'); element.type = 'button'; element.setAttribute('aria-label', label); element.innerHTML = `<svg viewBox="0 0 24 24">${path}</svg>`; element.addEventListener('pointerdown', event => { event.preventDefault(); event.stopPropagation(); }); element.addEventListener('click', event => { event.stopPropagation(); action(); }); if (label.includes('Tarja') || label.includes('tarja')) element.dataset.kind = 'highlight'; else if (label.includes('Negrito')) element.dataset.kind = 'bold'; tools.append(element); };
+    const button = (label, path, action) => { const element = document.createElement('button'); element.type = 'button'; element.setAttribute('aria-label', label); element.innerHTML = `<svg viewBox="0 0 24 24">${path}</svg>`; element.addEventListener('pointerdown', event => { event.preventDefault(); event.stopPropagation(); }); element.addEventListener('click', event => { event.stopPropagation(); action(); }); if (label.includes('Tarja') || label.includes('tarja')) element.dataset.kind = 'highlight'; else if (label.includes('Negrito')) element.dataset.kind = 'bold'; tools.append(element); return element; };
+    if (key === 'kicker') {
+      const cycle = button('Alternar chapéu ou logo', '<path d="M20 7h-5m5 0V2M4 17h5m-5 0v5M5.5 7A7 7 0 0 1 17 4l3 3M4 17l3 3a7 7 0 0 0 11.5-3"/>', () => {
+        const next = state.kickerMode !== 'image' ? 'image:0' : state.kickerLogoIndex === 0 ? 'image:1' : 'text:1';
+        selectKickerAppearance(next);
+        updateTools(); position();
+        if (state.kickerMode === 'text') editor.focus({ preventScroll: true });
+      });
+      cycle.dataset.kickerCycle = '';
+    }
     if (['infoBody', 'subtitle'].includes(key)) button('Negrito na seleção', '<path d="M7 4v16M7 4h6a4 4 0 0 1 0 8H7m6 0a4 4 0 0 1 0 8H7"/>', () => format('bold'));
     if (['title', 'vinylTitle'].includes(key)) button(key === 'vinylTitle' ? 'Ativar ou desativar tarja rosa' : 'Tarja rosa na seleção', '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M7 8h10M12 8v8"/>', () => format('highlight'));
     button('Concluir edição na prévia', '<path d="m5 12 4 4L19 6"/>', close);
@@ -170,7 +186,7 @@ const InlineTextEditor = (() => {
     editor.addEventListener('paste', event => { event.preventDefault(); insert(event.clipboardData.getData('text/plain')); });
     editor.addEventListener('compositionstart', () => { composing = true; }); editor.addEventListener('compositionend', () => { composing = false; write(); });
     editor.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); close(); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') { event.preventDefault(); format('bold'); } });
-    decorate(0, 0); updateTools(); position(); editor.focus({ preventScroll: true }); source.dispatchEvent(new Event('input', { bubbles: true })); requestAnimationFrame(position);
+    decorate(0, 0); updateTools(); position(); if (!editor.hidden) editor.focus({ preventScroll: true }); source.dispatchEvent(new Event('input', { bubbles: true })); requestAnimationFrame(position);
   }
   document.addEventListener('pointerdown', event => {
     if (!editor || event.target.closest('.inline-text-editor,.inline-text-tools')) return;
@@ -179,7 +195,7 @@ const InlineTextEditor = (() => {
   document.addEventListener('click', event => {
     if (event.target.closest('.inline-text-editor,.inline-text-tools')) return;
     const key = Object.entries(targets).find(([, id]) => event.target.closest(`#${id}`))?.[0];
-    if (key && !(key === 'kicker' && state.kickerMode === 'image')) { event.preventDefault(); event.stopImmediatePropagation(); open(key); return; }
+    if (key) { event.preventDefault(); event.stopImmediatePropagation(); open(key); return; }
     if (event.target.id === 'vinyl-preview') {
       const rect = event.target.getBoundingClientRect(), y = (event.clientY - rect.top) * 1350 / rect.height;
       const layout = document.getElementById('vinylWorkspace').vinylTextLayout;
