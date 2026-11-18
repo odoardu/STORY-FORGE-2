@@ -3568,7 +3568,7 @@ async function exportFeedPng() {
   setStatus("Preparando PNG do feed");
 
   try {
-    await ensureCircleForeground();
+    if (state.format !== "reels" && state.circle.image && state.circle.behind) await ensureCircleForeground();
     updateFeedText();
     updateInformativeText();
     if (state.format === "stories") {
@@ -5279,17 +5279,18 @@ function analyzeForeground(blob, timeoutMs = 7000) {
 
 async function ensureCircleForeground() {
   const c = state.circle, source = state.feedImage;
-  if (!source || (state.format !== "reels" && (!c.image || !c.behind || state.mediaKind !== "image" || !["feed", "stories"].includes(state.format)))) return;
+  // Only run automatic cutout when the user specifically enabled the behind/camadas layer in feed or stories
+  if (!source || !c.image || !c.behind || state.mediaKind !== "image" || !["feed", "stories"].includes(state.format)) return;
   if (c.maskSource === source && c.mask) return;
   if (c.maskBusy) {
     await c.maskTask;
     if (c.maskSource === state.feedImage && c.mask) return;
-    return ensureCircleForeground();
+    return;
   }
   const token = ++c.maskToken;
   c.maskBusy = true;
   const finish = beginMediaLoading("Recortando objeto principal…");
-  document.getElementById("circleBehind").setAttribute("aria-busy", "true");
+  document.getElementById("circleBehind")?.setAttribute("aria-busy", "true");
   const input = document.createElement("canvas"), scale = Math.min(1, 1280 / Math.max(source.naturalWidth, source.naturalHeight));
   input.width = Math.round(source.naturalWidth * scale); input.height = Math.round(source.naturalHeight * scale);
   input.getContext("2d").drawImage(source, 0, 0, input.width, input.height);
@@ -5308,8 +5309,7 @@ async function ensureCircleForeground() {
       finish(false, "Não foi possível recortar. Toque no ícone de camadas para tentar novamente.");
     } finally {
       c.maskBusy = false; c.maskTask = null;
-      document.getElementById("circleBehind").setAttribute("aria-busy", "false");
-      if ((state.format === "reels" || (c.image && c.behind)) && source !== state.feedImage) ensureCircleForeground();
+      document.getElementById("circleBehind")?.setAttribute("aria-busy", "false");
     }
   })();
   return c.maskTask;
@@ -5626,6 +5626,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
 
 
 
