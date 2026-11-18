@@ -67,8 +67,10 @@ const StudioUI = (() => {
     const names = { polaroid: "Polaroid", feed: "Feed", stories: "Stories", informative: "Informativo", closing: "Encerramento" };
     const circleUpload = document.querySelector('#mediaPopover .circle-upload-action');
     if (circleUpload) {
-      circleUpload.hidden = false;
-      circleUpload.style.removeProperty('display');
+      const hideCircle = s.format === 'reels';
+      if (circleUpload.hidden !== hideCircle) circleUpload.hidden = hideCircle;
+      if (hideCircle) circleUpload.style.setProperty('display', 'none', 'important');
+      else circleUpload.style.removeProperty('display');
     }
     byId("mobileFormatName").textContent = names[s.format] || "Feed";
     byId("effectBlur").value = s.format === "closing" ? s.closingBlur : s.format === "informative" ? s.infoBackgroundBlur : s.maskBlur;
@@ -211,4 +213,5 @@ const StudioUI = (() => {
   }
   return { init, sync, closeOtherPanels };
 })();
+
 
