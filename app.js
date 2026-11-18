@@ -215,7 +215,7 @@ function installReelsFormatOption() {
   const unit = document.createElement("div");
   unit.className = "dock-format-unit";
   unit.dataset.formatUnit = "reels";
-  unit.innerHTML = '<button type="button" class="format-option glass-tool" data-format="reels" aria-label="Reels" aria-pressed="false" data-tooltip="Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="m10 9 5 3-5 3zM8 5h8M8 19h8"/></svg></button><span class="dock-media-slot"><button type="button" class="glass-tool" id="reelsMedia" aria-label="Trocar vídeo ou imagem do Reels" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídias do Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button></span>';
+  unit.innerHTML = '<button type="button" class="format-option glass-tool" data-format="reels" aria-label="Reels" aria-pressed="false" data-tooltip="Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="m10 9 5 3-5 3zM8 5h8M8 19h8"/></svg></button><span class="dock-media-slot"><button type="button" class="glass-tool" id="reelsMedia" aria-label="Trocar vídeo ou imagem do Reels" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídias do Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><label class="glass-tool circle-upload-subdock" for="circleImageInput" aria-label="Recortar / Foto circular" data-tooltip="Recortar / Foto circular" role="button" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></label></span>';
   stories.after(unit);
 }
 
@@ -5110,6 +5110,7 @@ function drawReelsFrame(ctx) {
   ctx.translate(0, REELS.image.y - 20 - center);
   drawFeedCopy(ctx, true);
   ctx.restore();
+  drawCircleInset(ctx);
   if (state.logoImage) {
     const width = STORY.logo.width;
     const height = width * state.logoImage.naturalHeight / state.logoImage.naturalWidth;
@@ -5318,7 +5319,7 @@ async function ensureCircleForeground() {
 function syncCircleInset() {
   const node = document.getElementById("circleInset"), c = state.circle;
   elements.shell.classList.toggle("has-circle-image", Boolean(c.image));
-  node.hidden = !c.image || !["feed", "stories"].includes(state.format);
+  node.hidden = !c.image || !["feed", "stories", "reels"].includes(state.format);
   if (node.hidden) return;
   const bounds = circleBounds(), canvas = document.getElementById("circleInsetPreview");
   Object.assign(node.style, { left: `${bounds.x}px`, top: `${bounds.y}px`, width: `${c.size}px`, height: `${c.size}px` });
@@ -5626,6 +5627,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
 
 
 
