@@ -1055,6 +1055,7 @@ function bindEvents() {
   document.getElementById("dockImage").addEventListener("click", toggleMediaPopover);
   document.getElementById("reelsMedia")?.addEventListener("click", toggleMediaPopover);
   document.getElementById("reelsCutout")?.addEventListener("click", toggleReelsSubjectCutout);
+  document.getElementById("reelsCutoutBtn")?.addEventListener("click", toggleReelsSubjectCutout);
   document.querySelector(".informative-upload-action").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); elements.informativeImageInput.click(); }
   });
@@ -3055,8 +3056,10 @@ async function toggleReelsSubjectCutout() {
   const button = document.getElementById("reelsCutout");
   if (c.mask && c.maskSource === source) {
     state.reelSubjectOverflow = !state.reelSubjectOverflow;
-    button?.setAttribute("aria-pressed", String(state.reelSubjectOverflow));
-    button?.classList.toggle("is-active", state.reelSubjectOverflow);
+    document.querySelectorAll("#reelsCutout, #reelsCutoutBtn").forEach(btn => {
+      btn.setAttribute("aria-pressed", String(state.reelSubjectOverflow));
+      btn.classList.toggle("is-active", state.reelSubjectOverflow);
+    });
     updateReelsPreview();
     setStatus(state.reelSubjectOverflow ? "Recorte de assunto ativado" : "Recorte desativado");
     return;
@@ -3085,8 +3088,10 @@ async function toggleReelsSubjectCutout() {
     c.mask = mask;
     c.maskSource = source;
     state.reelSubjectOverflow = true;
-    button?.setAttribute("aria-pressed", "true");
-    button?.classList.add("is-active");
+    document.querySelectorAll("#reelsCutout, #reelsCutoutBtn").forEach(btn => {
+      btn.setAttribute("aria-pressed", "true");
+      btn.classList.add("is-active");
+    });
     updateReelsPreview();
     finish(true, "Assunto recortado com sucesso!");
     setStatus("Assunto recortado com sucesso!");
@@ -3110,12 +3115,14 @@ function syncReelsControls() {
   }
   if (framing) framing.hidden = true;
   if (controls) controls.hidden = true;
-  const cutoutButton = document.getElementById("reelsCutout");
-  if (cutoutButton) {
-    const isSeparated = Boolean(state.circle.mask && state.circle.maskSource === state.feedImage && state.reelSubjectOverflow);
-    cutoutButton.setAttribute("aria-pressed", String(isSeparated));
-    cutoutButton.classList.toggle("is-active", isSeparated);
-  }
+  const cutoutButtons = [document.getElementById("reelsCutout"), document.getElementById("reelsCutoutBtn")];
+  cutoutButtons.forEach(cutoutButton => {
+    if (cutoutButton) {
+      const isSeparated = Boolean(state.circle.mask && state.circle.maskSource === state.feedImage && state.reelSubjectOverflow);
+      cutoutButton.setAttribute("aria-pressed", String(isSeparated));
+      cutoutButton.classList.toggle("is-active", isSeparated);
+    }
+  });
   if (!active) return;
   const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
   document.querySelectorAll("[data-reel-target]").forEach(button => {
@@ -5687,6 +5694,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
 
 
 
