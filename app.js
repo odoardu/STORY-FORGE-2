@@ -4485,6 +4485,7 @@ function bindDirectImageControls() {
   };
   const sync = () => updateMediaTransform();
   stage.addEventListener("pointerdown", (event) => {
+    if (state.format === "reels") return;
     if (!touchPoints.size) { moved = false; state.previewClickTarget = null; }
     const activeImage = state.format === "informative" ? getInformativeMedia() : getArtworkMedia();
     if (event.button !== 0 || !activeImage || !isImageTarget(event.target)) return;
@@ -4523,6 +4524,7 @@ function bindDirectImageControls() {
     stage.classList.add("is-dragging");
   });
   stage.addEventListener("pointermove", (event) => {
+    if (state.format === "reels") return;
     if (touchPoints.has(event.pointerId)) touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pinch && touchPoints.size === 2) {
       const [first, second] = [...touchPoints.values()];
@@ -4585,6 +4587,7 @@ function bindDirectImageControls() {
     if (moved) { event.stopImmediatePropagation(); moved = false; state.previewClickTarget = null; }
   }, true);
   stage.addEventListener("wheel", (event) => {
+    if (state.format === "reels") return;
     const activeImage = state.format === "informative" ? getInformativeMedia() : getArtworkMedia();
     if (!activeImage || !isImageTarget(event.target)) return;
     event.preventDefault();
@@ -5083,6 +5086,8 @@ function drawReelsFrame(ctx) {
 function bindReelsDirectManipulation() {
   const canvas = elements.stage;
   let drag = null;
+  let pinch = null, moved = false;
+  const points = new Map();
   const targetAt = event => {
     const rect = canvas.getBoundingClientRect();
     return (event.clientY - rect.top) / rect.height * 1920 < REELS.image.y ? "video" : "image";
@@ -5090,21 +5095,41 @@ function bindReelsDirectManipulation() {
   canvas.addEventListener("pointerdown", event => {
     if (state.format !== "reels" || event.button !== 0) return;
     event.preventDefault(); event.stopPropagation();
-    state.reelTarget = targetAt(event);
+    if (!points.size) { state.reelTarget = targetAt(event); moved = false; }
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
     drag = { x: event.clientX, y: event.clientY, ...transform };
+    if (points.size === 2) {
+      const [a, b] = [...points.values()];
+      pinch = { distance: Math.max(1, Math.hypot(a.x-b.x, a.y-b.y)), zoom: transform.zoom };
+      moved = true;
+    }
     canvas.setPointerCapture(event.pointerId); syncReelsControls();
   });
   canvas.addEventListener("pointermove", event => {
     if (!drag) return;
+    event.preventDefault(); event.stopPropagation();
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const rect = canvas.getBoundingClientRect();
     const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
     const box = REELS[state.reelTarget];
+    if (points.size === 2 && pinch) {
+      const [a, b] = [...points.values()];
+      transform.zoom = pinch.zoom * Math.hypot(a.x-b.x, a.y-b.y) / pinch.distance;
+      updateMediaTransform(); return;
+    }
+    if (Math.hypot(event.clientX-drag.x, event.clientY-drag.y) > 5) moved = true;
     transform.panX = drag.panX + (event.clientX - drag.x) / rect.width * 1080 / box.width * 100;
     transform.panY = drag.panY + (event.clientY - drag.y) / rect.height * 1920 / box.height * 100;
     updateMediaTransform();
   });
-  for (const name of ["pointerup", "pointercancel"]) canvas.addEventListener(name, () => { drag = null; });
+  for (const name of ["pointerup", "pointercancel"]) canvas.addEventListener(name, event => {
+    points.delete(event.pointerId); pinch = null; drag = null;
+    if (points.size === 1) {
+      const point = [...points.values()][0];
+      drag = { ...point, ...(state.reelTarget === "video" ? state.reelVideo : state.reelImage) };
+    }
+  });
   canvas.addEventListener("wheel", event => {
     if (state.format !== "reels") return;
     event.preventDefault(); event.stopPropagation();
@@ -5115,6 +5140,7 @@ function bindReelsDirectManipulation() {
   }, { passive: false });
   canvas.addEventListener("click", event => {
     if (state.format !== "reels") return;
+    if (moved) { moved = false; return; }
     const rect = canvas.getBoundingClientRect();
     const y = (event.clientY - rect.top) / rect.height * REELS.height;
     if (Math.abs(y - (REELS.image.y - 20)) < 120) InlineTextEditor.open("title");
@@ -5463,6 +5489,10 @@ async function initStudioSession() {
     },
     async restore(saved) {
       Object.assign(state, saved.state); Object.assign(state.circle, saved.circle);
+      if (saved.state.format === "reels" && state.feedImage) {
+        const geometry = EditorCore.imageGeometry(state.feedImage.naturalWidth, state.feedImage.naturalHeight, REELS.image.width, REELS.image.height);
+        state.reelImage = { zoom: geometry.minZoom, panX: 0, panY: 0 };
+      }
       state.informativePages = saved.pages.map(page => Object.assign(createInformativePage(), page)); state.activeInformativePage = Math.min(saved.activePage, state.informativePages.length - 1);
       elements.titleInput.value = saved.title; state.previousTitleText = saved.title; elements.feedKickerInput.value = saved.kicker; elements.feedSubtitleInput.textContent = saved.subtitle;
       state.kickerImage = state.kickerImages[state.kickerLogoIndex || 0];

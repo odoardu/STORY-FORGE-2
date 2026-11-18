@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v54-reels-release";
+const CACHE_NAME = "story-forge-shell-v55-reels-mobile-gestures";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/favicon.ico",
@@ -37,7 +37,7 @@ const APP_SHELL = [
   "/export-review.css?v=20261028-collage",
   "/editor-history.js?v=20261028-collage",
   "/polaroid.js?v=20261028-collage",
-  "/app.js?v=20261118-reels-v25",
+  "/app.js?v=20261118-reels-v26",
   "/assets/vendor/video-export.js?v=20261028-collage",
   "/pwa.js?v=20261028-collage",
   "/manifest.webmanifest?v=20261028-v3",
