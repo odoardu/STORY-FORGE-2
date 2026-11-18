@@ -3,6 +3,13 @@ const ExportReview = (() => {
   // Identity follows the page object, so deleting/reordering boards cannot move edits.
   function plan(entries, baseline, touched, format) {
     const vertical = ["stories", "story"].includes(format);
+    const reels = format === "reels";
+    if (vertical || reels) {
+      // Stories and Reels are always available to export, regardless of changes.
+      const targetFormat = reels ? "stories" : format;
+      const entry = entries.find(e => e.format === targetFormat);
+      return entry && entry.ready !== false ? [entry] : [];
+    }
     const changed = entries.filter(entry => entry.format !== "closing" &&
       (["stories", "story"].includes(entry.format) === vertical) &&
       (!vertical || entry.format === format) && entry.ready !== false &&
@@ -73,7 +80,7 @@ const ExportReview = (() => {
     }
     const vertical = ["stories", "story"].includes(api.format());
     dialog.querySelector(".export-review-note").textContent = !pending.length ? "Nenhuma arte alterada para exportar." : vertical ? "Stories/Reels é exportado separadamente." : "Artes alteradas e encerramento, em arquivos separados.";
-    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length;
+    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length && !vertical && api.format() !== "reels";
     confirm.textContent = vertical ? "Exportar vídeo / imagem" : `Exportar ${pending.length} artes`;
     if (vertical && pending.length) confirm.textContent = pending[0].video ? "Exportar MP4" : "Exportar PNG";
     dialog.showModal();
@@ -132,3 +139,4 @@ const ExportReview = (() => {
   return { session, restoreSession, init, open, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
 })();
 if (typeof module !== "undefined") module.exports = ExportReview;
+
