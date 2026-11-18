@@ -2654,3 +2654,37 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
 #reelsCutout.is-active, #reelsCutout[aria-pressed="true"] { background: rgba(233, 129, 190, 0.22) !important; color: #f2b5d8 !important; border-color: rgba(233, 129, 190, 0.6) !important; }
 #reelsCutout[aria-busy="true"] { opacity: 0.6; pointer-events: none; animation: pulseCutout 1.2s infinite ease-in-out; }
 @keyframes pulseCutout { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* Reels subdock layout with both media and cutout buttons */
+.dock-format-unit[data-format-unit="reels"].has-media-attachment .dock-media-slot {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  width: auto !important;
+  min-width: 96px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  overflow: visible !important;
+}
+.dock-format-unit[data-format-unit="reels"] .dock-media-slot button {
+  flex: 0 0 44px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+#reelsCutout {
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+#reelsCutout.is-active, #reelsCutout[aria-pressed="true"] {
+  background: rgba(233, 129, 190, 0.28) !important;
+  color: #f2b5d8 !important;
+  border-color: rgba(233, 129, 190, 0.7) !important;
+}
