@@ -2613,7 +2613,11 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
 
 /* Independent circular image overlay, in artwork pixels (including the 2px rim). */
 .experience-shell[data-format="feed"] .circle-inset:not([hidden]),
-.experience-shell[data-format="stories"] .circle-inset:not([hidden]) { display: block !important; position: absolute; z-index: 10; border-radius: 50%; cursor: grab; touch-action: none; }
+.experience-shell[data-format="stories"] .circle-inset:not([hidden]),
+.experience-shell[data-format="reels"] .circle-inset:not([hidden]) { display: block !important; position: absolute; z-index: 10; border-radius: 50%; cursor: grab; touch-action: none; }
+.circle-upload-subdock { display: inline-flex; align-items: center; justify-content: center; width: var(--dock-attachment-size, 46px); min-width: var(--dock-attachment-size, 46px); height: 46px; min-height: 46px; border-radius: 50%; background: #ffffff12; cursor: pointer; color: inherit; transition: background 180ms ease, transform 180ms ease; }
+.circle-upload-subdock:hover { background: #ffffff24; }
+.dock-format-unit[data-format-unit="reels"].has-media-attachment .dock-media-slot { width: auto; min-width: 96px; display: flex; align-items: center; gap: 4px; }
 .circle-inset canvas { width: 100%; height: 100%; display: block; pointer-events: none; }
 .circle-inset:active { cursor: grabbing; }
 .circle-inset.is-framing { cursor: move; }
