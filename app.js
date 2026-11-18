@@ -4841,11 +4841,12 @@ function drawInformativeCopy(ctx) {
 function syncDockAffordances() {
   const button = document.getElementById("dockImage");
   document.querySelectorAll(".dock-format-unit").forEach(unit => {
+    const isReels = unit.dataset.formatUnit === "reels";
     const open = state.dockAttachmentFormat === unit.dataset.formatUnit;
     const slot = unit.querySelector(".dock-media-slot");
     unit.classList.toggle("has-media-attachment", open);
     if (slot) {
-      if (open && button.parentElement !== slot) slot.append(button);
+      if (open && !isReels && button.parentElement !== slot) slot.append(button);
       slot.inert = !open;
       slot.setAttribute("aria-hidden", String(!open));
       unit.querySelector(".format-option").setAttribute("aria-expanded", String(open));
@@ -5686,6 +5687,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
 
 
 
