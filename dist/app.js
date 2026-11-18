@@ -5034,12 +5034,11 @@ function drawReelsFrame(ctx) {
     const blurLayer = reelsCachedLayer("blur", blurKey, blurLayer => {
     blurLayer.width = REELS.width; blurLayer.height = REELS.height;
     const blur = blurLayer.getContext("2d");
-    blur.filter = `blur(${Math.max(16, Number(state.maskBlur) || 0)}px)`;
-    drawImageCoverTransformed(blur, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
+    ArtworkEffects.drawCover(blur, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, Math.max(24, Number(state.maskBlur) || 0), { zoom: state.reelImage.zoom, panX: state.reelImage.panX / 100 * REELS.image.width, panY: state.reelImage.panY / 100 * REELS.image.height });
     blur.filter = "none";
     blur.globalCompositeOperation = "destination-in";
-    const mask = blur.createLinearGradient(0, REELS.image.y + REELS.image.height * .65, 0, REELS.height);
-    mask.addColorStop(0, "rgba(0,0,0,0)"); mask.addColorStop(.5, "rgba(0,0,0,.3)"); mask.addColorStop(1, "rgba(0,0,0,1)");
+    const mask = blur.createLinearGradient(0, REELS.image.y + REELS.image.height * .5, 0, REELS.height);
+    mask.addColorStop(0, "rgba(0,0,0,0)"); mask.addColorStop(.5, "rgba(0,0,0,.7)"); mask.addColorStop(1, "rgba(0,0,0,1)");
     blur.fillStyle = mask; blur.fillRect(0, 0, REELS.width, REELS.height);
     });
     ctx.drawImage(blurLayer, 0, 0);
@@ -5066,16 +5065,16 @@ function drawReelsFrame(ctx) {
   transition.addColorStop(.8, "rgba(0,0,0,.65)");
   transition.addColorStop(1, "rgba(0,0,0,.85)");
   ctx.fillStyle = transition; ctx.fillRect(0, REELS.image.y, REELS.width, REELS.image.height);
-  for (const [texture, blend, opacity] of [[state.feedTextureExclusionImage, "exclusion", .1], [state.feedTextureSoftLightImage, "soft-light", .3]]) {
+  for (const [texture, blend, opacity] of [[state.feedTextureExclusionImage, "exclusion", .38], [state.feedTextureSoftLightImage, "soft-light", .49]]) {
     if (!texture) continue;
     const textureLayer = reelsCachedLayer(blend, texture, textureLayer => {
     textureLayer.width = REELS.width; textureLayer.height = REELS.height;
     const textureContext = textureLayer.getContext("2d");
     drawImageCover(textureContext, texture, 0, 0, REELS.width, REELS.height);
     textureContext.globalCompositeOperation = "destination-in";
-    const textureMask = textureContext.createLinearGradient(0, REELS.image.y + REELS.image.height * .65, 0, REELS.height);
+    const textureMask = textureContext.createLinearGradient(0, REELS.image.y + REELS.image.height * .5, 0, REELS.height);
     textureMask.addColorStop(0, "transparent");
-    textureMask.addColorStop(.5, "rgba(0,0,0,.3)");
+    textureMask.addColorStop(.5, "rgba(0,0,0,.7)");
     textureMask.addColorStop(1, "#000");
     textureContext.fillStyle = textureMask;
     textureContext.fillRect(0, 0, REELS.width, REELS.height);
