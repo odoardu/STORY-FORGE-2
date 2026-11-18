@@ -2,12 +2,10 @@
 const ExportReview = (() => {
   // Identity follows the page object, so deleting/reordering boards cannot move edits.
   function plan(entries, baseline, touched, format) {
-    const vertical = ["stories", "story"].includes(format);
-    const reels = format === "reels";
-    if (vertical || reels) {
+    const vertical = ["stories", "story", "reels"].includes(format);
+    if (vertical) {
       // Stories and Reels are always available to export, regardless of changes.
-      const targetFormat = reels ? "stories" : format;
-      const entry = entries.find(e => e.format === targetFormat);
+      const entry = entries.find(e => e.format === format) || entries.find(e => ["stories", "story"].includes(e.format));
       return entry && entry.ready !== false ? [entry] : [];
     }
     const changed = entries.filter(entry => entry.format !== "closing" &&
@@ -78,9 +76,9 @@ const ExportReview = (() => {
       row.prepend(thumb);
       try { const artwork = api.thumbnail(entry); thumb.getContext('2d').drawImage(artwork, 0, 0, thumb.width, thumb.height); } catch { thumb.setAttribute('aria-label', `Prévia indisponível de ${entry.label}`); }
     }
-    const vertical = ["stories", "story"].includes(api.format());
+    const vertical = ["stories", "story", "reels"].includes(api.format());
     dialog.querySelector(".export-review-note").textContent = !pending.length ? "Nenhuma arte alterada para exportar." : vertical ? "Stories/Reels é exportado separadamente." : "Artes alteradas e encerramento, em arquivos separados.";
-    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length && !vertical && api.format() !== "reels";
+    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length && !vertical;
     confirm.textContent = vertical ? "Exportar vídeo / imagem" : `Exportar ${pending.length} artes`;
     if (vertical && pending.length) confirm.textContent = pending[0].video ? "Exportar MP4" : "Exportar PNG";
     dialog.showModal();
@@ -139,4 +137,6 @@ const ExportReview = (() => {
   return { session, restoreSession, init, open, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
 })();
 if (typeof module !== "undefined") module.exports = ExportReview;
+
+
 
