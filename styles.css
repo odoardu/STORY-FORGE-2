@@ -2650,3 +2650,7 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
 .experience-shell.has-circle-image[data-format="feed"] .feed-stage-content,
 .experience-shell.has-circle-image[data-format="feed"] .logo-layer,
 .experience-shell.has-circle-image[data-format="feed"] .circle-inset canvas { opacity: 0; }
+
+#reelsCutout.is-active, #reelsCutout[aria-pressed="true"] { background: rgba(233, 129, 190, 0.22) !important; color: #f2b5d8 !important; border-color: rgba(233, 129, 190, 0.6) !important; }
+#reelsCutout[aria-busy="true"] { opacity: 0.6; pointer-events: none; animation: pulseCutout 1.2s infinite ease-in-out; }
+@keyframes pulseCutout { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
