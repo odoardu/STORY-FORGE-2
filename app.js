@@ -1916,6 +1916,7 @@ function selectKickerLogo(index, record = true) {
 }
 
 function updateFeedText() {
+  invalidateReelsTitleCache();
   if (state.format === "reels") updateReelsPreview();
   // Text edits and history restores must also respect the partial-highlight rule.
   if (state.format !== "reels" && EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
@@ -5003,6 +5004,8 @@ function drawStoriesFrame(ctx) {
 }
 
 const reelsLayerCache = new Map();
+let reelsTitleLayoutCache = null;
+function invalidateReelsTitleCache() { reelsTitleLayoutCache = null; }
 function reelsCachedLayer(name, key, paint) {
   const previous = reelsLayerCache.get(name);
   if (previous?.key === key) return previous.canvas;
@@ -5084,7 +5087,11 @@ function drawReelsFrame(ctx) {
     ctx.drawImage(textureLayer, 0, 0); ctx.restore();
   }
   ctx.save();
-  const rows = getFeedTitleLayouts();
+  const titleCacheKey = `${elements.titleInput.value}:${state.titleFontSize}:${state.format}`;
+  if (!reelsTitleLayoutCache || reelsTitleLayoutCache.key !== titleCacheKey) {
+    reelsTitleLayoutCache = { key: titleCacheKey, rows: getFeedTitleLayouts() };
+  }
+  const rows = reelsTitleLayoutCache.rows;
   const center = rows.length ? (rows[0].baselineY + rows[rows.length - 1].baselineY) / 2 - rows[0].fontSize * .35 : FEED.title.top;
   ctx.translate(0, REELS.image.y - 20 - center);
   drawFeedCopy(ctx, true);
@@ -5595,3 +5602,5 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
+
