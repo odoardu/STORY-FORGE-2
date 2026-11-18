@@ -154,9 +154,9 @@ const StudioUI = (() => {
     byId("popoverTitleHighlightGroup").append(byId("mobileTitleHighlight"));
     document.querySelectorAll(".media-upload-actions .studio-action, .closing-controls .studio-action, .circle-popover > .studio-action").forEach(action => {
       const caption = document.createElement("span"); caption.className = "action-caption";
-      const names = { circleBehind: "Camadas", circleFrameMode: "Enquadrar", circleZoomIn: "Ampliar", circleZoomOut: "Reduzir", circleRemove: "Remover", closingUseFeed: "Usar Feed" };
-      caption.textContent = names[action.id] || (action.matches(".video-upload") ? "Vídeo" : action.matches(".circle-upload-action") ? "Círculo" : "Imagem"); action.append(caption);
-      action.dataset.tooltip = action.matches(".circle-upload-action") ? "Foto circular" : caption.textContent;
+      const names = { circleBehind: "Camadas", circleFrameMode: "Enquadrar", circleZoomIn: "Ampliar", circleZoomOut: "Reduzir", circleRemove: "Remover", closingUseFeed: "Usar Feed", reelsCutoutBtn: "Recortar" };
+      caption.textContent = names[action.id] || (action.matches(".video-upload") ? "Vídeo" : action.matches(".circle-upload-action") ? "Círculo" : action.matches(".reels-cutout-action") ? "Recortar" : "Imagem"); action.append(caption);
+      action.dataset.tooltip = action.matches(".reels-cutout-action") ? "Recortar assunto" : action.matches(".circle-upload-action") ? "Foto circular" : caption.textContent;
     });
     document.querySelector(".circle-upload-action svg").innerHTML = '<circle cx="12" cy="12" r="9" stroke-dasharray="2 2"/><path d="m6 15 4-4 3 3 2-2 3 3"/><circle cx="14" cy="8" r="1"/>';
     const range = byId("circleSize"), field = document.createElement("label"); field.className = "circle-size-field";
@@ -213,5 +213,6 @@ const StudioUI = (() => {
   }
   return { init, sync, closeOtherPanels };
 })();
+
 
 
