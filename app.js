@@ -76,6 +76,14 @@ const INFORMATIVE = {
   logo: { width: 160, x: 0, y: 1194, opacity: 100 },
 };
 
+const REELS = {
+  width: 1080,
+  height: 1920,
+  ratio: "9:16",
+  video: { x: 0, y: 0, width: 1080, height: 1075 },
+  image: { x: 0, y: 1075, width: 1080, height: 845 },
+};
+
 // Canva displays point sizes and letter spacing in thousandths of an em.
 // Keep the reference values fixed; convert once for preview and PNG.
 const CANVA_TYPE_DEFAULTS = {
@@ -98,6 +106,7 @@ function getFeedTypography(role) {
 const FORMATS = {
   polaroid: { width: 1080, height: 1350, ratio: "4:5", name: "Polaroid", size: "1080 x 1350" },
   stories: { width: 1080, height: 1920, ratio: "9:16", name: "Stories vertical", size: "1080 x 1920" },
+  reels: { width: REELS.width, height: REELS.height, ratio: REELS.ratio, name: "Reels — vídeo + imagem", size: "1080 x 1920" },
   closing: { width: 1080, height: 1350, ratio: "4:5", name: "Encerramento", size: "1080 x 1350" },
   story: {
     width: STORY.width,
@@ -199,6 +208,18 @@ const SUBTITLE_PRESETS = {
     subtitleMaxWidth: 1000,
   },
 };
+
+function installReelsFormatOption() {
+  const stories = document.querySelector('.dock-format-unit[data-format-unit="stories"]');
+  if (!stories || document.querySelector('[data-format-unit="reels"]')) return;
+  const unit = document.createElement("div");
+  unit.className = "dock-format-unit";
+  unit.dataset.formatUnit = "reels";
+  unit.innerHTML = '<button type="button" class="format-option glass-tool" data-format="reels" aria-label="Reels" aria-pressed="false" data-tooltip="Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="m10 9 5 3-5 3zM8 5h8M8 19h8"/></svg></button><span class="dock-media-slot"><button type="button" class="glass-tool" id="reelsMedia" aria-label="Trocar vídeo ou imagem do Reels" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídias do Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button></span>';
+  stories.after(unit);
+}
+
+installReelsFormatOption();
 
 const elements = {
   shell: document.querySelector(".experience-shell"),
@@ -304,6 +325,9 @@ const state = {
   videoTrimEnd: 0,
   videoDuration: 0,
   videoLoadingToken: 0,
+  reelTarget: "video",
+  reelVideo: { zoom: 1, panX: 0, panY: 0 },
+  reelImage: { zoom: 1, panX: 0, panY: 0 },
   exportingVideo: false,
   feedImageUrl: "",
   feedImageName: "",
@@ -595,6 +619,7 @@ async function init() {
   state.previousTitleText = elements.titleInput.value;
   bindEvents();
   bindVideoControls();
+  bindReelsDirectManipulation();
   applyFormat("feed", { keepPanel: true });
   closeMediaPopover();
   await applyLogo("/assets/logos/LOGO%201%20MONO.png", "Linkin Park Zero Brasil", "Logo padrão");
@@ -604,12 +629,21 @@ async function init() {
   updateText();
   updateFeedText();
   updateMediaTransform();
+  syncReelsControls();
   updateLogoTransform();
   updateStoriesPreview();
   if (state.format === "polaroid") PolaroidStudio.refresh();
   requestAnimationFrame(updateControlPanelFade);
   initExportReview();
   await initStudioSession();
+  // A restauração da sessão fecha o painel de mídia por padrão. Em Reels ele
+  // também é o painel de enquadramento, portanto deve continuar disponível.
+  if (state.format === "reels") {
+    elements.controlPanelShell.hidden = false;
+    elements.controlPanelShell.inert = false;
+    elements.controlPanelShell.setAttribute("aria-hidden", "false");
+    syncReelsControls();
+  }
 }
 
 function syncTitleBorderControls() {
@@ -1016,6 +1050,7 @@ function bindEvents() {
   });
   document.getElementById("workspaceImageButton").addEventListener("click", toggleMediaPopover);
   document.getElementById("dockImage").addEventListener("click", toggleMediaPopover);
+  document.getElementById("reelsMedia")?.addEventListener("click", toggleMediaPopover);
   document.querySelector(".informative-upload-action").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); elements.informativeImageInput.click(); }
   });
@@ -1104,7 +1139,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       if (state.exportingVideo) return;
       const next = button.dataset.format;
-      const showAttachment = ["feed", "stories"].includes(next) && state.dockAttachmentFormat !== next;
+      const showAttachment = ["feed", "stories", "reels"].includes(next) && state.dockAttachmentFormat !== next;
       closeMediaPopover();
       closeTextEditPopover();
       document.body.classList.remove("mobile-dock-expanded");
@@ -1211,19 +1246,27 @@ function bindEvents() {
   bindTitleBorderControl("titleFontSize", elements.titleFontSizeInput, elements.titleFontSizeValue);
 
   elements.zoomInput.addEventListener("input", () => {
-    state.zoom = readRangeRealValue(elements.zoomInput);
+    if (state.format === "reels") state[`reel${state.reelTarget === "video" ? "Video" : "Image"}`].zoom = readRangeRealValue(elements.zoomInput);
+    else state.zoom = readRangeRealValue(elements.zoomInput);
     updateMediaTransform();
   });
 
   elements.panXInput.addEventListener("input", () => {
-    state.panX = readRangeRealValue(elements.panXInput);
+    if (state.format === "reels") state[`reel${state.reelTarget === "video" ? "Video" : "Image"}`].panX = readRangeRealValue(elements.panXInput);
+    else state.panX = readRangeRealValue(elements.panXInput);
     updateMediaTransform();
   });
 
   elements.panYInput.addEventListener("input", () => {
-    state.panY = readRangeRealValue(elements.panYInput);
+    if (state.format === "reels") state[`reel${state.reelTarget === "video" ? "Video" : "Image"}`].panY = readRangeRealValue(elements.panYInput);
+    else state.panY = readRangeRealValue(elements.panYInput);
     updateMediaTransform();
   });
+
+  document.querySelectorAll("[data-reel-target]").forEach(button => button.addEventListener("click", () => {
+    state.reelTarget = button.dataset.reelTarget;
+    syncReelsControls();
+  }));
 
   elements.maskBlurInput?.addEventListener("input", () => {
     state.maskBlur = readRangeRealValue(elements.maskBlurInput);
@@ -1341,6 +1384,19 @@ function applyFormat(format, options = {}) {
   if (formatChanged) state.artboardFocused = false;
   saveLogoSettingsForCurrentFormat();
   state.format = format;
+  if (format === "reels" && !elements.titleInput.value.trim()) {
+    elements.titleInput.value = "ESCREVA AQUI O TÍTULO\nDA SUA PUBLICAÇÃO";
+    state.previousTitleText = elements.titleInput.value;
+    state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
+    state.titleHighlightColor = "pink";
+  }
+  if (format === "reels" && !state.reelsTitleDefaultsApplied) {
+    state.reelsTitleDefaultsApplied = true;
+    state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
+    state.titleHighlightColor = "pink";
+    state.titleFontSize = Math.round(state.titleFontSize * 1.1);
+    writeRangeRealValue(elements.titleFontSizeInput, state.titleFontSize, elements.titleFontSizeValue);
+  }
   PolaroidStudio.show(format === "polaroid");
   StudioUI.closeOtherPanels();
   StudioUI.sync();
@@ -1391,8 +1447,20 @@ function applyFormat(format, options = {}) {
   updateFeedText();
   updateInformativeText();
   updateMediaTransform();
+  if (format === "reels") {
+    elements.controlPanelShell.hidden = false;
+    elements.controlPanelShell.inert = false;
+    elements.controlPanelShell.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => {
+      if (state.format !== "reels") return;
+      elements.controlPanelShell.hidden = false;
+      elements.controlPanelShell.inert = false;
+      elements.controlPanelShell.setAttribute("aria-hidden", "false");
+    });
+  }
   updateLogoTransform();
   updateStoriesPreview();
+  updateReelsPreview();
   syncVideoControls();
   syncCircleInset();
   ensureCircleForeground();
@@ -1492,15 +1560,15 @@ async function handleVideoUpload(event) {
     state.videoDuration = candidate.duration;
     state.videoTrimStart = 0;
     state.videoTrimEnd = candidate.duration;
-    state.zoom = 1;
-    state.panX = state.panY = 0;
+    if (state.format === "reels") state.reelVideo = { zoom: 1, panX: 0, panY: 0 };
+    else { state.zoom = 1; state.panX = state.panY = 0; }
     elements.video.src = url;
     elements.video.muted = false;
     elements.video.loop = false;
     await waitForVideo(elements.video);
     elements.fileMain.textContent = file.name;
     elements.fileSub.textContent = `${formatFileSize(file.size)} · ${candidate.videoWidth} × ${candidate.videoHeight}`;
-    if (!["feed", "stories"].includes(state.format)) applyFormat("stories");
+    if (!["feed", "stories", "reels"].includes(state.format)) applyFormat("stories");
     syncVideoControls();
     closeMediaPopover();
     updateMediaTransform();
@@ -1521,7 +1589,7 @@ async function handleVideoUpload(event) {
 }
 
 function hasArtworkVideo() {
-  return state.mediaKind === "video" && Boolean(state.videoUrl) && ["feed", "stories"].includes(state.format);
+  return state.mediaKind === "video" && Boolean(state.videoUrl) && ["feed", "stories", "reels"].includes(state.format);
 }
 
 function getArtworkMedia() {
@@ -1592,6 +1660,7 @@ function refreshVideoArtwork() {
   }
   if (!hasArtworkVideo() || state.exportingVideo || elements.video.readyState < 2) return;
   if (state.format === "stories") updateStoriesPreview();
+  else if (state.format === "reels") updateReelsPreview();
   else drawFeedFrame(document.getElementById("videoArtworkPreview").getContext("2d"));
 }
 
@@ -1688,7 +1757,7 @@ function handleFeedImageUpload(event) {
 
   const url = (typeof StudioSession !== 'undefined' ? (() => { const url = URL.createObjectURL(file); StudioSession.remember(url, file); return url; })() : URL.createObjectURL(file));
   const operation = applyFeedImage(url, file.name, formatFileSize(file.size), true).catch(() => setStatus("Não foi possível abrir essa imagem. Tente outro arquivo.")).finally(() => { event.target.value = ""; });
-  if (state.format !== "stories") applyFormat("feed");
+  if (!["stories", "reels"].includes(state.format)) applyFormat("feed");
   return operation;
 }
 
@@ -1725,7 +1794,7 @@ async function loadRandomFeedImage(options = {}) {
 
 async function applyFeedImage(url, name, meta, isObjectUrl = false) {
   const uploadId = state.feedImageLoadId = (state.feedImageLoadId || 0) + 1;
-  const target = state.format === "stories" ? FORMATS.stories : FORMATS.feed;
+  const target = ["stories", "reels"].includes(state.format) ? FORMATS[state.format] : FORMATS.feed;
   const finishLoading = isObjectUrl ? beginMediaLoading("Abrindo imagem…", { format: "feed" }) : null;
   let mediaReady = false;
   try {
@@ -1742,9 +1811,11 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
     }
 
     document.getElementById("photoCredit").hidden = true;
-    state.mediaKind = "image";
-    elements.video.pause();
-    syncVideoControls();
+    if (state.format !== "reels") {
+      state.mediaKind = "image";
+      elements.video.pause();
+      syncVideoControls();
+    }
     state.feedImageUrl = url;
     state.feedImageName = name || "Imagem do feed";
     state.feedImageObjectUrl = isObjectUrl ? url : "";
@@ -1754,9 +1825,12 @@ async function applyFeedImage(url, name, meta, isObjectUrl = false) {
     if (isObjectUrl) closeMediaPopover();
     updateClosingPreview();
     updateStoriesPreview();
-    state.zoom = 1;
-    state.panX = 0;
-    state.panY = 0;
+    if (state.format === "reels") {
+      const geometry = EditorCore.imageGeometry(image.naturalWidth, image.naturalHeight, REELS.image.width, REELS.image.height);
+      state.reelImage = { zoom: geometry.minZoom, panX: 0, panY: 0 };
+      state.reelTarget = "image";
+    }
+    else { state.zoom = 1; state.panX = 0; state.panY = 0; }
     updateMediaTransform();
     elements.feedImage.src = url;
     if (elements.feedBlurImage) {
@@ -1842,8 +1916,9 @@ function selectKickerLogo(index, record = true) {
 }
 
 function updateFeedText() {
+  if (state.format === "reels") updateReelsPreview();
   // Text edits and history restores must also respect the partial-highlight rule.
-  if (EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
+  if (state.format !== "reels" && EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
     state.titleHighlights = [];
     setStatus("Tarja removida: destaque apenas palavras ou trechos do título.");
   }
@@ -2329,7 +2404,7 @@ function getFeedKickerPosition(titleLayouts) {
 
 function getFeedTitleLayouts(fittedFontSize) {
   const items = EditorCore.titleLines(elements.titleInput.value, state.titleHighlights);
-  const fontSize = fittedFontSize || getFeedTypography("title").fontSize;
+  const fontSize = fittedFontSize || getFeedTypography("title").fontSize * (state.format === "reels" ? 1.1 : 1);
   const fontScale = fontSize / FEED.title.baseFontSize;
   const layouts = [];
   items.forEach(item => {
@@ -2343,6 +2418,7 @@ function getFeedTitleLayouts(fittedFontSize) {
     });
   });
   if (!layouts.length) layouts.push({ ...getFeedLineLayout(" ", 0, fontSize, FEED.title.minFontSize), highlightMarks: [] });
+  if (state.format === "reels" && layouts.length > 2 && fontSize > 8) return getFeedTitleLayouts(fontSize - 1);
   // A multiline title must share one font size. If only the longest line
   // shrinks, its glyph box changes and the perceived line spacing breaks.
   const uniformFontSize = Math.min(...layouts.map(layout => layout.fontSize));
@@ -2897,6 +2973,21 @@ function animateTitleStripIn(strip) {
 function updateMediaTransform() {
   updateInformativePreview();
   if (state.format === "closing") { updateClosingPreview(); return; }
+  if (state.format === "reels") {
+    const target = state.reelTarget === "video" ? "video" : "image";
+    const transform = target === "video" ? state.reelVideo : state.reelImage;
+    const media = target === "video" ? elements.video : state.feedImage;
+    const box = target === "video" ? REELS.video : REELS.image;
+    if (media && (media.videoWidth || media.naturalWidth)) {
+      const geometry = EditorCore.imageGeometry(media.videoWidth || media.naturalWidth, media.videoHeight || media.naturalHeight, box.width, box.height, transform.zoom, transform.panX / 100 * box.width, transform.panY / 100 * box.height);
+      transform.zoom = geometry.zoom;
+      transform.panX = geometry.panX / box.width * 100;
+      transform.panY = geometry.panY / box.height * 100;
+    }
+    syncReelsControls();
+    updateReelsPreview();
+    return;
+  }
   const isInformative = state.format === "informative";
   const mediaBox = isInformative ? INFORMATIVE.image : state.format === "stories" ? FORMATS.stories : state.format === "feed" ? FEED : STORY.video;
   const media = getArtworkMedia();
@@ -2948,6 +3039,33 @@ function updateMediaTransform() {
   updateFeedEffectStyles();
   updateStoriesPreview();
   refreshVideoArtwork();
+}
+
+function syncReelsControls() {
+  const framing = document.getElementById("reelsFraming");
+  const controls = document.getElementById("reelsRangeControls");
+  const active = state.format === "reels";
+  if (active) {
+    elements.controlPanelShell.hidden = false;
+    elements.controlPanelShell.inert = false;
+    elements.controlPanelShell.setAttribute("aria-hidden", "false");
+  }
+  if (framing) framing.hidden = true;
+  if (controls) controls.hidden = true;
+  if (!active) return;
+  const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
+  document.querySelectorAll("[data-reel-target]").forEach(button => {
+    const selected = button.dataset.reelTarget === state.reelTarget;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  document.getElementById("reelsTargetLabel").textContent = state.reelTarget === "video" ? "Vídeo de cima" : "Imagem de baixo";
+  elements.zoomInput.value = String(transform.zoom);
+  elements.panXInput.value = String(transform.panX);
+  elements.panYInput.value = String(transform.panY);
+  updateRangeOutput(elements.zoomInput, elements.zoomValue);
+  updateRangeOutput(elements.panXInput, elements.panXValue);
+  updateRangeOutput(elements.panYInput, elements.panYValue);
 }
 
 function updateFeedEffectStyles() {
@@ -3339,7 +3457,7 @@ async function exportPrimary() {
 async function exportSingleArtwork() {
   if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (hasArtworkVideo() || hasInformativeVideo()) { await exportStoryVideo(); return; }
-  if (["feed", "informative", "closing", "stories"].includes(state.format)) {
+  if (["feed", "informative", "closing", "stories", "reels"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -3350,7 +3468,7 @@ async function exportSingleArtwork() {
 async function exportCurrentPng() {
   if (typeof ExportReview !== "undefined") { ExportReview.open(); return; }
   if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
-  if (["feed", "informative", "closing", "stories"].includes(state.format)) {
+  if (["feed", "informative", "closing", "stories", "reels"].includes(state.format)) {
     await exportFeedPng();
     return;
   }
@@ -3386,6 +3504,7 @@ async function exportStoryVideo() {
       render(source) {
         state.renderVideo = source;
         if (state.format === "stories") drawStoriesFrame(renderContext);
+        else if (state.format === "reels") drawReelsFrame(renderContext);
         else if (informative) drawInformativeFrame(renderContext);
         else drawFeedFrame(renderContext);
         return elements.canvas;
@@ -3452,6 +3571,7 @@ async function exportFeedPng() {
       updateStoriesPreview();
       renderContext.drawImage(document.getElementById("storiesPreview"), 0, 0);
     }
+    else if (state.format === "reels") drawReelsFrame(renderContext);
     else if (state.format === "closing") drawClosingFrame(renderContext);
     else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
@@ -3475,6 +3595,7 @@ function drawFrame(video) {
       updateStoriesPreview();
       renderContext.drawImage(document.getElementById("storiesPreview"), 0, 0);
     }
+    else if (state.format === "reels") drawReelsFrame(renderContext);
     else if (state.format === "closing") drawClosingFrame(renderContext);
     else if (state.format === "informative") drawInformativeFrame(renderContext);
     else drawFeedFrame(renderContext);
@@ -3636,7 +3757,7 @@ function drawFeedTexture(ctx, image, blendMode, opacity) {
   ctx.restore();
 }
 
-function drawFeedCopy(ctx) {
+function drawFeedCopy(ctx, titleOnly = false) {
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -3645,7 +3766,7 @@ function drawFeedCopy(ctx) {
   const kicker = getFeedTypography("kicker");
   const titleLayouts = getFeedTitleLayouts();
   const kickerPosition = getFeedKickerPosition(titleLayouts);
-  if (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'kicker')) {
+  if (titleOnly || (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'kicker'))) {
     // The focused DOM text is the preview while editing; exports still draw the artwork text.
   } else if (state.kickerMode === "image" && state.kickerImage) {
     const width = 320;
@@ -3681,7 +3802,7 @@ function drawFeedCopy(ctx) {
   });
 
   ctx.fillStyle = "#ffffff";
-  drawSubtitleBlock(ctx);
+  if (!titleOnly) drawSubtitleBlock(ctx);
   ctx.restore();
 }
 
@@ -4619,7 +4740,7 @@ function drawInformativeFrame(ctx, layer = null) {
     drawInformativeCopy(ctx);
     if (state.informativeSymbols) {
       const symbols = state.informativeSymbols;
-      ctx.drawImage(symbols, 125, 146, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+      drawInformativeSymbols(ctx, symbols, 125, 136);
     }
     drawLogo(ctx);
   }
@@ -4685,6 +4806,14 @@ function toggleMediaPopover() {
   document.getElementById("dockMore")?.setAttribute("aria-expanded", "false");
   document.body.classList.toggle("mobile-controls-open", !wasOpen);
   state.activeDockPanel = "media";
+  if (state.format === "reels") {
+    // Reels tem controles persistentes de duas mídias. Diferentemente do
+    // popover móvel, este painel também precisa ficar disponível no desktop.
+    elements.controlPanelShell.removeAttribute("hidden");
+    elements.controlPanelShell.removeAttribute("inert");
+    elements.controlPanelShell.setAttribute("aria-hidden", "false");
+    syncReelsControls();
+  }
   elements.dockPanels.forEach(panel => {
     const active = panel.dataset.panel === "media";
     panel.classList.toggle("is-active", active);
@@ -4791,8 +4920,17 @@ function drawClosingFrame(ctx) {
     drawTrackedText(ctx, text, 540, y + height / 2 + (metrics.ascent - metrics.descent) / 2, tracking);
   });
   const symbols = state.informativeSymbols;
-  if (symbols) ctx.drawImage(symbols, 355, 784, 370, 370 * symbols.naturalHeight / symbols.naturalWidth);
+  if (symbols) drawInformativeSymbols(ctx, symbols, 355, 784);
   ctx.restore();
+}
+
+function drawInformativeSymbols(ctx, symbols, x, y) {
+  // The supplied symbol strip is taller than the original asset. Keep its
+  // visual footprint constrained to the original 44px-high safe area so it
+  // never crosses into the media card.
+  const height = 52;
+  const width = height * symbols.naturalWidth / symbols.naturalHeight;
+  ctx.drawImage(symbols, x, y, width, height);
 }
 
 
@@ -4809,6 +4947,11 @@ function updateStoriesPreview() {
   if (state.format !== "stories") return;
   const canvas = document.getElementById("storiesPreview");
   drawStoriesFrame(canvas.getContext("2d"));
+}
+
+function updateReelsPreview() {
+  if (state.format !== "reels") return;
+  drawReelsFrame(document.getElementById("reelsPreview").getContext("2d"));
 }
 
 function drawStoriesFrame(ctx) {
@@ -4854,6 +4997,129 @@ function drawStoriesFrame(ctx) {
   drawLogo(ctx);
   drawCircleInset(ctx);
   ctx.restore();
+}
+
+function drawReelsFrame(ctx) {
+  state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
+  state.titleHighlightColor = "pink";
+  const video = state.renderVideo || (elements.video.readyState >= 2 ? elements.video : null);
+  const image = state.feedImage;
+  ctx.reset();
+  ctx.fillStyle = "#07070a";
+  ctx.fillRect(0, 0, REELS.width, REELS.height);
+
+  if (video) drawImageCoverTransformed(ctx, video, REELS.video.x, REELS.video.y, REELS.video.width, REELS.video.height, state.reelVideo.zoom, state.reelVideo.panX / 100 * REELS.video.width, state.reelVideo.panY / 100 * REELS.video.height);
+  else {
+    const top = ctx.createLinearGradient(0, 0, 0, REELS.video.height);
+    top.addColorStop(0, "#15151b"); top.addColorStop(1, "#050506");
+    ctx.fillStyle = top; ctx.fillRect(0, 0, REELS.width, REELS.video.height);
+  }
+
+  if (image) {
+    drawImageCoverTransformed(ctx, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
+    const blurLayer = document.createElement("canvas");
+    blurLayer.width = REELS.width; blurLayer.height = REELS.height;
+    const blur = blurLayer.getContext("2d");
+    blur.filter = `blur(${Number(state.maskBlur) || 0}px)`;
+    drawImageCoverTransformed(blur, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
+    blur.filter = "none";
+    blur.globalCompositeOperation = "destination-in";
+    const mask = blur.createLinearGradient(0, REELS.image.y + REELS.image.height * .65, 0, REELS.height);
+    mask.addColorStop(0, "rgba(0,0,0,0)"); mask.addColorStop(.5, "rgba(0,0,0,.3)"); mask.addColorStop(1, "rgba(0,0,0,1)");
+    blur.fillStyle = mask; blur.fillRect(0, 0, REELS.width, REELS.height);
+    ctx.drawImage(blurLayer, 0, 0);
+  }
+
+  if (image && state.circle.mask && state.circle.maskSource === image) {
+    const subject = document.createElement("canvas");
+    subject.width = image.naturalWidth; subject.height = image.naturalHeight;
+    const painter = subject.getContext("2d");
+    painter.drawImage(image, 0, 0);
+    painter.globalCompositeOperation = "destination-in";
+    painter.drawImage(state.circle.mask, 0, 0, subject.width, subject.height);
+    const geometry = EditorCore.imageGeometry(subject.width, subject.height, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
+    ctx.save();
+    // Only reveal the overflow above the photo; the lower photo keeps its effects.
+    ctx.beginPath(); ctx.rect(0, 0, REELS.width, REELS.image.y); ctx.clip();
+    ctx.drawImage(subject, REELS.image.x + geometry.x, REELS.image.y + geometry.y, geometry.width, geometry.height);
+    ctx.restore();
+  }
+  const transition = ctx.createLinearGradient(0, REELS.image.y + REELS.image.height * .55, 0, REELS.height);
+  transition.addColorStop(0, "rgba(0,0,0,0)");
+  transition.addColorStop(.45, "rgba(0,0,0,.3)");
+  transition.addColorStop(.8, "rgba(0,0,0,.65)");
+  transition.addColorStop(1, "rgba(0,0,0,.85)");
+  ctx.fillStyle = transition; ctx.fillRect(0, REELS.image.y, REELS.width, REELS.image.height);
+  for (const [texture, blend, opacity] of [[state.feedTextureExclusionImage, "exclusion", .1], [state.feedTextureSoftLightImage, "soft-light", .3]]) {
+    if (!texture) continue;
+    const textureLayer = document.createElement("canvas");
+    textureLayer.width = REELS.width; textureLayer.height = REELS.height;
+    const textureContext = textureLayer.getContext("2d");
+    drawImageCover(textureContext, texture, 0, 0, REELS.width, REELS.height);
+    textureContext.globalCompositeOperation = "destination-in";
+    const textureMask = textureContext.createLinearGradient(0, REELS.image.y + REELS.image.height * .65, 0, REELS.height);
+    textureMask.addColorStop(0, "transparent");
+    textureMask.addColorStop(.5, "rgba(0,0,0,.3)");
+    textureMask.addColorStop(1, "#000");
+    textureContext.fillStyle = textureMask;
+    textureContext.fillRect(0, 0, REELS.width, REELS.height);
+    ctx.save(); ctx.globalCompositeOperation = blend; ctx.globalAlpha = opacity;
+    ctx.beginPath(); ctx.rect(0, REELS.image.y, REELS.width, REELS.image.height); ctx.clip();
+    ctx.drawImage(textureLayer, 0, 0); ctx.restore();
+  }
+  ctx.save();
+  const rows = getFeedTitleLayouts();
+  const center = rows.length ? (rows[0].baselineY + rows[rows.length - 1].baselineY) / 2 - rows[0].fontSize * .35 : FEED.title.top;
+  ctx.translate(0, REELS.image.y - 20 - center);
+  drawFeedCopy(ctx, true);
+  ctx.restore();
+  if (state.logoImage) {
+    const width = STORY.logo.width;
+    const height = width * state.logoImage.naturalHeight / state.logoImage.naturalWidth;
+    ctx.drawImage(state.logoImage, (1080 - width) / 2, STORY.logo.y, width, height);
+  }
+}
+
+function bindReelsDirectManipulation() {
+  const canvas = elements.stage;
+  let drag = null;
+  const targetAt = event => {
+    const rect = canvas.getBoundingClientRect();
+    return (event.clientY - rect.top) / rect.height * 1920 < REELS.image.y ? "video" : "image";
+  };
+  canvas.addEventListener("pointerdown", event => {
+    if (state.format !== "reels" || event.button !== 0) return;
+    event.preventDefault(); event.stopPropagation();
+    state.reelTarget = targetAt(event);
+    const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
+    drag = { x: event.clientX, y: event.clientY, ...transform };
+    canvas.setPointerCapture(event.pointerId); syncReelsControls();
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (!drag) return;
+    const rect = canvas.getBoundingClientRect();
+    const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
+    const box = REELS[state.reelTarget];
+    transform.panX = drag.panX + (event.clientX - drag.x) / rect.width * 1080 / box.width * 100;
+    transform.panY = drag.panY + (event.clientY - drag.y) / rect.height * 1920 / box.height * 100;
+    updateMediaTransform();
+  });
+  for (const name of ["pointerup", "pointercancel"]) canvas.addEventListener(name, () => { drag = null; });
+  canvas.addEventListener("wheel", event => {
+    if (state.format !== "reels") return;
+    event.preventDefault(); event.stopPropagation();
+    state.reelTarget = targetAt(event);
+    const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
+    transform.zoom = clamp(transform.zoom * Math.exp(-event.deltaY * .0015), .01, 4);
+    updateMediaTransform();
+  }, { passive: false });
+  canvas.addEventListener("click", event => {
+    if (state.format !== "reels") return;
+    const rect = canvas.getBoundingClientRect();
+    const y = (event.clientY - rect.top) / rect.height * REELS.height;
+    if (Math.abs(y - (REELS.image.y - 20)) < 120) InlineTextEditor.open("title");
+  });
+  canvas.addEventListener("dblclick", () => { if (state.format === "reels") InlineTextEditor.open("title"); });
 }
 
 
@@ -4937,13 +5203,12 @@ function analyzeForeground(blob) {
 
 async function ensureCircleForeground() {
   const c = state.circle, source = state.feedImage;
-  if (!c.image || !c.behind || !source || state.mediaKind !== "image" || !["feed", "stories"].includes(state.format)) return;
+  if (!source || (state.format !== "reels" && (!c.image || !c.behind || state.mediaKind !== "image" || !["feed", "stories"].includes(state.format)))) return;
   if (c.maskSource === source && c.mask) return;
   if (c.maskBusy) {
     await c.maskTask;
-    if (source !== state.feedImage) return ensureCircleForeground();
-    if (c.maskBusy) return c.maskTask;
-    return;
+    if (c.maskSource === state.feedImage && c.mask) return;
+    return ensureCircleForeground();
   }
   const token = ++c.maskToken;
   c.maskBusy = true;
@@ -4960,7 +5225,7 @@ async function ensureCircleForeground() {
       const result = await analyzeForeground(blob);
       const mask = document.createElement("canvas"); mask.width = input.width; mask.height = input.height;
       mask.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(await result.arrayBuffer()), mask.width, mask.height), 0, 0);
-      if (token === c.maskToken && source === state.feedImage) { c.mask = mask; c.maskSource = source; c.tileKey = null; syncCircleInset(); }
+      if (token === c.maskToken && source === state.feedImage) { c.mask = mask; c.maskSource = source; c.tileKey = null; syncCircleInset(); updateReelsPreview(); }
       finish(true, "Recorte pronto");
     } catch (error) {
       console.warn("Recorte automático:", error.message);
@@ -4968,7 +5233,7 @@ async function ensureCircleForeground() {
     } finally {
       c.maskBusy = false; c.maskTask = null;
       document.getElementById("circleBehind").setAttribute("aria-busy", "false");
-      if (c.image && c.behind && source !== state.feedImage) ensureCircleForeground();
+      if ((state.format === "reels" || (c.image && c.behind)) && source !== state.feedImage) ensureCircleForeground();
     }
   })();
   return c.maskTask;
@@ -5082,7 +5347,7 @@ async function applyTitleHighlight(start, end) {
   const input = elements.titleInput;
   const text = input.value;
   const next = EditorCore.toggleRange(state.titleHighlights, start, end);
-  if (EditorCore.isFullyHighlighted(text, next)) {
+  if (state.format !== "reels" && EditorCore.isFullyHighlighted(text, next)) {
     const dialog = document.getElementById("fullHighlightWarning");
     if (dialog.open) return;
     await new Promise(resolve => {
@@ -5170,12 +5435,13 @@ function bindEditorShortcuts() {
 
 function reviewThumbnail(entry) {
   if (entry.format === 'polaroid') return PolaroidStudio.thumbnail(entry.key);
-  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = ['stories', 'story'].includes(entry.format) ? 1920 : 1350;
+  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = ['stories', 'story', 'reels'].includes(entry.format) ? 1920 : 1350;
   const original = { format: state.format, page: state.activeInformativePage, cache: state.renderInformativeLayers };
   try {
     state.format = entry.format;
     const ctx = canvas.getContext('2d');
     if (entry.format === 'informative') { state.activeInformativePage = entry.index; state.renderInformativeLayers = null; drawInformativeFrame(ctx); }
+    else if (entry.format === 'reels') drawReelsFrame(ctx);
     else if (entry.format === 'closing') drawClosingFrame(ctx);
     else if (entry.format === 'feed') drawFeedFrame(ctx);
     else { updateStoriesPreview(); ctx.drawImage(document.getElementById('storiesPreview'), 0, 0); }
@@ -5208,11 +5474,21 @@ async function initStudioSession() {
         state.videoTrimStart = saved.state.videoTrimStart; state.videoTrimEnd = saved.state.videoTrimEnd; elements.video.pause();
       }
       const format = saved.state.format; selectInformativePage(state.activeInformativePage); PolaroidStudio.restoreSession(saved.polaroid); applyFormat(format, { keepPanel: true });
+      if (format === "reels") {
+        state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
+        state.titleHighlightColor = "pink";
+      }
       writeRangeRealValue(elements.titleFontSizeInput, state.titleFontSize, elements.titleFontSizeValue);
       syncLogoControls(); syncFeedEffectControls(); syncSubtitleFormatControls(); updateFeedText(); updateMediaTransform(); updateLogoTransform(); updateStoriesPreview(); updateClosingPreview(); updateStageScale(); StudioUI.sync();
       ExportReview.restoreSession(saved.review || []);
       if (['vinyl', 'collage'].includes(saved.tab)) document.querySelector(`.${saved.tab}-option`)?.click();
       closeMediaPopover();
+      if (state.format === "reels") {
+        elements.controlPanelShell.hidden = false;
+        elements.controlPanelShell.inert = false;
+        elements.controlPanelShell.setAttribute("aria-hidden", "false");
+        syncReelsControls();
+      }
     }
   });
 }

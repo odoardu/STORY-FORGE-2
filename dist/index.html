@@ -20,7 +20,7 @@
     <link rel="apple-touch-icon" sizes="180x180" type="image/png" href="/apple-touch-icon-180-20261028.png" />
     <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-180-20261028.png" />
     <link rel="stylesheet" href="./export-review.css?v=20261028-collage" />
-    <link rel="stylesheet" href="./styles.css?v=20261028-collage" />
+    <link rel="stylesheet" href="./styles.css?v=20261118-reels-release" />
     <link rel="stylesheet" href="./studio-ui.css?v=20261028-collage" />
     <link rel="stylesheet" href="./studio-refinement.css?v=20261028-collage" />
   <link rel="stylesheet" href="/collage-workbench.css?v=20261028-collage">
@@ -138,9 +138,19 @@
               </div>
 
 
-              <div class="control-section" hidden>
+              <div class="control-section reels-framing" id="reelsFraming" hidden>
                 <div class="control-section-title">
-                  <strong>Imagem</strong>
+                  <strong>Enquadramento do Reels</strong>
+                  <small>Escolha a mídia que deseja ajustar</small>
+                </div>
+                <div class="reels-targets" role="group" aria-label="Mídia do Reels">
+                  <button type="button" class="reels-target is-active" data-reel-target="video">Vídeo de cima</button>
+                  <button type="button" class="reels-target" data-reel-target="image">Imagem de baixo</button>
+                </div>
+              </div>
+              <div class="control-section reels-range-controls" id="reelsRangeControls" hidden>
+                <div class="control-section-title">
+                  <strong id="reelsTargetLabel">Vídeo de cima</strong>
                   <small>Zoom e posicao</small>
                 </div>
                 <div class="control-grid">
@@ -224,6 +234,7 @@
                   <canvas id="videoArtworkPreview" width="1080" height="1350" aria-label="Prévia do vídeo com efeitos"></canvas>
                   <canvas id="informativePreview" width="1080" height="1350" aria-label="Prévia do informativo"></canvas>
                   <canvas id="storiesPreview" width="1080" height="1920" aria-label="Prévia de Stories baseada no Feed"></canvas>
+                  <canvas id="reelsPreview" width="1080" height="1920" aria-label="Prévia de Reels com vídeo e imagem"></canvas>
                   <canvas id="closingPreview" width="1080" height="1350" aria-label="Prévia do encerramento"></canvas>
                   <img class="texture-base" src="./assets/black-texture.jpg" alt="" />
                   <div class="feed-stage-content" id="feedLayer">
@@ -380,11 +391,11 @@ DA SUA PUBLICAÇÃO</textarea>
     <script src="./artwork-effects.js?v=20261028-collage" defer></script>
     <script src="./studio-motion.js?v=20261028-collage" defer></script>
     <script src="./media-loading-border.js?v=20261028-collage" defer></script>
-    <script src="./workbench-preview-ui.js?v=20261028-collage" defer></script>
+    <script src="./workbench-preview-ui.js?v=20261118-reels-no-circle" defer></script>
     <script src="./studio-session.js" defer></script><script src="./editor-history.js?v=20261028-collage" defer></script>
     <script src="./polaroid.js?v=20261028-collage" defer></script>
     <script src="./export-review.js?v=20261028-collage" defer></script>
-    <script src="./app.js?v=20261028-collage" defer></script>
+    <script src="./app.js?v=20261118-reels-v25" defer></script>
     <script src="./content-ideas.js?v=20261028-collage" defer></script>
     <script src="./pwa.js?v=20261028-collage" defer></script>
   <aside id="circlePopover" class="circle-popover" hidden role="dialog" aria-label="Ajustar foto circular">

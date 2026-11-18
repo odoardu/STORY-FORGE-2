@@ -2289,8 +2289,24 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .artboard-static, .artboard-static * { pointer-events: none !important; }
 .artboard-preview { text-align: left; font: inherit; color: inherit; }
 
-#storiesPreview, .stories-note { display: none; }
+#storiesPreview, #reelsPreview, .stories-note { display: none; }
 .experience-shell[data-format="stories"] #storiesPreview { display: block; position: absolute; inset: 0; width: 1080px; height: 1920px; }
+.experience-shell[data-format="reels"] #reelsPreview { display: block; position: absolute; inset: 0; width: 1080px; height: 1920px; z-index: 7; }
+.experience-shell[data-format="reels"] .feed-stage-content,
+.experience-shell[data-format="reels"] .video-slot,
+.experience-shell[data-format="reels"] .title-layer,
+.experience-shell[data-format="reels"] .logo-layer,
+.experience-shell[data-format="reels"] .texture-base,
+.experience-shell[data-format="reels"] .story-stage::after { display: none !important; }
+.experience-shell[data-format="reels"] .story-stage { cursor: grab; touch-action: none; }
+.experience-shell[data-format="reels"] .workspace { grid-template-columns: minmax(0, 1fr); }
+#reelsFraming, #reelsRangeControls { display: none !important; }
+.experience-shell[data-format="reels"] .circle-upload-action { display: none !important; }
+.experience-shell[data-format="reels"] #dockEffects { display: none !important; }
+.reels-targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reels-target { min-height: 40px; padding: 8px 10px; border: 1px solid #ffffff22; border-radius: 10px; background: #111; color: #d7d7d2; font: 600 12px/1.15 Gotham, sans-serif; cursor: pointer; }
+.reels-target.is-active { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 18%, #111); color: #fff; }
+.reels-target:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .experience-shell[data-format="stories"] .story-stage > :not(#storiesPreview):not(#circleInset):not(.feed-stage-content):not(.logo-layer),
 .experience-shell[data-format="stories"] .story-stage::after,
 .experience-shell[data-format="stories"] .control-panel-shell,
@@ -2467,9 +2483,11 @@ input, textarea, [contenteditable] { caret-color: var(--accent); }
 /* Video shares the existing artwork renderer and editing targets. */
 .video-upload, .video-details, #videoArtworkPreview { display: none; }
 .experience-shell[data-format="feed"] .video-upload,
-.experience-shell[data-format="stories"] .video-upload { display: flex; }
+.experience-shell[data-format="stories"] .video-upload,
+.experience-shell[data-format="reels"] .video-upload { display: flex; }
 .experience-shell.has-artwork-video[data-format="feed"] .video-details,
 .experience-shell.has-artwork-video[data-format="stories"] .video-details { display: flex; }
+.experience-shell.has-artwork-video[data-format="reels"] .video-details { display: flex; }
 .experience-shell.has-artwork-video[data-format="feed"] #videoArtworkPreview { display: block; position: absolute; inset: 0; width: 1080px; height: 1350px; z-index: 8; pointer-events: none; }
 .experience-shell.has-artwork-video[data-format="feed"] .feed-stage-content,
 .experience-shell.has-artwork-video[data-format="feed"] .logo-layer { opacity: 0; }
@@ -2538,7 +2556,9 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
 .media-upload-actions { display: flex; align-items: center; gap: 8px; }
 .media-upload-actions .studio-action { display: none; }
 .experience-shell[data-format="feed"] .media-upload-actions .video-upload, .experience-shell[data-format="stories"] .media-upload-actions .video-upload,
+.experience-shell[data-format="reels"] .media-upload-actions .video-upload,
 .experience-shell[data-format="feed"] .media-upload-actions .upload-image, .experience-shell[data-format="stories"] .media-upload-actions .upload-image,
+.experience-shell[data-format="reels"] .media-upload-actions .upload-image,
 .experience-shell[data-format="feed"] .media-upload-actions .circle-upload-action,
 .experience-shell[data-format="stories"] .media-upload-actions .circle-upload-action,
 .experience-shell[data-format="informative"] .media-upload-actions .informative-upload-action { display: grid !important; }

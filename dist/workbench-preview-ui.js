@@ -65,6 +65,13 @@ const StudioUI = (() => {
       button.classList.toggle("is-active", selected); button.setAttribute("aria-pressed", String(selected));
     });
     const names = { polaroid: "Polaroid", feed: "Feed", stories: "Stories", informative: "Informativo", closing: "Encerramento" };
+    const circleUpload = document.querySelector('#mediaPopover .circle-upload-action');
+    if (circleUpload) {
+      const hideCircle = s.format === 'reels';
+      if (circleUpload.hidden !== hideCircle) circleUpload.hidden = hideCircle;
+      if (hideCircle) circleUpload.style.setProperty('display', 'none', 'important');
+      else circleUpload.style.removeProperty('display');
+    }
     byId("mobileFormatName").textContent = names[s.format] || "Feed";
     byId("effectBlur").value = s.format === "closing" ? s.closingBlur : s.format === "informative" ? s.infoBackgroundBlur : s.maskBlur;
     byId("effectShade").value = s.format === "closing" ? s.closingShade : s.format === "informative" ? s.infoShade : s.blurGradientOpacity;
@@ -81,7 +88,7 @@ const StudioUI = (() => {
     if (mediaPanel.getAttribute("aria-hidden") !== String(!mediaOpen)) mediaPanel.setAttribute("aria-hidden", String(!mediaOpen));
     if (!mediaOpen) mediaPanel.getAnimations().forEach(animation => animation.cancel());
     document.querySelectorAll('.glass-dock .format-option').forEach(button => {
-      if (["feed", "stories"].includes(button.dataset.format)) {
+      if (["feed", "stories", "reels"].includes(button.dataset.format)) {
         button.setAttribute("aria-controls", "mediaPopover");
         button.setAttribute("aria-expanded", String(mediaOpen && button.dataset.format === s.format));
       }
@@ -163,7 +170,7 @@ const StudioUI = (() => {
         const wasOpen = api.getState().format === format && document.body.classList.contains("mobile-controls-open");
         closeOtherPanels();
         api.format(format);
-        if (["feed", "stories"].includes(format) && !wasOpen) api.toggleMedia();
+        if (["feed", "stories", "reels"].includes(format) && !wasOpen) api.toggleMedia();
         sync();
       }, true);
     });

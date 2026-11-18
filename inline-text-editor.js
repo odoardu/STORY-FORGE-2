@@ -79,6 +79,10 @@ const InlineTextEditor = (() => {
         // Native letter spacing includes a trailing advance; compensate when centering.
         x = stageRect.left + ((FEED.width - width) / 2 + tracking / 2) * scale;
         y = stageRect.top + (first.baselineY - nativeBaseline(fontSize, lineHeight, fontFamily)) * scale;
+        if (state.format === 'reels') {
+          const center = (first.baselineY + last.baselineY) / 2 - first.fontSize * .35;
+          y += (REELS.image.y - 20 - center) * scale;
+        }
         height = last.y + last.height - first.y + 16;
 
       }
@@ -108,6 +112,11 @@ const InlineTextEditor = (() => {
   function readSource() { return source.isContentEditable ? getSubtitlePlainText() : source.value; }
   function write() {
     const saved = offsets();
+    if (selection === 'title' && state.format === 'reels') {
+      editor.value = editor.value.split(/\r?\n/).slice(0, 2).join('\n').slice(0, 120);
+      state.titleHighlights = [{ start: 0, end: editor.value.length }];
+      state.titleHighlightColor = 'pink';
+    }
     if (source.maxLength > 0 && editor.value.length > source.maxLength) editor.value = editor.value.slice(0, source.maxLength);
     if (source.isContentEditable) {
       state.subtitleMarks = state.subtitleMarks.flatMap(mark => EditorCore.remapRanges(lastText, editor.value, [mark]).map(range => ({ ...mark, ...range })));
@@ -128,7 +137,7 @@ const InlineTextEditor = (() => {
       else if (selection === 'title') {
         if (start === end) { announce('Selecione o trecho que deseja destacar.'); return; }
         const next = EditorCore.toggleRange(state.titleHighlights, start, end);
-        if (EditorCore.isFullyHighlighted(source.value, next)) { announce('Destaque só uma parte do título.'); return; }
+        if (state.format !== 'reels' && EditorCore.isFullyHighlighted(source.value, next)) { announce('Destaque só uma parte do título.'); return; }
         state.titleHighlightColor = 'pink'; void applyTitleHighlight(start, end);
       }
     } else if (selection === 'infoBody') {
