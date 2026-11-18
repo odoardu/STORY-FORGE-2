@@ -574,7 +574,9 @@ function beginMediaLoading(message = "Preparando mídia…", target = {}) {
   host.setAttribute("aria-busy", "true");
   bar.removeAttribute("aria-valuenow");
   label.textContent = message;
-  return (success, message = null) => {
+  const safetyTimeout = setTimeout(() => { finish(false, "Tempo limite excedido"); }, 12000);
+  const finish = (success, message = null) => {
+    clearTimeout(safetyTimeout);
     if (!activeMediaLoads.delete(job)) return;
     if (success && typeof ExportReview !== "undefined") ExportReview.touch(editFormat);
     finishBorder(success);
@@ -586,6 +588,7 @@ function beginMediaLoading(message = "Preparando mídia…", target = {}) {
     if (success) bar.setAttribute("aria-valuenow", "100");
     mediaLoadingHideTimer = setTimeout(() => { host.hidden = true; }, success ? 850 : 3500);
   };
+  return finish;
 }
 
 init();
@@ -3400,7 +3403,7 @@ function exportReviewEntries() {
   const common = [elements.titleInput.value, elements.feedKickerInput.value, elements.feedSubtitleInput.innerHTML,
     ...pick(state, ["mediaKind", "videoUrl", "videoTrimStart", "videoTrimEnd", "feedImageUrl", "zoom", "panX", "panY", "maskBlur", "blurGradientOpacity", "titleHighlights", "titleHighlightColor", "titleFontSize", "kickerMode", "kickerLogoIndex", "subtitleFontSize", "subtitleLetterSpacing", "subtitleLineHeight", "subtitleWordSpacing", "subtitleScaleX", "subtitleScaleY", "subtitleTextAlign", "subtitleTextTransform", "subtitleRotation", "subtitlePositionX", "subtitlePositionY", "subtitleMaxWidth", "subtitleMarks", "logoUrl"]),
     ...pick(state.circle, ["url", "x", "y", "size", "zoom", "panX", "panY", "behind"]), exportIdentity(state.circle.image)];
-  const entries = ["feed", "stories", "story"].map(format => ({ key: format, format, label: format === "feed" ? "Feed" : "Stories / Reels",
+  const entries = ["feed", "stories", "story", "reels"].map(format => ({ key: format, format, label: format === "feed" ? "Feed" : format === "reels" ? "Reels" : "Stories",
     video: state.mediaKind === "video" && !!state.videoUrl, signature: JSON.stringify([common, state.logoSettings[format]]) }));
   state.informativePages.forEach((page, index) => entries.push({ key: page, format: "informative", board: true,
     label: `Informativo ${index + 1}`, index, video: !!page.infoVideo,
@@ -3424,7 +3427,7 @@ async function exportReviewedArtwork(entries, progress) {
   try {
     for (const [index, entry] of entries.entries()) {
       progress(`Preparando ${index + 1} de ${entries.length} · ${entry.label}`);
-      batchExportName = entry.format === "informative" ? `informativo-${entry.index + 1}` : entry.format === "polaroid" ? `polaroid-${entry.index + 1}` : entry.format === "closing" ? "encerramento" : entry.format === "feed" ? "feed" : "stories";
+      batchExportName = entry.format === "informative" ? `informativo-${entry.index + 1}` : entry.format === "polaroid" ? `polaroid-${entry.index + 1}` : entry.format === "closing" ? "encerramento" : entry.format === "feed" ? "feed" : entry.format === "reels" ? "reels" : "stories";
       const countBefore = batchExportFiles.length;
       if (entry.format === "polaroid") {
         applyFormat("polaroid", { keepPanel: true });
@@ -4317,16 +4320,18 @@ function seekVideo(video, time) {
   });
 }
 
-function waitForVideo(video) {
+function waitForVideo(video, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
+    let timer;
     const cleanup = () => {
+      clearTimeout(timer);
       video.removeEventListener("loadedmetadata", onReady);
       video.removeEventListener("canplay", onReady);
       video.removeEventListener("error", onError);
     };
 
     const onReady = () => {
-      if (video.readyState >= 2 && video.videoWidth) {
+      if (video.readyState >= 1 && (video.videoWidth || video.duration)) {
         cleanup();
         resolve();
       }
@@ -4336,6 +4341,15 @@ function waitForVideo(video) {
       cleanup();
       reject(new Error("Video could not load"));
     };
+
+    timer = setTimeout(() => {
+      cleanup();
+      if (video.readyState >= 1 && (video.videoWidth || video.duration)) {
+        resolve();
+      } else {
+        reject(new Error("Tempo limite ao carregar vídeo"));
+      }
+    }, timeoutMs);
 
     video.addEventListener("loadedmetadata", onReady);
     video.addEventListener("canplay", onReady);
@@ -5233,22 +5247,32 @@ function drawCircleInset(ctx, local = false) {
 
 let foregroundWorker = null, foregroundSequence = 0;
 const foregroundJobs = new Map();
-function analyzeForeground(blob) {
+function analyzeForeground(blob, timeoutMs = 7000) {
   if (!foregroundWorker) {
-    foregroundWorker = new Worker("/assets/vendor/foreground-worker.js", { type: "module" });
-    foregroundWorker.onmessage = ({ data }) => {
-      const job = foregroundJobs.get(data.id);
-      if (!job || data.progress) return;
-      foregroundJobs.delete(data.id);
-      if (data.error) job.reject(new Error(data.error)); else job.resolve(data.mask);
-    };
-    foregroundWorker.onerror = () => {
-      foregroundJobs.forEach(job => job.reject(new Error("Falha no analisador da imagem")));
-      foregroundJobs.clear(); foregroundWorker.terminate(); foregroundWorker = null;
-    };
+    try {
+      foregroundWorker = new Worker("/assets/vendor/foreground-worker.js", { type: "module" });
+      foregroundWorker.onmessage = ({ data }) => {
+        const job = foregroundJobs.get(data.id);
+        if (!job || data.progress) return;
+        clearTimeout(job.timer);
+        foregroundJobs.delete(data.id);
+        if (data.error) job.reject(new Error(data.error)); else job.resolve(data.mask);
+      };
+      foregroundWorker.onerror = () => {
+        foregroundJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error("Falha no analisador da imagem")); });
+        foregroundJobs.clear(); foregroundWorker?.terminate(); foregroundWorker = null;
+      };
+    } catch {
+      return Promise.reject(new Error("Worker não suportado"));
+    }
   }
   return new Promise((resolve, reject) => {
-    const id = ++foregroundSequence; foregroundJobs.set(id, { resolve, reject });
+    const id = ++foregroundSequence;
+    const timer = setTimeout(() => {
+      foregroundJobs.delete(id);
+      reject(new Error("Tempo limite no recorte"));
+    }, timeoutMs);
+    foregroundJobs.set(id, { resolve, reject, timer });
     foregroundWorker.postMessage({ id, blob });
   });
 }
@@ -5602,5 +5626,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
+
 
 
