@@ -215,7 +215,7 @@ function installReelsFormatOption() {
   const unit = document.createElement("div");
   unit.className = "dock-format-unit";
   unit.dataset.formatUnit = "reels";
-  unit.innerHTML = '<button type="button" class="format-option glass-tool" data-format="reels" aria-label="Reels" aria-pressed="false" data-tooltip="Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="m10 9 5 3-5 3zM8 5h8M8 19h8"/></svg></button><span class="dock-media-slot"><button type="button" class="glass-tool" id="reelsMedia" aria-label="Trocar vídeo ou imagem do Reels" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídias do Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><label class="glass-tool circle-upload-subdock" for="circleImageInput" aria-label="Recortar / Foto circular" data-tooltip="Recortar / Foto circular" role="button" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></label></span>';
+  unit.innerHTML = '<button type="button" class="format-option glass-tool" data-format="reels" aria-label="Reels" aria-pressed="false" data-tooltip="Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="m10 9 5 3-5 3zM8 5h8M8 19h8"/></svg></button><span class="dock-media-slot"><button type="button" class="glass-tool" id="reelsMedia" aria-label="Trocar vídeo ou imagem do Reels" aria-controls="mediaPopover" aria-expanded="false" data-tooltip="Mídias do Reels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg></button><button type="button" class="glass-tool" id="reelsCutout" aria-label="Separar assunto da foto (recorte pop-out)" aria-pressed="false" data-tooltip="Recortar assunto da foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></button></span>';
   stories.after(unit);
 }
 
@@ -1054,6 +1054,7 @@ function bindEvents() {
   document.getElementById("workspaceImageButton").addEventListener("click", toggleMediaPopover);
   document.getElementById("dockImage").addEventListener("click", toggleMediaPopover);
   document.getElementById("reelsMedia")?.addEventListener("click", toggleMediaPopover);
+  document.getElementById("reelsCutout")?.addEventListener("click", toggleReelsSubjectCutout);
   document.querySelector(".informative-upload-action").addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); elements.informativeImageInput.click(); }
   });
@@ -3045,6 +3046,59 @@ function updateMediaTransform() {
   refreshVideoArtwork();
 }
 
+async function toggleReelsSubjectCutout() {
+  const c = state.circle, source = state.feedImage;
+  if (!source) {
+    setStatus("Selecione a imagem de baixo primeiro.");
+    return;
+  }
+  const button = document.getElementById("reelsCutout");
+  if (c.mask && c.maskSource === source) {
+    state.reelSubjectOverflow = !state.reelSubjectOverflow;
+    button?.setAttribute("aria-pressed", String(state.reelSubjectOverflow));
+    button?.classList.toggle("is-active", state.reelSubjectOverflow);
+    updateReelsPreview();
+    setStatus(state.reelSubjectOverflow ? "Recorte de assunto ativado" : "Recorte desativado");
+    return;
+  }
+  if (c.maskBusy) {
+    setStatus("Recorte em andamento…");
+    return;
+  }
+  c.maskBusy = true;
+  button?.setAttribute("aria-busy", "true");
+  const finish = beginMediaLoading("Separando assunto da foto…");
+  setStatus("Recortando assunto com inteligência artificial…");
+  const input = document.createElement("canvas");
+  const scale = Math.min(1, 1024 / Math.max(source.naturalWidth, source.naturalHeight));
+  input.width = Math.round(source.naturalWidth * scale);
+  input.height = Math.round(source.naturalHeight * scale);
+  input.getContext("2d").drawImage(source, 0, 0, input.width, input.height);
+  try {
+    const pixels = input.getContext("2d").getImageData(0, 0, input.width, input.height);
+    const blob = new Blob([pixels.data], { type: `image/x-rgba8;width=${input.width};height=${input.height}` });
+    const result = await analyzeForeground(blob, 25000);
+    const mask = document.createElement("canvas");
+    mask.width = input.width;
+    mask.height = input.height;
+    mask.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(await result.arrayBuffer()), mask.width, mask.height), 0, 0);
+    c.mask = mask;
+    c.maskSource = source;
+    state.reelSubjectOverflow = true;
+    button?.setAttribute("aria-pressed", "true");
+    button?.classList.add("is-active");
+    updateReelsPreview();
+    finish(true, "Assunto recortado com sucesso!");
+    setStatus("Assunto recortado com sucesso!");
+  } catch (err) {
+    console.warn("Recorte Reels:", err);
+    finish(false, "Não foi possível recortar esta imagem.");
+    setStatus("Não foi possível recortar esta imagem.");
+  } finally {
+    c.maskBusy = false;
+    button?.removeAttribute("aria-busy");
+  }
+}
 function syncReelsControls() {
   const framing = document.getElementById("reelsFraming");
   const controls = document.getElementById("reelsRangeControls");
@@ -3056,6 +3110,12 @@ function syncReelsControls() {
   }
   if (framing) framing.hidden = true;
   if (controls) controls.hidden = true;
+  const cutoutButton = document.getElementById("reelsCutout");
+  if (cutoutButton) {
+    const isSeparated = Boolean(state.circle.mask && state.circle.maskSource === state.feedImage && state.reelSubjectOverflow);
+    cutoutButton.setAttribute("aria-pressed", String(isSeparated));
+    cutoutButton.classList.toggle("is-active", isSeparated);
+  }
   if (!active) return;
   const transform = state.reelTarget === "video" ? state.reelVideo : state.reelImage;
   document.querySelectorAll("[data-reel-target]").forEach(button => {
@@ -5061,7 +5121,7 @@ function drawReelsFrame(ctx) {
     ctx.drawImage(blurLayer, 0, 0);
   }
 
-  if (image && state.circle.mask && state.circle.maskSource === image) {
+  if (image && state.circle.mask && state.circle.maskSource === image && state.reelSubjectOverflow !== false) {
     const subject = reelsCachedLayer("subject", state.circle.mask, subject => {
     subject.width = image.naturalWidth; subject.height = image.naturalHeight;
     const painter = subject.getContext("2d");
@@ -5110,7 +5170,6 @@ function drawReelsFrame(ctx) {
   ctx.translate(0, REELS.image.y - 20 - center);
   drawFeedCopy(ctx, true);
   ctx.restore();
-  drawCircleInset(ctx);
   if (state.logoImage) {
     const width = STORY.logo.width;
     const height = width * state.logoImage.naturalHeight / state.logoImage.naturalWidth;
@@ -5319,7 +5378,7 @@ async function ensureCircleForeground() {
 function syncCircleInset() {
   const node = document.getElementById("circleInset"), c = state.circle;
   elements.shell.classList.toggle("has-circle-image", Boolean(c.image));
-  node.hidden = !c.image || !["feed", "stories", "reels"].includes(state.format);
+  node.hidden = !c.image || !["feed", "stories"].includes(state.format);
   if (node.hidden) return;
   const bounds = circleBounds(), canvas = document.getElementById("circleInsetPreview");
   Object.assign(node.style, { left: `${bounds.x}px`, top: `${bounds.y}px`, width: `${c.size}px`, height: `${c.size}px` });
@@ -5627,6 +5686,7 @@ async function checkReviewedArtwork(entries) {
   }
   return ExportChecks.confirm(issues,actions);
 }
+
 
 
 
