@@ -5002,6 +5002,16 @@ function drawStoriesFrame(ctx) {
   ctx.restore();
 }
 
+const reelsLayerCache = new Map();
+function reelsCachedLayer(name, key, paint) {
+  const previous = reelsLayerCache.get(name);
+  if (previous?.key === key) return previous.canvas;
+  const canvas = document.createElement("canvas");
+  canvas.width = REELS.width; canvas.height = REELS.height;
+  paint(canvas);
+  reelsLayerCache.set(name, { key, canvas });
+  return canvas;
+}
 function drawReelsFrame(ctx) {
   state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
   state.titleHighlightColor = "pink";
@@ -5020,26 +5030,29 @@ function drawReelsFrame(ctx) {
 
   if (image) {
     drawImageCoverTransformed(ctx, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
-    const blurLayer = document.createElement("canvas");
+    const blurKey = `${state.feedImageUrl}:${state.reelImage.zoom}:${state.reelImage.panX}:${state.reelImage.panY}:${state.maskBlur}`;
+    const blurLayer = reelsCachedLayer("blur", blurKey, blurLayer => {
     blurLayer.width = REELS.width; blurLayer.height = REELS.height;
     const blur = blurLayer.getContext("2d");
-    blur.filter = `blur(${Number(state.maskBlur) || 0}px)`;
+    blur.filter = `blur(${Math.max(16, Number(state.maskBlur) || 0)}px)`;
     drawImageCoverTransformed(blur, image, REELS.image.x, REELS.image.y, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
     blur.filter = "none";
     blur.globalCompositeOperation = "destination-in";
     const mask = blur.createLinearGradient(0, REELS.image.y + REELS.image.height * .65, 0, REELS.height);
     mask.addColorStop(0, "rgba(0,0,0,0)"); mask.addColorStop(.5, "rgba(0,0,0,.3)"); mask.addColorStop(1, "rgba(0,0,0,1)");
     blur.fillStyle = mask; blur.fillRect(0, 0, REELS.width, REELS.height);
+    });
     ctx.drawImage(blurLayer, 0, 0);
   }
 
   if (image && state.circle.mask && state.circle.maskSource === image) {
-    const subject = document.createElement("canvas");
+    const subject = reelsCachedLayer("subject", state.circle.mask, subject => {
     subject.width = image.naturalWidth; subject.height = image.naturalHeight;
     const painter = subject.getContext("2d");
     painter.drawImage(image, 0, 0);
     painter.globalCompositeOperation = "destination-in";
     painter.drawImage(state.circle.mask, 0, 0, subject.width, subject.height);
+    });
     const geometry = EditorCore.imageGeometry(subject.width, subject.height, REELS.image.width, REELS.image.height, state.reelImage.zoom, state.reelImage.panX / 100 * REELS.image.width, state.reelImage.panY / 100 * REELS.image.height);
     ctx.save();
     // Only reveal the overflow above the photo; the lower photo keeps its effects.
@@ -5055,7 +5068,7 @@ function drawReelsFrame(ctx) {
   ctx.fillStyle = transition; ctx.fillRect(0, REELS.image.y, REELS.width, REELS.image.height);
   for (const [texture, blend, opacity] of [[state.feedTextureExclusionImage, "exclusion", .1], [state.feedTextureSoftLightImage, "soft-light", .3]]) {
     if (!texture) continue;
-    const textureLayer = document.createElement("canvas");
+    const textureLayer = reelsCachedLayer(blend, texture, textureLayer => {
     textureLayer.width = REELS.width; textureLayer.height = REELS.height;
     const textureContext = textureLayer.getContext("2d");
     drawImageCover(textureContext, texture, 0, 0, REELS.width, REELS.height);
@@ -5066,6 +5079,7 @@ function drawReelsFrame(ctx) {
     textureMask.addColorStop(1, "#000");
     textureContext.fillStyle = textureMask;
     textureContext.fillRect(0, 0, REELS.width, REELS.height);
+    });
     ctx.save(); ctx.globalCompositeOperation = blend; ctx.globalAlpha = opacity;
     ctx.beginPath(); ctx.rect(0, REELS.image.y, REELS.width, REELS.image.height); ctx.clip();
     ctx.drawImage(textureLayer, 0, 0); ctx.restore();
@@ -5085,6 +5099,11 @@ function drawReelsFrame(ctx) {
 
 function bindReelsDirectManipulation() {
   const canvas = elements.stage;
+  let pendingFrame = 0;
+  const refreshGesture = () => {
+    if (pendingFrame) return;
+    pendingFrame = requestAnimationFrame(() => { pendingFrame = 0; updateReelsPreview(); });
+  };
   let drag = null;
   let pinch = null, moved = false;
   const points = new Map();
@@ -5116,15 +5135,16 @@ function bindReelsDirectManipulation() {
     if (points.size === 2 && pinch) {
       const [a, b] = [...points.values()];
       transform.zoom = pinch.zoom * Math.hypot(a.x-b.x, a.y-b.y) / pinch.distance;
-      updateMediaTransform(); return;
+      refreshGesture(); return;
     }
     if (Math.hypot(event.clientX-drag.x, event.clientY-drag.y) > 5) moved = true;
     transform.panX = drag.panX + (event.clientX - drag.x) / rect.width * 1080 / box.width * 100;
     transform.panY = drag.panY + (event.clientY - drag.y) / rect.height * 1920 / box.height * 100;
-    updateMediaTransform();
+    refreshGesture();
   });
   for (const name of ["pointerup", "pointercancel"]) canvas.addEventListener(name, event => {
     points.delete(event.pointerId); pinch = null; drag = null;
+    if (state.format === "reels") updateMediaTransform();
     if (points.size === 1) {
       const point = [...points.values()][0];
       drag = { ...point, ...(state.reelTarget === "video" ? state.reelVideo : state.reelImage) };
