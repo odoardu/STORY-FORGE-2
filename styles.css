@@ -2561,7 +2561,7 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
 .experience-shell[data-format="reels"] .media-upload-actions .upload-image,
 .experience-shell[data-format="feed"] .media-upload-actions .circle-upload-action,
 .experience-shell[data-format="stories"] .media-upload-actions .circle-upload-action,
-.experience-shell[data-format="informative"] .media-upload-actions .informative-upload-action { display: grid !important; }
+.experience-shell[data-format="informative"] .media-upload-actions .informative-upload-action, .experience-shell[data-format="reels"] .media-upload-actions .reels-cutout-action { display: grid !important; }
 .experience-shell[data-format="closing"] .closing-controls { display: flex; align-items: center; gap: 8px; }
 #randomFeedImageButton { display: none !important; }
 .informative-upload svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.6; }
@@ -2684,6 +2684,18 @@ body.has-artwork-video { --studio-overlay-bottom: 188px; }
   cursor: pointer !important;
 }
 #reelsCutout.is-active, #reelsCutout[aria-pressed="true"] {
+  background: rgba(233, 129, 190, 0.28) !important;
+  color: #f2b5d8 !important;
+  border-color: rgba(233, 129, 190, 0.7) !important;
+}
+
+.media-upload-actions .reels-cutout-action {
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 180ms ease, transform 180ms ease, border-color 180ms ease;
+}
+.media-upload-actions .reels-cutout-action.is-active,
+.media-upload-actions .reels-cutout-action[aria-pressed="true"] {
   background: rgba(233, 129, 190, 0.28) !important;
   color: #f2b5d8 !important;
   border-color: rgba(233, 129, 190, 0.7) !important;
