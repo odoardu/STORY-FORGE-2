@@ -1,8 +1,8 @@
-const CACHE_NAME = "story-forge-shell-v61-reels-cutout-pill";
+const CACHE_NAME = "story-forge-shell-v62-ios-icon";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/favicon.ico",
-  "/apple-touch-icon-152-20261028.png", "/apple-touch-icon-167-20261028.png", "/apple-touch-icon-180-20261028.png",
+  "/apple-touch-icon.png", "/apple-touch-icon-152-20261028.png", "/apple-touch-icon-167-20261028.png", "/apple-touch-icon-180-20261028.png",
   "/assets/pwa/icon-32-20261028-v3.png", "/assets/pwa/icon-48-20261028-v3.png", "/assets/pwa/icon-96-20261028-v3.png",
   "/assets/pwa/icon-192-20261028-v3.png", "/assets/pwa/icon-512-20261028-v3.png",
   "/studio-session.js", "/inline-text-editor.js", "/inline-text-editor.css", "/mobile-text-preview.js", "/mobile-text-preview.css", "/export-checks.js", "/export-checks.css",
@@ -40,7 +40,7 @@ const APP_SHELL = [
   "/app.js?v=20261118-reels-v27",
   "/assets/vendor/video-export.js?v=20261028-collage",
   "/pwa.js?v=20261028-collage",
-  "/manifest.webmanifest?v=20261028-v3",
+  "/manifest.webmanifest?v=20261118-v1",
   "/assets/TuskerGrotesk-4600Semibold.otf",
   "/assets/Gotham-Book.otf",
   "/assets/Gotham-Bold.otf",
