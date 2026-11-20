@@ -1245,6 +1245,7 @@ function bindEvents() {
   elements.titleInput.addEventListener("input", () => {
     state.titleHighlights = EditorCore.remapRanges(state.previousTitleText, elements.titleInput.value, state.titleHighlights);
     state.previousTitleText = elements.titleInput.value;
+    enforcePartialTitleHighlight();
     updateText();
     updateFeedText();
   });
@@ -1371,6 +1372,33 @@ function togglePreviewMute() {
   updatePlaybackIcons();
 }
 
+const titleDrafts = {
+  reels: { text: "ESCREVA AQUI O TÍTULO\nDA SUA PUBLICAÇÃO", highlights: [], color: "pink", fontSize: FEED.title.baseFontSize },
+};
+
+function titleDraftKey(format = state.format) {
+  return format === "reels" ? "reels" : "feed";
+}
+
+function readTitleDraft() {
+  return { text: elements.titleInput.value, highlights: state.titleHighlights,
+    color: state.titleHighlightColor, fontSize: state.titleFontSize };
+}
+
+function writeTitleDraft(draft) {
+  elements.titleInput.value = draft.text;
+  state.previousTitleText = draft.text;
+  state.titleHighlights = draft.highlights;
+  state.titleHighlightColor = draft.color;
+  state.titleFontSize = draft.fontSize;
+  writeRangeRealValue(elements.titleFontSizeInput, draft.fontSize, elements.titleFontSizeValue);
+  document.querySelectorAll("#popoverTitleHighlightGroup .color-chip, #panelTitleHighlightGroup .color-chip").forEach(chip => {
+    const active = chip.dataset.color === draft.color;
+    chip.classList.toggle("is-active", active);
+    chip.setAttribute("aria-pressed", String(active));
+  });
+}
+
 function applyFormat(format, options = {}) {
   if (state.exportingVideo) return;
   if (!FORMATS[format]) return;
@@ -1388,20 +1416,14 @@ function applyFormat(format, options = {}) {
   const formatChanged = format !== state.format;
   if (formatChanged) state.artboardFocused = false;
   saveLogoSettingsForCurrentFormat();
+  const previousDraft = titleDraftKey();
+  const nextDraft = titleDraftKey(format);
+  if (previousDraft !== nextDraft) {
+    document.dispatchEvent(new Event("inline:finish"));
+    titleDrafts[previousDraft] = readTitleDraft();
+    writeTitleDraft(titleDrafts[nextDraft]);
+  }
   state.format = format;
-  if (format === "reels" && !elements.titleInput.value.trim()) {
-    elements.titleInput.value = "ESCREVA AQUI O TÍTULO\nDA SUA PUBLICAÇÃO";
-    state.previousTitleText = elements.titleInput.value;
-    state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
-    state.titleHighlightColor = "pink";
-  }
-  if (format === "reels" && !state.reelsTitleDefaultsApplied) {
-    state.reelsTitleDefaultsApplied = true;
-    state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
-    state.titleHighlightColor = "pink";
-    state.titleFontSize = Math.round(state.titleFontSize * 1.1);
-    writeRangeRealValue(elements.titleFontSizeInput, state.titleFontSize, elements.titleFontSizeValue);
-  }
   PolaroidStudio.show(format === "polaroid");
   StudioUI.closeOtherPanels();
   StudioUI.sync();
@@ -1920,14 +1942,16 @@ function selectKickerLogo(index, record = true) {
   if (record && before !== index) EditorHistory.record(before, index, saved => selectKickerLogo(saved, false), "Trocar logo Mundo Soldier");
 }
 
-function updateFeedText() {
-  invalidateReelsTitleCache();
-  if (state.format === "reels") updateReelsPreview();
-  // Text edits and history restores must also respect the partial-highlight rule.
+function enforcePartialTitleHighlight() {
   if (state.format !== "reels" && EditorCore.isFullyHighlighted(elements.titleInput.value, state.titleHighlights)) {
     state.titleHighlights = [];
     setStatus("Tarja removida: destaque apenas palavras ou trechos do título.");
   }
+}
+
+function updateFeedText() {
+  invalidateReelsTitleCache();
+  if (state.format === "reels") { updateReelsPreview(); return; }
   if (!elements.feedTitleLayer) return;
 
   elements.feedKickerPreview.textContent = normalizeLine(elements.feedKickerInput.value || "CHAPEU");
@@ -2409,7 +2433,9 @@ function getFeedKickerPosition(titleLayouts) {
 }
 
 function getFeedTitleLayouts(fittedFontSize) {
-  const items = EditorCore.titleLines(elements.titleInput.value, state.titleHighlights);
+  const title = elements.titleInput.value;
+  const highlights = state.format === "reels" ? [{ start: 0, end: title.length }] : state.titleHighlights;
+  const items = EditorCore.titleLines(title, highlights);
   const fontSize = fittedFontSize || getFeedTypography("title").fontSize * (state.format === "reels" ? 1.1 : 1);
   const fontScale = fontSize / FEED.title.baseFontSize;
   const layouts = [];
@@ -3467,17 +3493,18 @@ function exportIdentity(object) {
 }
 function exportReviewEntries() {
   const pick = (object, keys) => keys.map(key => object[key]);
-  const common = [elements.titleInput.value, elements.feedKickerInput.value, elements.feedSubtitleInput.innerHTML,
-    ...pick(state, ["mediaKind", "videoUrl", "videoTrimStart", "videoTrimEnd", "feedImageUrl", "zoom", "panX", "panY", "maskBlur", "blurGradientOpacity", "titleHighlights", "titleHighlightColor", "titleFontSize", "kickerMode", "kickerLogoIndex", "subtitleFontSize", "subtitleLetterSpacing", "subtitleLineHeight", "subtitleWordSpacing", "subtitleScaleX", "subtitleScaleY", "subtitleTextAlign", "subtitleTextTransform", "subtitleRotation", "subtitlePositionX", "subtitlePositionY", "subtitleMaxWidth", "subtitleMarks", "logoUrl"]),
+  const feedTitle = state.format === "reels" ? titleDrafts.feed : readTitleDraft();
+  const common = [feedTitle.text, feedTitle.highlights, feedTitle.color, feedTitle.fontSize, elements.feedKickerInput.value, elements.feedSubtitleInput.innerHTML,
+    ...pick(state, ["mediaKind", "videoUrl", "videoTrimStart", "videoTrimEnd", "feedImageUrl", "zoom", "panX", "panY", "maskBlur", "blurGradientOpacity", "kickerMode", "kickerLogoIndex", "subtitleFontSize", "subtitleLetterSpacing", "subtitleLineHeight", "subtitleWordSpacing", "subtitleScaleX", "subtitleScaleY", "subtitleTextAlign", "subtitleTextTransform", "subtitleRotation", "subtitlePositionX", "subtitlePositionY", "subtitleMaxWidth", "subtitleMarks", "logoUrl"]),
     ...pick(state.circle, ["url", "x", "y", "size", "zoom", "panX", "panY", "behind"]), exportIdentity(state.circle.image)];
-  const entries = ["feed", "stories", "story", "reels"].map(format => ({ key: format, format, label: format === "feed" ? "Feed" : format === "reels" ? "Reels" : "Stories",
-    video: state.mediaKind === "video" && !!state.videoUrl, signature: JSON.stringify([common, state.logoSettings[format]]) }));
+  const entries = [{ key: "feed", format: "feed", label: "Feed",
+    video: state.mediaKind === "video" && !!state.videoUrl, signature: JSON.stringify([common, state.logoSettings.feed]) }];
   state.informativePages.forEach((page, index) => entries.push({ key: page, format: "informative", board: true,
     label: `Informativo ${index + 1}`, index, video: !!page.infoVideo,
     signature: JSON.stringify([...pick(page, ["infoTitle", "infoBody", "infoBodyBold", "infoImageUrl", "infoVideoTrimStart", "infoVideoTrimEnd", "infoZoom", "infoPanX", "infoPanY"]), state.infoBackgroundBlur, state.infoShade]) }));
   entries.push(...PolaroidStudio.exportEntries());
   entries.push({ key: "closing", format: "closing", label: "Encerramento", signature: JSON.stringify([
-    exportIdentity(state.closingImage), state.closingBlur, state.closingShade, state.titleHighlightColor, state.logoSettings.closing]) });
+    exportIdentity(state.closingImage), state.closingBlur, state.closingShade, feedTitle.color, state.logoSettings.closing]) });
   return entries;
 }
 function initExportReview() {
@@ -3494,7 +3521,7 @@ async function exportReviewedArtwork(entries, progress) {
   try {
     for (const [index, entry] of entries.entries()) {
       progress(`Preparando ${index + 1} de ${entries.length} · ${entry.label}`);
-      batchExportName = entry.format === "informative" ? `informativo-${entry.index + 1}` : entry.format === "polaroid" ? `polaroid-${entry.index + 1}` : entry.format === "closing" ? "encerramento" : entry.format === "feed" ? "feed" : entry.format === "reels" ? "reels" : "stories";
+      batchExportName = entry.format === "informative" ? `informativo-${entry.index + 1}` : entry.format === "polaroid" ? `polaroid-${entry.index + 1}` : entry.format === "closing" ? "encerramento" : "feed";
       const countBefore = batchExportFiles.length;
       if (entry.format === "polaroid") {
         applyFormat("polaroid", { keepPanel: true });
@@ -3521,7 +3548,7 @@ async function exportReviewedArtwork(entries, progress) {
 }
 
 async function exportPrimary() {
-  if (typeof ExportReview !== "undefined") { ExportReview.open(); return; }
+  if (typeof ExportReview !== "undefined" && ExportReview.isBatchFormat(state.format)) { await ExportReview.open(); return; }
   await exportSingleArtwork();
 }
 
@@ -3537,7 +3564,7 @@ async function exportSingleArtwork() {
 }
 
 async function exportCurrentPng() {
-  if (typeof ExportReview !== "undefined") { ExportReview.open(); return; }
+  if (typeof ExportReview !== "undefined" && ExportReview.isBatchFormat(state.format)) { await ExportReview.open(); return; }
   if (state.format === "polaroid") { await PolaroidStudio.exportActive(); return; }
   if (["feed", "informative", "closing", "stories", "reels"].includes(state.format)) {
     await exportFeedPng();
@@ -3635,6 +3662,7 @@ async function exportFeedPng() {
   setStatus("Preparando PNG do feed");
 
   try {
+    await document.fonts.ready;
     if (state.format !== "reels" && state.circle.image && state.circle.behind) await ensureCircleForeground();
     updateFeedText();
     updateInformativeText();
@@ -3847,12 +3875,12 @@ function drawFeedCopy(ctx, titleOnly = false) {
     drawTrackedTextWithFont(ctx, normalizeLine(elements.feedKickerInput.value || "CHAPEU"), FEED.width / 2, kickerPosition, kicker.tracking, `400 ${kicker.fontSize}px Gotham, Montserrat, "Segoe UI", Arial, sans-serif`);
   }
 
-  const highlightColor = HIGHLIGHT_COLORS[state.titleHighlightColor] || HIGHLIGHT_COLORS.pink;
+  const highlightColor = state.format === "reels" ? "pink" : state.titleHighlightColor;
 
   titleLayouts.forEach((spec) => {
     if (typeof InlineTextEditor !== 'undefined' && InlineTextEditor.omit(ctx, 'title')) return;
-    if (state.titleHighlightColor !== "none") {
-      ctx.fillStyle = highlightColor;
+    if (highlightColor !== "none") {
+      ctx.fillStyle = HIGHLIGHT_COLORS[highlightColor] || HIGHLIGHT_COLORS.pink;
       spec.highlightRects.forEach(rect => ctx.fillRect(rect.x, rect.y, rect.width, rect.height));
     }
 
@@ -4486,7 +4514,7 @@ function makeFeedExportName() {
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
-  return `${base || "feed"}-lpz-zero-${state.format === "stories" ? "stories" : state.format === "closing" ? "encerramento" : state.format === "informative" ? `informativo-${state.activeInformativePage + 1}` : "feed"}.png`;
+  return `${base || "feed"}-lpz-zero-${["stories", "reels"].includes(state.format) ? state.format : state.format === "closing" ? "encerramento" : state.format === "informative" ? `informativo-${state.activeInformativePage + 1}` : "feed"}.png`;
 }
 
 function makeExportBaseName() {
@@ -5098,8 +5126,6 @@ function reelsCachedLayer(name, key, paint) {
   return canvas;
 }
 function drawReelsFrame(ctx) {
-  state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
-  state.titleHighlightColor = "pink";
   const video = state.renderVideo || (elements.video.readyState >= 2 ? elements.video : null);
   const image = state.feedImage;
   ctx.reset();
@@ -5504,6 +5530,7 @@ async function applyTitleHighlight(start, end) {
     input.setSelectionRange(start, end);
     return;
   }
+  const draftKey = titleDraftKey();
   const beforeHighlight = { ranges: state.titleHighlights, color: state.titleHighlightColor, text };
   state.titleHighlights = next;
   if (state.titleHighlightColor === "none") state.titleHighlightColor = "pink";
@@ -5514,7 +5541,13 @@ async function applyTitleHighlight(start, end) {
   });
   updateFeedText();
   EditorHistory.record(beforeHighlight, { ranges: next, color: state.titleHighlightColor, text }, snapshot => {
-    state.titleHighlights = EditorCore.remapRanges(snapshot.text, elements.titleInput.value, snapshot.ranges); state.titleHighlightColor = snapshot.color; updateFeedText();
+    const active = draftKey === titleDraftKey();
+    const draft = active ? readTitleDraft() : titleDrafts[draftKey];
+    const ranges = EditorCore.remapRanges(snapshot.text, draft.text, snapshot.ranges);
+    const highlights = draftKey === "feed" && EditorCore.isFullyHighlighted(draft.text, ranges) ? [] : ranges;
+    const restored = { ...draft, highlights, color: snapshot.color };
+    if (active) { writeTitleDraft(restored); updateFeedText(); }
+    else titleDrafts[draftKey] = restored;
   }, "Alterar tarja");
   setStatus("Tarja atualizada no trecho selecionado");
 }
@@ -5579,16 +5612,14 @@ function bindEditorShortcuts() {
 
 function reviewThumbnail(entry) {
   if (entry.format === 'polaroid') return PolaroidStudio.thumbnail(entry.key);
-  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = ['stories', 'story', 'reels'].includes(entry.format) ? 1920 : 1350;
+  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1350;
   const original = { format: state.format, page: state.activeInformativePage, cache: state.renderInformativeLayers };
   try {
     state.format = entry.format;
     const ctx = canvas.getContext('2d');
     if (entry.format === 'informative') { state.activeInformativePage = entry.index; state.renderInformativeLayers = null; drawInformativeFrame(ctx); }
-    else if (entry.format === 'reels') drawReelsFrame(ctx);
     else if (entry.format === 'closing') drawClosingFrame(ctx);
-    else if (entry.format === 'feed') drawFeedFrame(ctx);
-    else { updateStoriesPreview(); ctx.drawImage(document.getElementById('storiesPreview'), 0, 0); }
+    else drawFeedFrame(ctx);
     return canvas;
   } finally { state.format = original.format; state.activeInformativePage = original.page; state.renderInformativeLayers = original.cache; }
 }
@@ -5600,7 +5631,7 @@ async function initStudioSession() {
     busy: () => state.exportingVideo || activeMediaLoads.size > 0 || ExportReview.isRunning(),
     capture() {
       saveLogoSettingsForCurrentFormat();
-      return { state: pick(state, keys), title: elements.titleInput.value, kicker: elements.feedKickerInput.value, subtitle: getSubtitlePlainText(),
+      return { state: pick(state, keys), title: elements.titleInput.value, titleDrafts: { ...titleDrafts, [titleDraftKey()]: readTitleDraft() }, kicker: elements.feedKickerInput.value, subtitle: getSubtitlePlainText(),
         circle: pick(state.circle, ['image','url','behind','x','y','size','zoom','panX','panY']),
         pages: state.informativePages.map(page => pick(page, informativePageKeys.filter(key => !['infoUploadToken','infoImageObjectUrl'].includes(key)))), activePage: state.activeInformativePage,
         polaroid: PolaroidStudio.session(), review: ExportReview.session(), tab: document.body.classList.contains('vinyl-active') ? 'vinyl' : document.body.classList.contains('collage-active') ? 'collage' : state.format };
@@ -5613,6 +5644,10 @@ async function initStudioSession() {
       }
       state.informativePages = saved.pages.map(page => Object.assign(createInformativePage(), page)); state.activeInformativePage = Math.min(saved.activePage, state.informativePages.length - 1);
       elements.titleInput.value = saved.title; state.previousTitleText = saved.title; elements.feedKickerInput.value = saved.kicker; elements.feedSubtitleInput.textContent = saved.subtitle;
+      const legacyDraft = readTitleDraft();
+      titleDrafts.feed = saved.titleDrafts?.feed || legacyDraft;
+      titleDrafts.reels = saved.titleDrafts?.reels || (state.format === "reels" ? legacyDraft : titleDrafts.reels);
+      writeTitleDraft(titleDrafts[titleDraftKey()]);
       state.kickerImage = state.kickerImages[state.kickerLogoIndex || 0];
       if (state.feedImageUrl) elements.feedImage.src = state.feedImageUrl;
       if (state.logoUrl) elements.logoPreview.src = state.logoUrl;
@@ -5622,10 +5657,6 @@ async function initStudioSession() {
         state.videoTrimStart = saved.state.videoTrimStart; state.videoTrimEnd = saved.state.videoTrimEnd; elements.video.pause();
       }
       const format = saved.state.format; selectInformativePage(state.activeInformativePage); PolaroidStudio.restoreSession(saved.polaroid); applyFormat(format, { keepPanel: true });
-      if (format === "reels") {
-        state.titleHighlights = [{ start: 0, end: elements.titleInput.value.length }];
-        state.titleHighlightColor = "pink";
-      }
       writeRangeRealValue(elements.titleFontSizeInput, state.titleFontSize, elements.titleFontSizeValue);
       syncLogoControls(); syncFeedEffectControls(); syncSubtitleFormatControls(); updateFeedText(); updateMediaTransform(); updateLogoTransform(); updateStoriesPreview(); updateClosingPreview(); updateStageScale(); StudioUI.sync();
       ExportReview.restoreSession(saved.review || []);

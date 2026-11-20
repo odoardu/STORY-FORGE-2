@@ -1,4 +1,4 @@
-const CACHE_NAME = "story-forge-shell-v62-ios-icon";
+const CACHE_NAME = "story-forge-shell-v63-isolated-exports";
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const APP_SHELL = [
   "/favicon.ico",
@@ -33,11 +33,11 @@ const APP_SHELL = [
   "/catalog/content-ideas.json",
   "/artwork-effects.js?v=20261028-collage",
   "/editor-core.js?v=20261028-collage",
-  "/export-review.js?v=20261028-collage",
+  "/export-review.js?v=20261120-isolated-exports",
   "/export-review.css?v=20261028-collage",
   "/editor-history.js?v=20261028-collage",
   "/polaroid.js?v=20261028-collage",
-  "/app.js?v=20261118-reels-v27",
+  "/app.js?v=20261120-isolated-exports",
   "/assets/vendor/video-export.js?v=20261028-collage",
   "/pwa.js?v=20261028-collage",
   "/manifest.webmanifest?v=20261118-v1",

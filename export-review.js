@@ -1,21 +1,17 @@
 "use strict";
 const ExportReview = (() => {
+  const isBatchFormat = format => ["feed", "informative", "polaroid", "closing"].includes(format);
+
   // Identity follows the page object, so deleting/reordering boards cannot move edits.
   function plan(entries, baseline, touched, format) {
-    const vertical = ["stories", "story", "reels"].includes(format);
-    if (vertical) {
-      // Stories and Reels are always available to export, regardless of changes.
-      const entry = entries.find(e => e.format === format) || entries.find(e => ["stories", "story"].includes(e.format));
-      return entry && entry.ready !== false ? [entry] : [];
-    }
+    if (!isBatchFormat(format)) return [];
     const changed = entries.filter(entry => entry.format !== "closing" &&
-      (["stories", "story"].includes(entry.format) === vertical) &&
-      (!vertical || entry.format === format) && entry.ready !== false &&
+      isBatchFormat(entry.format) && entry.ready !== false &&
       (baseline.get(entry.key) !== entry.signature) &&
       (entry.board || touched.has(entry.format)));
-    if (!vertical && (changed.length || touched.has("closing"))) {
+    if (changed.length || touched.has("closing")) {
       const closing = entries.find(entry => entry.format === "closing");
-      if (changed.length || baseline.get(closing.key) !== closing.signature) changed.push(closing);
+      if (closing && (changed.length || baseline.get(closing.key) !== closing.signature)) changed.push(closing);
     }
     return changed;
   }
@@ -61,7 +57,7 @@ const ExportReview = (() => {
     }
   }
   async function open() {
-    if (!api || running) return;
+    if (!api || running || !isBatchFormat(api.format())) return;
     if (api.loading()) { api.status("Aguarde a mídia terminar de carregar antes de exportar."); return; }
     clearPrepared();
     api.flush();
@@ -72,15 +68,13 @@ const ExportReview = (() => {
       const row = document.createElement("li"), name = document.createElement("span"), type = document.createElement("small");
       name.textContent = entry.label; type.textContent = entry.video ? "MP4 · com áudio da origem" : "PNG";
       row.append(name, type); list.append(row);
-      const thumb = document.createElement('canvas'); thumb.className = 'export-review-thumb'; thumb.width = 96; thumb.height = entry.format === 'stories' ? 170 : 120; thumb.setAttribute('aria-label', `Prévia de ${entry.label}`); thumb.setAttribute('role', 'img');
+      const thumb = document.createElement('canvas'); thumb.className = 'export-review-thumb'; thumb.width = 96; thumb.height = 120; thumb.setAttribute('aria-label', `Prévia de ${entry.label}`); thumb.setAttribute('role', 'img');
       row.prepend(thumb);
       try { const artwork = api.thumbnail(entry); thumb.getContext('2d').drawImage(artwork, 0, 0, thumb.width, thumb.height); } catch { thumb.setAttribute('aria-label', `Prévia indisponível de ${entry.label}`); }
     }
-    const vertical = ["stories", "story", "reels"].includes(api.format());
-    dialog.querySelector(".export-review-note").textContent = !pending.length ? "Nenhuma arte alterada para exportar." : vertical ? "Stories/Reels é exportado separadamente." : "Artes alteradas e encerramento, em arquivos separados.";
-    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length && !vertical;
-    confirm.textContent = vertical ? "Exportar vídeo / imagem" : `Exportar ${pending.length} artes`;
-    if (vertical && pending.length) confirm.textContent = pending[0].video ? "Exportar MP4" : "Exportar PNG";
+    dialog.querySelector(".export-review-note").textContent = !pending.length ? "Nenhuma arte alterada para exportar." : "Artes alteradas e encerramento, em arquivos separados.";
+    status.textContent = ""; dialog.querySelector(".export-review-cancel").textContent = "Voltar"; confirm.disabled = !pending.length;
+    confirm.textContent = `Exportar ${pending.length} artes`;
     dialog.showModal();
   }
   function clearPrepared() {
@@ -134,7 +128,7 @@ const ExportReview = (() => {
 
   function session() { return api.entries().filter(entry => baseline.get(entry.key) !== entry.signature && (entry.board || touched.has(entry.format))).map(entry => `${entry.format}:${entry.index ?? 0}`); }
   function restoreSession(dirty) { for (const entry of api.entries()) { const changed = dirty.includes(`${entry.format}:${entry.index ?? 0}`); baseline.set(entry.key, changed ? '__restored_edit__' : entry.signature); if (changed) touched.add(entry.format); } }
-  return { session, restoreSession, init, open, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
+  return { session, restoreSession, init, open, isBatchFormat, plan, downloadAll, shareData, touch: format => { if (api && !running) touched.add(format); }, isRunning: () => running };
 })();
 if (typeof module !== "undefined") module.exports = ExportReview;
 
